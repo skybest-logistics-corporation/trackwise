@@ -1,4 +1,5 @@
 using Trackwise.Application.Abstractions;
+using Trackwise.Application.Abstractions.CurrentUser;
 using Trackwise.Domain.Entities;
 using Trackwise.Domain.Persistence;
 using Trackwise.Domain.Primitives.Enums;
@@ -6,7 +7,7 @@ using Trackwise.Shared.Models;
 
 namespace Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.RejectQuotation;
 
-internal sealed class RejectQuotationHandler(ITenantUnitOfWork tenantUow)
+internal sealed class RejectQuotationHandler(ITenantUnitOfWork tenantUow, ICurrentUserService currentUserService)
     : IAppRequestHandler<RejectQuotationCommand, Result>
 {
     public async Task<Result> Handle(RejectQuotationCommand req, CancellationToken ct)
@@ -25,7 +26,7 @@ internal sealed class RejectQuotationHandler(ITenantUnitOfWork tenantUow)
             return Result.Fail($"Quotation in status '{quotation.Status}' cannot be rejected.");
         }
 
-        quotation.Reject(req.RejectedBy, req.Reason);
+        quotation.Reject(currentUserService.GetUserName(), req.Reason);
 
         quotationRepo.Update(quotation);
         await tenantUow.SaveChangesAsync(ct);

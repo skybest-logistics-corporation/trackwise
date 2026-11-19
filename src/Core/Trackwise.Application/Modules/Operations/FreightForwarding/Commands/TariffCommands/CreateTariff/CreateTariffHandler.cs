@@ -36,6 +36,8 @@ internal sealed class CreateTariffHandler(ITenantUnitOfWork tenantUow)
             currency: req.Currency,
             originLane: req.OriginLane,
             destinationLane: req.DestinationLane,
+            truckType: req.TruckType,
+            tonnageClass: req.TonnageClass!,
             containerTypeId: req.ContainerTypeId,
             carrierId: req.CarrierId,
             effectiveFrom: req.EffectiveFrom,

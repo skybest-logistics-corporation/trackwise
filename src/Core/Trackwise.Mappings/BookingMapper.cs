@@ -46,6 +46,11 @@ public static partial class BookingMapper
 
         dto.CustomerName = customerName;
 
+        // truck details
+        dto.TruckType = entity.TruckType;
+        dto.TonnageClass = entity.TonnageClass;
+        dto.ContainerType = entity.ContainerType;
+
         // Money comes from the locked charge lines.
         var totals = entity.GetTotals();
         dto.TotalSelling = totals.Selling;
@@ -110,6 +115,9 @@ public static partial class BookingMapper
         CustomerReference = entity.CustomerReference,
         QuotationId = entity.QuotationId,
         QuotationReference = entity.QuotationReference,
+        TruckType = entity.TruckType,
+        TonnageClass = entity.TonnageClass,
+        ContainerType = entity.ContainerType,
         Currency = entity.Currency,
 
         Mode = entity.Mode,

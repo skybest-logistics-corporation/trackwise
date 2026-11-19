@@ -33,17 +33,16 @@
 
           <th uiSortHeader="Mode">Freight Mode</th>
 
+          <th uiSortHeader="TruckType">Truck Type</th>
           <th uiSortHeader="OriginLane">Origin Lane</th>
 
           <th uiSortHeader="DestinationLane">Destination Lane</th>
-
-          <th uiSortHeader="ContainerTypeId">Container Type</th>
 
           <th uiSortHeader="ServiceLevel">Service Level</th>
 
           <th uiSortHeader="Currency">Currency</th>
 
-          <th uiSortHeader="EffectiveFrom">Effective From</th>
+          <!-- <th uiSortHeader="EffectiveFrom">Effective From</th> -->
 
           <th uiSortHeader="ContractId">Contract</th>
 
@@ -64,7 +63,7 @@
             <div class="flex min-w-0 flex-col">
               <a
                 [routerLink]="['/tariffs', tariff.id]"
-                class="text-foreground max-w-64 truncate font-bold hover:underline"
+                class="text-foreground max-w-64 truncate font-medium hover:underline"
                 [uiTooltip]="tariff.name"
                 [uiTooltipDelay]="500"
                 uiTooltipPosition="bottom"
@@ -73,8 +72,8 @@
                 {{ tariff.name }}
               </a>
 
-              <span class="text-muted-foreground max-w-64 truncate text-xs">
-                {{ tariff.id }}
+              <span class="text-muted-foreground">
+                Effective from: {{ tariff.effectiveFrom | dateFormat }}
               </span>
             </div>
           </td>
@@ -95,6 +94,13 @@
             </span>
           </td>
 
+          <!-- Truck Type -->
+          <td>
+            <span class="text-muted-foreground">
+              {{ tariff.truckType | enumLabel: truckTypeLabels || "-" }}
+            </span>
+          </td>
+
           <!-- Origin Lane -->
           <td>
             <span class="text-muted-foreground">
@@ -109,13 +115,6 @@
             </span>
           </td>
 
-          <!-- Equipment Type -->
-          <td>
-            <span class="text-muted-foreground">
-              {{ tariff.containerTypeCode }}
-            </span>
-          </td>
-
           <!-- Service Level -->
           <td>
             <span
@@ -127,17 +126,17 @@
 
           <!-- Currency -->
           <td>
-            <span class="font-mono text-sm font-semibold">
+            <span class="text-muted-foreground font-mono text-sm font-medium">
               {{ tariff.currency | uppercase }}
             </span>
           </td>
 
           <!-- Effective Date -->
-          <td>
+          <!-- <td>
             <span class="text-muted-foreground">
               {{ tariff.effectiveFrom | dateFormat }}
             </span>
-          </td>
+          </td> -->
 
           <!-- Contract -->
           <td>

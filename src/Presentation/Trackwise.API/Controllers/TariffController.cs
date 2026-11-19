@@ -5,6 +5,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.TariffCommands.AddTariffRate;
+using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.TariffCommands.CopyTariff;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.TariffCommands.CreateTariff;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.TariffCommands.DeactivateTariff;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.TariffCommands.RemoveTariffRate;
@@ -60,6 +61,21 @@ public class TariffController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(request, ct);
         return result.IsSuccess
             ? CreatedAtRoute("GetTariffById", new { id = result.Value }, result.Value)
+            : BadRequest(ErrorResponse.FromResult(result));
+    }
+
+    // Notice the "copy" route template added here
+    [HttpPost("copy", Name = "CopyTariff")] // Route: POST /tariffs/copy
+    [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [Authorize(Policy = Permission.Tariff.Manage)]
+    public async Task<IActionResult> Copy([FromBody] CopyTariffCommand request, CancellationToken ct)
+    {
+        var result = await mediator.Send(request, ct);
+        return result.IsSuccess
+            ? CreatedAtRoute("CopyTariff", new { id = result.Value }, result.Value)
             : BadRequest(ErrorResponse.FromResult(result));
     }
 

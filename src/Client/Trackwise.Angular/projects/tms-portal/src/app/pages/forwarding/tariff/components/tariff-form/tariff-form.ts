@@ -1,8 +1,19 @@
-import { Component, effect, inject, input, output, signal } from "@angular/core";
-import { form, FormField, FormRoot, maxLength, required } from "@angular/forms/signals";
+import { Component, computed, effect, inject, input, output, signal } from "@angular/core";
+import { form, FormField, FormRoot, hidden, maxLength, required } from "@angular/forms/signals";
 import { RouterLink } from "@angular/router";
-import { freightModeOptions, serviceLevelOptions } from "@trackwise/shared/api/enums";
-import type { CustomerDto, FreightMode, ServiceLevel } from "@trackwise/shared/api/generated";
+import {
+  freightModeOptions,
+  serviceLevelOptions,
+  truckTonnageClassOptions,
+  truckTypeOptions,
+} from "@trackwise/shared/api/enums";
+import type {
+  CustomerDto,
+  FreightMode,
+  ServiceLevel,
+  TruckTonnageClass,
+  TruckType,
+} from "@trackwise/shared/api/generated";
 import {
   Alert,
   Grid,
@@ -27,6 +38,8 @@ export interface TariffFormValue {
   serviceLevel: ServiceLevel;
   originLane?: string | null;
   destinationLane?: string | null;
+  truckType?: TruckType | null;
+  tonnageClass?: TruckTonnageClass | null;
   containerTypeId?: string | null;
   currency: string;
   effectiveFrom: string;
@@ -43,6 +56,8 @@ interface TariffFormModel {
   serviceLevel: ServiceLevel | null;
   originLane: string;
   destinationLane: string;
+  truckType: TruckType | null;
+  tonnageClass: TruckTonnageClass | null;
   containerTypeId: string | null;
   currency: string;
   effectiveFrom: Date | null;
@@ -57,8 +72,10 @@ const EMPTY: TariffFormModel = {
   serviceLevel: null,
   originLane: "",
   destinationLane: "",
+  truckType: null,
+  tonnageClass: null,
   containerTypeId: null,
-  currency: "USD",
+  currency: "PHP",
   effectiveFrom: null,
   carrier: null,
   contractId: "",
@@ -92,6 +109,9 @@ export class TariffForm {
   private readonly toastService = inject(ToastService);
   private readonly containerTypes = inject(ContainerTypeOptionsService);
 
+  protected readonly truckTypes = truckTypeOptions;
+  protected readonly tonnageClasses = truckTonnageClassOptions;
+
   protected readonly freightModes = freightModeOptions;
   protected readonly serviceLevels = serviceLevelOptions;
   protected readonly containerTypeOptions = this.containerTypes.options;
@@ -106,6 +126,8 @@ export class TariffForm {
   protected readonly model = signal<TariffFormModel>({
     ...EMPTY,
   });
+
+  protected readonly isDomestic = computed(() => this.model().mode === "domestic");
 
   protected readonly form = form(
     this.model,
@@ -137,6 +159,12 @@ export class TariffForm {
       required(p.effectiveFrom, {
         message: "Effective date is required.",
       });
+
+      hidden(p.truckType, ({ valueOf }) => valueOf(p.mode) !== "domestic");
+      hidden(p.tonnageClass, ({ valueOf }) => valueOf(p.mode) !== "domestic");
+
+      required(p.truckType, { message: "Truck type is required for domestic freight." });
+      required(p.tonnageClass, { message: "Tonnage class is required for domestic freight." });
     },
     {
       submission: {
@@ -186,6 +214,8 @@ export class TariffForm {
       effectiveFrom: this.formatLocalDate(value.effectiveFrom),
       originLane: value.originLane.trim() || null,
       destinationLane: value.destinationLane.trim() || null,
+      truckType: this.isDomestic() ? value.truckType : null,
+      tonnageClass: this.isDomestic() ? value.tonnageClass : null,
       containerTypeId: value.containerTypeId,
       carrierId: this.getCarrierId(value.carrier),
       carrier: value.carrier,
@@ -229,6 +259,10 @@ export class TariffForm {
 
       destinationLane: src.destinationLane ?? value.destinationLane,
 
+      truckType: src.truckType !== undefined ? src.truckType : value.truckType,
+
+      tonnageClass: src.tonnageClass !== undefined ? src.tonnageClass : value.tonnageClass,
+
       containerTypeId:
         src.containerTypeId !== undefined ? src.containerTypeId : value.containerTypeId,
 
@@ -247,7 +281,7 @@ export class TariffForm {
   }
 
   private parseDate(value: string): Date {
-    const [year, month, day] = value.split("-").map(Number);
+    const [year, month, day] = value.slice(0, 10).split("-").map(Number);
 
     return new Date(year, month - 1, day);
   }

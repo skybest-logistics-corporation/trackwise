@@ -10,6 +10,8 @@ public class CreateTariffCommand : ICommand<Result<Guid>>
     public ServiceLevel ServiceLevel { get; set; }
     public string? OriginLane { get; set; }
     public string? DestinationLane { get; set; }
+    public TruckType? TruckType { get; set; }
+    public TruckTonnageClass? TonnageClass { get; set; }
     public Guid? ContainerTypeId { get; set; }
     public string Name { get; set; } = default!;
     public string Currency { get; set; } = default!;

@@ -82,6 +82,8 @@ internal sealed class GetTariffsHandler(ITenantUnitOfWork tenantUow)
                 CustomerName = t.Customer == null ? null : t.Customer.Name,
                 OriginLane = t.OriginLane,
                 DestinationLane = t.DestinationLane,
+                TruckType = t.TruckType,
+                TonnageClass = t.TonnageClass,
                 ContainerTypeId = t.ContainerTypeId,
                 EffectiveFrom = t.EffectiveFrom,
                 EffectiveTo = t.EffectiveTo,

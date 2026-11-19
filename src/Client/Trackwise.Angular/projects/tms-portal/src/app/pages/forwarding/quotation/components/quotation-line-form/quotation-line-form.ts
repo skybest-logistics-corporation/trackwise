@@ -1,4 +1,4 @@
-import { UpperCasePipe } from "@angular/common";
+import { DecimalPipe, UpperCasePipe } from "@angular/common";
 import { Component, computed, effect, inject, input, output, signal } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import {
@@ -6,7 +6,7 @@ import {
   getChargeCodes,
   getTariffById,
   getTariffs,
-  type AddQuotationLineCommand,
+  type AddQuotationLineItem,
   type ChargeCategory,
   type ChargeCodeDto,
   type MarkupType,
@@ -30,10 +30,12 @@ import {
   UiTextField,
 } from "@trackwise/shared/ui";
 
-export type QuotationLineFormValue = Omit<AddQuotationLineCommand, "quotationId">;
+export type QuotationLineFormValue = AddQuotationLineItem;
 
 export interface EditableQuotationLine {
   id: string;
+  tariffId: string;
+  tariffName: string;
   tariffRateId: string;
   chargeCodeId: string;
   chargeCode: string;
@@ -53,13 +55,29 @@ export interface EditableQuotationLine {
   notes: string;
 }
 
+interface LineEstimate {
+  cost: number | null;
+  sell: number | null;
+}
+
+interface LineGroup {
+  id: string;
+  name: string;
+  loading: boolean;
+  hasRates: boolean;
+  items: { line: EditableQuotationLine; number: number }[];
+  invalidCount: number;
+}
+
 @Component({
   selector: "app-quotation-line-form",
   templateUrl: "./quotation-line-form.html",
   imports: [
     Alert,
+    DecimalPipe,
     FormsModule,
     Grid,
+    Icon,
     Stack,
     Surface,
     Typography,
@@ -69,7 +87,6 @@ export interface EditableQuotationLine {
     UiSelectField,
     UiTextField,
     UpperCasePipe,
-    Icon,
   ],
 })
 export class QuotationLineForm {
@@ -81,12 +98,18 @@ export class QuotationLineForm {
 
   protected readonly tariffs = signal<TariffDto[]>([]);
   protected readonly chargeCodesById = signal<Map<string, ChargeCodeDto>>(new Map());
-  protected readonly selectedTariffRates = signal<TariffRateDto[]>([]);
-  protected readonly selectedTariffId = signal<string | null>(null);
+
+  /** Tariffs the user has picked, in the order they were added. */
+  protected readonly selectedTariffIds = signal<string[]>([]);
+  protected readonly ratesByTariff = signal<ReadonlyMap<string, TariffRateDto[]>>(new Map());
+  protected readonly loadingTariffIds = signal<ReadonlySet<string>>(new Set());
+
+  /** Draft mode: tariff waiting to be added with the "Add tariff" button. */
+  protected readonly pendingTariffId = signal<string | null>(null);
   protected readonly selectedAdditionalRateId = signal<string | null>(null);
-  protected readonly isLoadingTariff = signal<boolean>(false);
 
   protected readonly lines = signal<EditableQuotationLine[]>([]);
+  private readonly expandedIds = signal<ReadonlySet<string>>(new Set());
 
   protected readonly bulkMarkupType = signal<MarkupType | null>("percentage");
   protected readonly bulkMarkupValue = signal<number | null>(0);
@@ -123,59 +146,201 @@ export class QuotationLineForm {
     });
   }
 
-  readonly tariffOptions = computed(() =>
-    this.tariffs().map((tariff) => ({
-      value: tariff.id,
-      label: tariff.name,
-    })),
+  // --- Quotation status --------------------------------------------------
+
+  /**
+   * Multiple tariffs are only allowed on a draft quotation (the API rejects lines on anything else).
+   * Compared case-insensitively because generated enums are usually lower-case strings.
+   */
+  protected readonly isDraft = computed(
+    () => String(this.quotation()?.status ?? "").toLowerCase() === "draft",
   );
 
-  protected readonly availableRateOptions = computed(() => {
-    const codes = this.chargeCodesById();
-    return this.selectedTariffRates().map((r) => {
-      const code = codes.get(r.chargeCodeId ?? "");
-      const labelPrefix = code?.code ? `${code.code} — ` : "";
-      const rateSummary =
-        r.pricingModel === "percentage"
-          ? `${r.percentage}% ${r.percentageBase ?? "BAS"}`
-          : `${r.baseAmount} / ${r.unit ?? "unit"}`;
+  protected readonly showNotDraftWarning = computed(
+    () => this.quotation() != null && !this.isDraft(),
+  );
+
+  // --- Tariff selection --------------------------------------------------
+
+  private readonly tariffNamesById = computed(
+    () => new Map(this.tariffs().map((t) => [t.id ?? "", t.name ?? "Tariff"])),
+  );
+
+  /** Draft: tariffs not picked yet. Otherwise: every tariff (the pick replaces the current one). */
+  protected readonly tariffOptions = computed(() => {
+    const picked = new Set(this.selectedTariffIds());
+    const all = this.tariffs();
+    const available = this.isDraft() ? all.filter((t) => !picked.has(t.id ?? "")) : all;
+
+    return available.map((tariff) => ({ value: tariff.id, label: tariff.name }));
+  });
+
+  /** Value shown by the select when only one tariff is allowed. */
+  protected readonly singleTariffValue = computed(() => this.selectedTariffIds()[0] ?? null);
+
+  protected readonly isLoadingTariff = computed(() => this.loadingTariffIds().size > 0);
+
+  protected readonly groups = computed<LineGroup[]>(() => {
+    const issues = this.lineIssues();
+    const lines = this.lines();
+    const names = this.tariffNamesById();
+    const loading = this.loadingTariffIds();
+    const rates = this.ratesByTariff();
+    let counter = 0;
+
+    return this.selectedTariffIds().map((id) => {
+      const items = lines
+        .filter((l) => l.tariffId === id)
+        .map((line) => ({ line, number: ++counter }));
 
       return {
-        label: `${labelPrefix}${code?.name ?? "Unknown Charge"} (${rateSummary})`,
-        value: r.id ?? "",
+        id,
+        name: names.get(id) ?? "Tariff",
+        loading: loading.has(id),
+        hasRates: (rates.get(id)?.length ?? 0) > 0,
+        items,
+        invalidCount: items.filter((i) => (issues.get(i.line.id)?.length ?? 0) > 0).length,
       };
     });
   });
 
-  protected readonly isValid = computed(() => {
-    const currentLines = this.lines();
-    if (currentLines.length === 0) return false;
+  /** Charges that were removed from any selected tariff and can be put back. */
+  protected readonly availableRateOptions = computed(() => {
+    const codes = this.chargeCodesById();
+    const names = this.tariffNamesById();
+    const used = new Set(this.lines().map((l) => l.tariffRateId));
+    const multi = this.selectedTariffIds().length > 1;
+    const options: { label: string; value: string }[] = [];
 
-    return currentLines.every((l) => {
-      const hasBaseValidity =
-        Boolean(l.tariffRateId) &&
-        l.serviceType != null &&
-        l.quantity != null &&
-        l.quantity > 0 &&
-        l.markupType != null &&
-        l.markupValue != null &&
-        l.markupValue >= 0;
+    for (const tariffId of this.selectedTariffIds()) {
+      for (const r of this.ratesByTariff().get(tariffId) ?? []) {
+        if (used.has(r.id ?? "")) continue;
 
-      if (!hasBaseValidity) return false;
+        const code = codes.get(r.chargeCodeId ?? "");
+        const labelPrefix = code?.code ? `${code.code} — ` : "";
+        const rateSummary =
+          r.pricingModel === "percentage"
+            ? `${r.percentage}% ${r.percentageBase ?? "BAS"}`
+            : `${r.baseAmount} / ${r.unit ?? "unit"}`;
+        const tariffPrefix = multi ? `${names.get(tariffId) ?? "Tariff"}: ` : "";
 
-      // When pricing is percentage and not BAS or CIF, baseAmount is strictly required
-      const isCustomPercentage =
-        l.pricingModel?.toLowerCase() === "percentage" &&
-        l.percentageBase !== "BAS" &&
-        l.percentageBase !== "CIF";
+        options.push({
+          label: `${tariffPrefix}${labelPrefix}${code?.name ?? "Unknown Charge"} (${rateSummary})`,
+          value: r.id ?? "",
+        });
+      }
+    }
 
-      if (isCustomPercentage) {
-        return l.baseAmount != null && l.baseAmount > 0;
+    return options;
+  });
+
+  // --- Validation & estimates -------------------------------------------
+
+  /** Per-line list of human-readable problems. Empty array = line is valid. */
+  protected readonly lineIssues = computed(() => {
+    const result = new Map<string, string[]>();
+
+    for (const l of this.lines()) {
+      const issues: string[] = [];
+      if (!l.tariffRateId) issues.push("Missing tariff rate");
+      if (l.serviceType == null) issues.push("Select a service type");
+      if (l.quantity == null || l.quantity <= 0) issues.push("Quantity must be greater than 0");
+      if (l.markupType == null) issues.push("Choose a markup type");
+      if (l.markupValue == null || l.markupValue < 0) issues.push("Enter a markup of 0 or more");
+      if (this.isCustomPercentage(l) && !(l.baseAmount != null && l.baseAmount > 0)) {
+        issues.push(`Enter a valuation base (${l.percentageBase || "custom"})`);
+      }
+      result.set(l.id, issues);
+    }
+
+    return result;
+  });
+
+  protected readonly invalidCount = computed(
+    () => [...this.lineIssues().values()].filter((i) => i.length > 0).length,
+  );
+
+  protected readonly isValid = computed(() => this.lines().length > 0 && this.invalidCount() === 0);
+
+  protected readonly canSubmit = computed(
+    () => this.isValid() && this.isDraft() && !this.isLoadingTariff(),
+  );
+
+  /**
+   * Same charge code coming from more than one selected tariff is legal, but it's the most likely
+   * way to double-charge a customer, so flag it (non-blocking).
+   */
+  protected readonly crossTariffNotes = computed(() => {
+    const lines = this.lines();
+    const tariffsByCode = new Map<string, Map<string, string>>();
+
+    for (const l of lines) {
+      if (!l.chargeCodeId) continue;
+      const m = tariffsByCode.get(l.chargeCodeId) ?? new Map<string, string>();
+      m.set(l.tariffId, l.tariffName);
+      tariffsByCode.set(l.chargeCodeId, m);
+    }
+
+    const result = new Map<string, string>();
+    for (const l of lines) {
+      const m = tariffsByCode.get(l.chargeCodeId);
+      if (!m || m.size < 2) continue;
+      const others = [...m].filter(([id]) => id !== l.tariffId).map(([, name]) => name);
+      result.set(l.id, `Same charge is also in ${others.join(", ")}`);
+    }
+
+    return result;
+  });
+
+  /**
+   * Indicative figures only. Lines whose base comes from the quotation (BAS/CIF)
+   * can't be priced here and are reported as "unpriced". FX is not applied.
+   */
+  protected readonly lineEstimates = computed(() => {
+    const result = new Map<string, LineEstimate>();
+
+    for (const l of this.lines()) {
+      let cost: number | null = null;
+
+      if (this.isPercentageLine(l)) {
+        if (l.baseAmount != null && l.percentage != null) {
+          cost = (l.baseAmount * l.percentage) / 100;
+        }
+      } else {
+        const base = l.baseAmount ?? l.tariffBaseAmount;
+        if (base != null && l.quantity != null) cost = base * l.quantity;
       }
 
-      return true;
-    });
+      let sell: number | null = null;
+      if (cost != null && l.markupType != null && l.markupValue != null) {
+        sell =
+          l.markupType === "percentage" ? cost * (1 + l.markupValue / 100) : cost + l.markupValue;
+      }
+
+      result.set(l.id, { cost, sell });
+    }
+
+    return result;
   });
+
+  protected readonly totals = computed(() => {
+    let sell = 0;
+    let priced = 0;
+    let unpriced = 0;
+
+    for (const e of this.lineEstimates().values()) {
+      if (e.sell == null) {
+        unpriced++;
+      } else {
+        sell += e.sell;
+        priced++;
+      }
+    }
+
+    return { sell, priced, unpriced };
+  });
+
+  // --- Data loading ------------------------------------------------------
 
   private async loadData(quotation: QuotationDto): Promise<void> {
     const [tariffsResult, chargeCodes] = await Promise.all([
@@ -191,51 +356,207 @@ export class QuotationLineForm {
     this.chargeCodesById.set(new Map(chargeCodes.map((c) => [c.id ?? "", c])));
   }
 
-  async onTariffChange(tariffId: string | null): Promise<void> {
-    this.selectedTariffId.set(tariffId);
-    if (!tariffId) {
-      this.selectedTariffRates.set([]);
-      this.lines.set([]);
+  // --- Tariff actions ----------------------------------------------------
+
+  /** Draft mode: user clicked "Add tariff". */
+  async addPendingTariff(): Promise<void> {
+    const id = this.pendingTariffId();
+    if (!id || !this.isDraft() || this.selectedTariffIds().includes(id)) return;
+
+    this.pendingTariffId.set(null);
+    await this.addTariff(id);
+  }
+
+  /** Non-draft mode: the select replaces the current tariff. */
+  async replaceTariff(id: string | null): Promise<void> {
+    if (id === this.selectedTariffIds()[0]) return;
+
+    // Don't silently discard work. Swap `confirm` for your app's confirmation dialog service.
+    if (
+      this.lines().length > 0 &&
+      !confirm("Changing the tariff will replace the charges below. Continue?")
+    ) {
       return;
     }
 
-    this.isLoadingTariff.set(true);
-    try {
-      const tariff = await this.api.invoke(getTariffById, { id: tariffId });
-      const rates = tariff.rates ?? [];
-      this.selectedTariffRates.set(rates);
-
-      const codes = this.chargeCodesById();
-      const initialLines: EditableQuotationLine[] = rates.map((rate) => {
-        const code = codes.get(rate.chargeCodeId ?? "");
-        return this.createEditableLine(rate, code);
-      });
-
-      this.lines.set(initialLines);
-    } finally {
-      this.isLoadingTariff.set(false);
-    }
+    this.clearAll();
+    if (id) await this.addTariff(id);
   }
 
-  addRateLine(rateId: string | null): void {
-    if (!rateId) return;
-    const rate = this.selectedTariffRates().find((r) => r.id === rateId);
-    if (!rate) return;
+  removeTariff(tariffId: string): void {
+    this.selectedTariffIds.update((ids) => ids.filter((id) => id !== tariffId));
+    this.ratesByTariff.update((m) => {
+      const next = new Map(m);
+      next.delete(tariffId);
+      return next;
+    });
+    this.lines.update((items) => items.filter((l) => l.tariffId !== tariffId));
+  }
 
-    const code = this.chargeCodesById().get(rate.chargeCodeId ?? "");
-    const newLine = this.createEditableLine(rate, code);
-
-    this.lines.update((items) => [...items, newLine]);
+  private clearAll(): void {
+    this.selectedTariffIds.set([]);
+    this.ratesByTariff.set(new Map());
+    this.lines.set([]);
+    this.expandedIds.set(new Set());
     this.selectedAdditionalRateId.set(null);
   }
 
-  private createEditableLine(rate: TariffRateDto, code?: ChargeCodeDto): EditableQuotationLine {
+  private async addTariff(tariffId: string): Promise<void> {
+    this.selectedTariffIds.update((ids) => [...ids, tariffId]);
+    this.loadingTariffIds.update((s) => new Set(s).add(tariffId));
+
+    try {
+      const tariff = await this.api.invoke(getTariffById, { id: tariffId });
+
+      // The user removed this tariff while it was loading.
+      if (!this.selectedTariffIds().includes(tariffId)) return;
+
+      const rates = tariff.rates ?? [];
+      const tariffName = tariff.name ?? this.tariffNamesById().get(tariffId) ?? "Tariff";
+      const codes = this.chargeCodesById();
+
+      this.ratesByTariff.update((m) => new Map(m).set(tariffId, rates));
+
+      const newLines = rates.map((rate) =>
+        this.createEditableLine(tariffId, tariffName, rate, codes.get(rate.chargeCodeId ?? "")),
+      );
+
+      this.lines.update((items) => [...items, ...newLines]);
+      this.expandedIds.update((s) => {
+        const next = new Set(s);
+        for (const l of newLines) if (this.isCustomPercentage(l)) next.add(l.id);
+        return next;
+      });
+    } catch (error) {
+      // Don't leave an empty chip behind if the tariff couldn't be loaded.
+      this.selectedTariffIds.update((ids) => ids.filter((id) => id !== tariffId));
+      throw error;
+    } finally {
+      this.loadingTariffIds.update((s) => {
+        const next = new Set(s);
+        next.delete(tariffId);
+        return next;
+      });
+    }
+  }
+
+  // --- Line actions ------------------------------------------------------
+
+  addRateLine(rateId: string | null): void {
+    if (!rateId) return;
+
+    for (const tariffId of this.selectedTariffIds()) {
+      const rate = this.ratesByTariff()
+        .get(tariffId)
+        ?.find((r) => r.id === rateId);
+      if (!rate) continue;
+
+      const code = this.chargeCodesById().get(rate.chargeCodeId ?? "");
+      const tariffName = this.tariffNamesById().get(tariffId) ?? "Tariff";
+      const newLine = this.createEditableLine(tariffId, tariffName, rate, code);
+
+      this.lines.update((items) => [...items, newLine]);
+      this.expandedIds.update((s) => new Set(s).add(newLine.id));
+      break;
+    }
+
+    this.selectedAdditionalRateId.set(null);
+  }
+
+  duplicateLine(id: string): void {
+    const source = this.lines().find((l) => l.id === id);
+    if (!source) return;
+
+    const copy: EditableQuotationLine = { ...source, id: crypto.randomUUID() };
+    this.lines.update((items) => {
+      const index = items.findIndex((l) => l.id === id);
+      return [...items.slice(0, index + 1), copy, ...items.slice(index + 1)];
+    });
+    this.expandedIds.update((s) => new Set(s).add(copy.id));
+  }
+
+  removeLine(id: string): void {
+    this.lines.update((items) => items.filter((l) => l.id !== id));
+    this.expandedIds.update((s) => {
+      const next = new Set(s);
+      next.delete(id);
+      return next;
+    });
+  }
+
+  updateLine<K extends keyof EditableQuotationLine>(
+    id: string,
+    key: K,
+    value: EditableQuotationLine[K],
+  ): void {
+    this.lines.update((items) =>
+      items.map((line) => (line.id === id ? { ...line, [key]: value } : line)),
+    );
+  }
+
+  /** Applies the bulk markup to every line, or only to one tariff's lines. */
+  applyBulkMarkup(tariffId?: string): void {
+    const type = this.bulkMarkupType() ?? "percentage";
+    const value = this.bulkMarkupValue() ?? 0;
+    this.lines.update((items) =>
+      items.map((line) =>
+        tariffId && line.tariffId !== tariffId
+          ? line
+          : { ...line, markupType: type, markupValue: value },
+      ),
+    );
+  }
+
+  // --- Expand / collapse -------------------------------------------------
+
+  protected isExpanded(id: string): boolean {
+    return this.expandedIds().has(id);
+  }
+
+  protected toggleLine(id: string): void {
+    this.expandedIds.update((s) => {
+      const next = new Set(s);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  }
+
+  protected expandAll(): void {
+    this.expandedIds.set(new Set(this.lines().map((l) => l.id)));
+  }
+
+  protected collapseAll(): void {
+    this.expandedIds.set(new Set());
+  }
+
+  // --- Template helpers --------------------------------------------------
+
+  protected isPercentageLine(line: EditableQuotationLine): boolean {
+    return line.pricingModel?.toLowerCase() === "percentage";
+  }
+
+  protected isCustomPercentage(line: EditableQuotationLine): boolean {
+    return (
+      this.isPercentageLine(line) && line.percentageBase !== "BAS" && line.percentageBase !== "CIF"
+    );
+  }
+
+  protected serviceTypeLabel(value: OperationalServiceType | null): string {
+    return this.serviceTypeOptions.find((o) => o.value === value)?.label ?? "No service type";
+  }
+
+  private createEditableLine(
+    tariffId: string,
+    tariffName: string,
+    rate: TariffRateDto,
+    code?: ChargeCodeDto,
+  ): EditableQuotationLine {
     const isPercentage = rate.pricingModel?.toLowerCase() === "percentage";
-    const isCustomPercentage =
-      isPercentage && rate.percentageBase !== "BAS" && rate.percentageBase !== "CIF";
 
     return {
       id: crypto.randomUUID(),
+      tariffId,
+      tariffName,
       tariffRateId: rate.id ?? "",
       chargeCodeId: rate.chargeCodeId ?? "",
       chargeCode: code?.code ?? "",
@@ -246,7 +567,7 @@ export class QuotationLineForm {
       percentageBase: rate.percentageBase ?? null,
       unit: rate.unit ?? null,
       tariffBaseAmount: rate.baseAmount ?? null,
-      baseAmount: isCustomPercentage ? null : isPercentage ? null : (rate.baseAmount ?? null),
+      baseAmount: isPercentage ? null : (rate.baseAmount ?? null),
       serviceType: this.suggestServiceType(code),
       quantity: 1,
       markupType: this.bulkMarkupType(),
@@ -282,36 +603,17 @@ export class QuotationLineForm {
     return "standard";
   }
 
-  removeLine(id: string): void {
-    this.lines.update((items) => items.filter((l) => l.id !== id));
-  }
-
-  updateLine<K extends keyof EditableQuotationLine>(
-    id: string,
-    key: K,
-    value: EditableQuotationLine[K],
-  ): void {
-    this.lines.update((items) =>
-      items.map((line) => (line.id === id ? { ...line, [key]: value } : line)),
-    );
-  }
-
-  applyBulkMarkup(): void {
-    const type = this.bulkMarkupType() ?? "percentage";
-    const value = this.bulkMarkupValue() ?? 0;
-    this.lines.update((items) =>
-      items.map((line) => ({ ...line, markupType: type, markupValue: value })),
-    );
-  }
-
   onSubmit(): void {
-    if (!this.isValid()) return;
+    if (!this.canSubmit()) return;
 
-    const values: QuotationLineFormValue[] = this.lines().map((line) => {
+    // Emit in tariff order so each tariff's charges stay together once saved.
+    const ordered = this.groups().flatMap((g) => g.items.map((i) => i.line));
+
+    const values: QuotationLineFormValue[] = ordered.map((line) => {
       let finalBaseAmount: number | null = line.baseAmount;
 
-      // If user left baseAmount empty for flat/per_unit, fallback to the tariff's original baseAmount
-      if (finalBaseAmount == null && line.pricingModel.toLowerCase() !== "percentage") {
+      // If user left baseAmount empty for flat/per_unit, fall back to the tariff's original baseAmount
+      if (finalBaseAmount == null && !this.isPercentageLine(line)) {
         finalBaseAmount = line.tariffBaseAmount;
       }
 

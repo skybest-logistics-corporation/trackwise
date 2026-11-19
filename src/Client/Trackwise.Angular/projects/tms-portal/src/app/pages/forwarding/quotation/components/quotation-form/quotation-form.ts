@@ -8,7 +8,15 @@ import {
   signal,
   untracked,
 } from "@angular/core";
-import { form, FormField, FormRoot, maxLength, pattern, required } from "@angular/forms/signals";
+import {
+  form,
+  FormField,
+  FormRoot,
+  maxLength,
+  pattern,
+  required,
+  validate,
+} from "@angular/forms/signals";
 import { RouterLink } from "@angular/router";
 import { createListStore, EmptyState, getLocations } from "@trackwise/shared";
 import type {
@@ -115,7 +123,7 @@ const EMPTY_FORM: QuotationFormModel = {
 
 const CustomerLocationsStore = createListStore<LocationDto>(getLocations, {
   defaultSortField: "Name",
-  defaultPageSize: 25,
+  defaultPageSize: 100,
 });
 
 const SHIPMENT_TYPES_BY_MODE: Record<TransportMode, { label: string; value: ShipmentType }[]> = {
@@ -284,6 +292,13 @@ export class QuotationForm {
     })),
   );
 
+  /** Origin/destination options, or a single placeholder row until a customer is chosen. */
+  protected readonly locationOptions = computed(() =>
+    !this.model().customer
+      ? [{ label: "Select a customer first", value: "" }]
+      : this.selectedCustomerLocationOptions(),
+  );
+
   protected readonly form = form(
     this.model,
     (p) => {
@@ -303,6 +318,12 @@ export class QuotationForm {
         when: ({ valueOf }) => valueOf(p.requiresActiveRefrigeration),
         message: "Enter a valid temperature setpoint.",
       });
+      // Cold chain on, but the zone was switched back to Ambient.
+      validate(p.temperatureZone, ({ value, valueOf }) =>
+        valueOf(p.requiresActiveRefrigeration) && value() === "ambient"
+          ? { kind: "ambientColdChain", message: "Choose a temperature zone other than Ambient." }
+          : undefined,
+      );
     },
     {
       submission: {
@@ -318,7 +339,6 @@ export class QuotationForm {
     // 0. Edit mode -> hydrate the form from an existing quotation
     effect(() => {
       const q = this.quotation();
-      // console.log(q);
       if (q) {
         untracked(() => this.patchFromQuotation(q));
       }
@@ -427,8 +447,6 @@ export class QuotationForm {
 
       notes: q.notes ?? "",
     });
-    // console.log(this.model());
-    // console.log(q);
   }
 
   private handleFreightModeChange(freightMode: FreightMode): void {
@@ -531,7 +549,9 @@ export class QuotationForm {
         : undefined,
     };
 
-    if (this.isColdChainRequired() || setpoint !== undefined) {
+    // Key off the flag only, so leftover setpoint values never leak into the
+    // command when the user has switched cold chain off.
+    if (this.isColdChainRequired()) {
       command.temperatureSpec = {
         zone: v.temperatureZone,
         setpointCelsius: setpoint,

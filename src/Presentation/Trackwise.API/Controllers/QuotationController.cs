@@ -4,12 +4,13 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.AcceptQuotation;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.AddQuotationLine;
+using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.AddQuotationLines;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.ApproveQuotation;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.ConvertQuotationToBooking;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.CreateQuotation;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.CreateQuotationRevision;
-using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.GenerateQuotationPdf;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.ExpireQuotation;
+using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.GenerateQuotationPdf;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.IssueQuotation;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.RejectQuotation;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.RemoveQuotationLine;
@@ -114,13 +115,13 @@ public class QuotationController(IMediator mediator) : ControllerBase
             : BadRequest(ErrorResponse.FromResult(result));
     }
 
-    [HttpPost("{id:guid}/lines", Name = "AddQuotationLine")]
-    [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
+    [HttpPost("{id:guid}/lines", Name = "AddQuotationLines")]
+    [ProducesResponseType(typeof(IReadOnlyList<Guid>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [Authorize(Policy = Permission.Quotation.Manage)]
-    public async Task<IActionResult> AddLine(Guid id, [FromBody] AddQuotationLineCommand request, CancellationToken ct)
+    public async Task<IActionResult> AddLines(Guid id, [FromBody] AddQuotationLinesCommand request, CancellationToken ct)
     {
         request.QuotationId = id;
         var result = await mediator.Send(request, ct);
@@ -128,6 +129,21 @@ public class QuotationController(IMediator mediator) : ControllerBase
             ? CreatedAtRoute("GetQuotationById", new { id }, result.Value)
             : BadRequest(ErrorResponse.FromResult(result));
     }
+
+    //[HttpPost("{id:guid}/lines", Name = "AddQuotationLine")]
+    //[ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
+    //[ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    //[ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    //[ProducesResponseType(StatusCodes.Status403Forbidden)]
+    //[Authorize(Policy = Permission.Quotation.Manage)]
+    //public async Task<IActionResult> AddLine(Guid id, [FromBody] AddQuotationLineCommand request, CancellationToken ct)
+    //{
+    //    request.QuotationId = id;
+    //    var result = await mediator.Send(request, ct);
+    //    return result.IsSuccess
+    //        ? CreatedAtRoute("GetQuotationById", new { id }, result.Value)
+    //        : BadRequest(ErrorResponse.FromResult(result));
+    //}
 
     [HttpDelete("{id:guid}/lines/{lineId:guid}", Name = "RemoveQuotationLine")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -197,7 +213,8 @@ public class QuotationController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new IssueQuotationCommand
         {
             Id = id,
-            ValidityDays = request?.ValidityDays ?? 14
+            ValidityDays = request?.ValidityDays ?? 14,
+            CustomerEmail = request?.CustomerEmail ?? string.Empty
         }, ct);
         return result.IsSuccess ? NoContent() : BadRequest(ErrorResponse.FromResult(result));
     }
@@ -271,4 +288,4 @@ public class QuotationController(IMediator mediator) : ControllerBase
 
 
 public record RejectQuotationRequest(string Reason);
-public record IssueQuotationRequest(int ValidityDays = 14);
+public record IssueQuotationRequest(int ValidityDays = 14, string CustomerEmail = "");

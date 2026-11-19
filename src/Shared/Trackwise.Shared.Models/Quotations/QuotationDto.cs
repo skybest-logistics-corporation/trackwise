@@ -1,6 +1,7 @@
 using Trackwise.Domain.Primitives.Enums;
 using Trackwise.Domain.Primitives.Enums.FreightForwarding;
 using Trackwise.Domain.Primitives.ValueObjects;
+using Trackwise.Shared.Models.QuotationEvents;
 using Trackwise.Shared.Models.Quotations;
 
 namespace Trackwise.Shared.Models;
@@ -16,6 +17,7 @@ public class QuotationSummaryDto
     public string BranchName { get; set; } = default!;
     public string ReferenceNumber { get; set; } = default!;
     public string CustomerName { get; set; } = default!;
+    public string CustomerEmail { get; set; } = default!;
     public string Currency { get; set; } = default!;
     public QuotationStatus Status { get; set; }
     public int LineCount { get; set; }
@@ -32,8 +34,11 @@ public class QuotationDto
     public Guid BranchId { get; set; }
     public string BranchName { get; set; } = default!;
     public string CustomerName { get; set; } = default!;
+    public string CustomerEmail { get; set; } = default!;
     public string ReferenceNumber { get; set; } = default!;
     public string Currency { get; set; } = default!;
+    public string? RejectionReason { get; set; } = default!;
+    public string? RejectedBy { get; set; } = default!;
     public QuotationStatus Status { get; set; }
     public Guid RevisionGroupId { get; set; }
     public int RevisionNumber { get; set; }
@@ -77,6 +82,11 @@ public class QuotationDto
 
     public List<QuotationLineDto> Lines { get; set; } = [];
     public string? Notes { get; set; }
+
+    // Audit & Activity
+    public string? UpdatedBy { get; set; }
+    public DateTimeOffset? UpdatedAt { get; set; }
+    public List<QuotationEventDto> Timeline { get; set; } = [];
 }
 
 public record QuotationRevisionDto(

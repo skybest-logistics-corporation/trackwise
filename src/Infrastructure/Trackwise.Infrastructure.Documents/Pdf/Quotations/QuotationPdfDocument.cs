@@ -5,6 +5,7 @@ using Trackwise.Application.Abstractions.Documents;
 using Trackwise.Domain.Entities;
 using Trackwise.Domain.Primitives.Enums;
 using Trackwise.Domain.Primitives.Enums.FreightForwarding;
+using Trackwise.Domain.Primitives.ValueObjects;
 using Trackwise.Infrastructure.Documents.Pdf.Shared;
 
 namespace Trackwise.Infrastructure.Documents.Pdf.Quotations;
@@ -12,6 +13,12 @@ namespace Trackwise.Infrastructure.Documents.Pdf.Quotations;
 /// <summary>
 /// The customer-facing formal rate offer. Everything it prints comes from the quotation
 /// aggregate plus the names the application layer resolved for it.
+/// <para>
+/// Two layouts: a quotation priced for a single truck type/size prints the itemised charge
+/// table; a quotation whose tariffs span several truck types/sizes prints a rate matrix
+/// (one row per delivery lane, one column per truck) because those lines are alternatives,
+/// not charges that add up.
+/// </para>
 /// </summary>
 public sealed class QuotationPdfDocument : IDocument
 {
@@ -22,6 +29,15 @@ public sealed class QuotationPdfDocument : IDocument
     private readonly string? _customerAddress;
     private readonly IReadOnlyDictionary<Guid, string> _locationNames;
     private readonly IReadOnlyList<PricedLine> _lines;
+
+    // Multi-tariff layout state
+    private readonly IReadOnlyList<PricedLine> _tariffLines;
+    private readonly IReadOnlyList<PricedLine> _commonLines;
+    private readonly IReadOnlyList<VehicleSpec> _columns;
+    private readonly IReadOnlyList<string> _lanes;
+    private readonly bool _isMatrix;
+
+    private readonly record struct VehicleSpec(TruckType Type, TruckTonnageClass Tonnage);
 
     private sealed record PricedLine(
         string Code,
@@ -34,7 +50,9 @@ public sealed class QuotationPdfDocument : IDocument
         string Markup,
         decimal Buying,
         decimal Selling,
-        bool Priced);
+        bool Priced,
+        VehicleSpec? Vehicle,   // null = not tied to a truck type/size (common charge)
+        string? Lane);          // delivery lane label, only set for vehicle-based tariffs
 
     public QuotationPdfDocument(QuotationPdfRequest request)
     {
@@ -45,6 +63,21 @@ public sealed class QuotationPdfDocument : IDocument
         _locationNames = request.LocationNames;
         _logo = PdfLogo.TryDecode(request.LogoBytes);
         _lines = BuildLines(request);
+
+        _tariffLines = _lines.Where(l => l.Vehicle.HasValue).ToList();
+        _commonLines = _lines.Where(l => !l.Vehicle.HasValue).ToList();
+
+        _columns = _tariffLines
+            .Select(l => l.Vehicle!.Value)
+            .Distinct()
+            .OrderBy(v => v.Type)
+            .ThenBy(v => v.Tonnage)
+            .ToList();
+
+        _lanes = _tariffLines.Select(l => l.Lane ?? "—").Distinct().ToList(); // keeps first-seen order
+
+        // More than one truck type/size = alternatives, so a single itemised table would be misleading.
+        _isMatrix = _columns.Count > 1;
     }
 
     /// <summary>
@@ -60,6 +93,7 @@ public sealed class QuotationPdfDocument : IDocument
         {
             var rate = line.TariffRate;
             var charge = rate?.ChargeCode;
+            var tariff = rate?.Tariff;
 
             decimal buying = 0m;
             decimal selling = 0m;
@@ -76,6 +110,10 @@ public sealed class QuotationPdfDocument : IDocument
                 priced = false;
             }
 
+            VehicleSpec? vehicle = tariff is { TruckType: { } type, TonnageClass: { } tonnage }
+                ? new VehicleSpec(type, tonnage)
+                : null;
+
             result.Add(new PricedLine(
                 Code: charge?.Code ?? "—",
                 Description: charge?.Name ?? "Unspecified Charge",
@@ -89,11 +127,21 @@ public sealed class QuotationPdfDocument : IDocument
                 Markup: DescribeMarkup(line),
                 Buying: buying,
                 Selling: selling,
-                Priced: priced));
+                Priced: priced,
+                Vehicle: vehicle,
+                Lane: vehicle.HasValue ? LaneLabel(tariff!) : null));
         }
 
         return result;
     }
+
+    /// <summary>
+    /// The row label in the matrix. Falls back to the tariff name, which for you reads
+    /// "Reefer 2 Tonner Taguig - Baguio". If Tariff carries origin/destination ids,
+    /// build "Origin - Destination" from _locationNames here instead, so the vehicle
+    /// words don't repeat in the row label.
+    /// </summary>
+    private string LaneLabel(Tariff tariff) => tariff.Name;
 
     private static string DescribeMarkup(QuotationLine line) => line.MarkupType switch
     {
@@ -175,183 +223,386 @@ public sealed class QuotationPdfDocument : IDocument
         {
             col.Item().PaddingTop(8).Background(Colors.Grey.Lighten4).Padding(8).Row(row =>
             {
-                Spec(row, "Quotation Reference", _quote.ReferenceNumber);
+                Spec(row, "Quotation Reference", _quote.ReferenceNumber, 1.8f);
                 Spec(row, "Freight Mode", PdfFormatting.Display(_quote.FreightMode));
                 Spec(row, "Transport Mode", PdfFormatting.Display(_quote.Mode));
                 Spec(row, "Shipment Type", PdfFormatting.Display(_quote.ShipmentType));
+
+                var truckTypes = TruckTypeSummary();
+                if (truckTypes is not null)
+                {
+                    Spec(row, "Truck Type", truckTypes);
+                }
+
                 Spec(row, "Incoterm", PdfFormatting.Display(_quote.Incoterm));
                 Spec(row, "Currency", _quote.Currency);
             });
 
-            col.Item().PaddingTop(14).Text("OPERATIONAL ROUTING")
+            // Each lane has its own row in the matrix, so one quotation-level route would contradict it.
+            // The matrix only states the common pickup point.
+            if (_isMatrix)
+            {
+                ComposePickup(col);
+            }
+            else
+            {
+                ComposeRouting(col);
+            }
+
+            ComposeCargoAndTemperature(col);
+
+            if (_isMatrix)
+            {
+                col.Item().PaddingTop(14).Element(ComposeRateMatrix);
+
+                if (_commonLines.Count > 0)
+                {
+                    col.Item().PaddingTop(14).Element(ComposeCommonCharges);
+                }
+            }
+            else
+            {
+                col.Item().PaddingTop(14).Element(ComposeLineTable);
+
+                col.Item().PaddingTop(8).Background(Colors.Grey.Lighten4).Padding(6).Row(row =>
+                {
+                    row.RelativeItem().Text("TOTAL ESTIMATED SELLING CHARGES:").Bold().FontColor(Colors.Blue.Darken3);
+                    row.RelativeItem().AlignRight().Text(PdfFormatting.Money(TotalSelling(), _quote.Currency))
+                        .Bold().FontSize(11).FontColor(Colors.Blue.Darken3);
+                });
+            }
+
+            col.Item().ShowEntire().Column(ComposeNotesAndSignature);
+        });
+    }
+
+    // ── Routing ────────────────────────────────────────────────────────────────
+
+    private List<RouteStop> OrderedStops() =>
+        (_quote.Lane?.Stops ?? []).OrderBy(s => s.Sequence).ToList();
+
+    /// <summary>Matrix mode: only the pickup point, since each lane has its own row.</summary>
+    private void ComposePickup(ColumnDescriptor col)
+    {
+        var first = OrderedStops().FirstOrDefault();
+        if (first is null)
+        {
+            return;
+        }
+
+        col.Item().PaddingTop(14).Text(text =>
+        {
+            text.Span("Pick up: ").Bold().FontColor(Colors.Blue.Darken3);
+            text.Span(LocationName(first.LocationId));
+        });
+    }
+
+    private void ComposeRouting(ColumnDescriptor col)
+    {
+        col.Item().PaddingTop(14).Text("OPERATIONAL ROUTING")
+            .Bold().FontSize(9).FontColor(Colors.Blue.Darken3);
+
+        col.Item().PaddingTop(4).Column(c =>
+        {
+            var stops = OrderedStops();
+
+            if (stops.Count > 0)
+            {
+                c.Item().Text($"• Route: {LocationName(stops.First().LocationId)} to {LocationName(stops.Last().LocationId)} ({stops.Count} stop(s))");
+            }
+
+            c.Item().Text($"• Distance: {(_quote.Lane?.TotalDistanceKm ?? 0m):N2} km");
+
+            foreach (var stop in stops)
+            {
+                c.Item().Text(
+                    $"   {stop.Sequence}. {LocationName(stop.LocationId)} " +
+                    $"({PdfFormatting.Display(stop.Type)})" +
+                    (stop.WindowEnd.HasValue ? $" - by {stop.WindowEnd.Value:dd MMM yyyy HH:mm}" : string.Empty));
+            }
+        });
+    }
+
+    // ── Cargo & cold chain ─────────────────────────────────────────────────────
+
+    private void ComposeCargoAndTemperature(ColumnDescriptor col)
+    {
+        var cargo = _quote.CargoSpec;
+        if (cargo is not null)
+        {
+            col.Item().PaddingTop(14).Text("CARGO PROFILE")
                 .Bold().FontSize(9).FontColor(Colors.Blue.Darken3);
 
             col.Item().PaddingTop(4).Column(c =>
             {
-                var stops = (_quote.Lane?.Stops ?? []).OrderBy(s => s.Sequence).ToList();
+                c.Item().Text($"• Commodity: {cargo.Commodity}");
+                c.Item().Text($"• Pallet Count: {cargo.PalletCount} pallet(s) | Gross Weight: {cargo.TotalWeightKg:N2} kg");
+                c.Item().Text($"• Declared Value: {PdfFormatting.Money(cargo.DeclaredCargoValue.Amount, cargo.DeclaredCargoValue.Currency)}");
 
-                if (stops.Count > 0)
+                if (cargo.RequiresActiveRefrigeration)
                 {
-                    c.Item().Text($"• Route: {LocationName(stops.First().LocationId)} to {LocationName(stops.Last().LocationId)} ({stops.Count} stop(s))");
-                }
-
-                c.Item().Text($"• Distance: {(_quote.Lane?.TotalDistanceKm ?? 0m):N2} km");
-
-                foreach (var stop in stops)
-                {
-                    c.Item().Text(
-                        $"   {stop.Sequence}. {LocationName(stop.LocationId)} " +
-                        $"({PdfFormatting.Display(stop.Type)})" +
-                        (stop.WindowEnd.HasValue ? $" - by {stop.WindowEnd.Value:dd MMM yyyy HH:mm}" : string.Empty));
+                    c.Item().Text("• Active refrigeration required.");
                 }
             });
+        }
 
-            var cargo = _quote.CargoSpec;
-            if (cargo is not null)
+        var temperature = _quote.TemperatureSpec;
+        if (temperature is not null)
+        {
+            col.Item().PaddingTop(14).Text("COLD CHAIN PROFILE")
+                .Bold().FontSize(9).FontColor(Colors.Blue.Darken3);
+
+            col.Item().PaddingTop(4).Column(c =>
             {
-                col.Item().PaddingTop(14).Text("CARGO PROFILE")
-                    .Bold().FontSize(9).FontColor(Colors.Blue.Darken3);
+                c.Item().Text($"• Zone: {PdfFormatting.Display(temperature.Zone)} | Setpoint: {temperature.SetpointCelsius:N1}°C");
+                c.Item().Text($"• Allowable Variance: ±{temperature.AllowableVarianceCelsius:N1}°C | Compliance: {PdfFormatting.Display(temperature.Compliance)}");
+                c.Item().Text($"• Continuous Telematics: {(temperature.RequiresContinuousTelematics ? "Required" : "Not required")}");
+            });
+        }
+    }
 
-                col.Item().PaddingTop(4).Column(c =>
-                {
-                    c.Item().Text($"• Commodity: {cargo.Commodity}");
-                    c.Item().Text($"• Pallet Count: {cargo.PalletCount} pallet(s) | Gross Weight: {cargo.TotalWeightKg:N2} kg");
-                    c.Item().Text($"• Declared Value: {PdfFormatting.Money(cargo.DeclaredCargoValue.Amount, cargo.DeclaredCargoValue.Currency)}");
+    // ── Single-vehicle layout: itemised table ──────────────────────────────────
 
-                    if (cargo.RequiresActiveRefrigeration)
-                    {
-                        c.Item().Text("• Active refrigeration required.");
-                    }
-                });
-            }
-
-            var temperature = _quote.TemperatureSpec;
-            if (temperature is not null)
+    private void ComposeLineTable(IContainer container)
+    {
+        container.Table(table =>
+        {
+            table.ColumnsDefinition(columns =>
             {
-                col.Item().PaddingTop(14).Text("COLD CHAIN PROFILE")
-                    .Bold().FontSize(9).FontColor(Colors.Blue.Darken3);
+                columns.ConstantColumn(30);
+                columns.RelativeColumn(4);
+                columns.RelativeColumn(1.4f);
+                columns.RelativeColumn(1.2f);
+                columns.RelativeColumn(1.6f);
+                columns.RelativeColumn(1.6f);
+            });
 
-                col.Item().PaddingTop(4).Column(c =>
+            table.Header(header =>
+            {
+                header.Cell().Element(PdfStyles.HeaderCell).Text("Item");
+                header.Cell().Element(PdfStyles.HeaderCell).Text("Charge Description");
+                header.Cell().Element(PdfStyles.HeaderCell).Text("Pricing");
+                header.Cell().Element(PdfStyles.HeaderCell).AlignRight().Text("Quantity");
+                header.Cell().Element(PdfStyles.HeaderCell).AlignRight().Text($"Total ({_quote.Currency})");
+                header.Cell().Element(PdfStyles.HeaderCell).AlignRight().Text("Buying");
+            });
+
+            var index = 1;
+            foreach (var line in _lines)
+            {
+                table.Cell().Element(PdfStyles.Cell).Text(index.ToString("00"));
+                table.Cell().Element(PdfStyles.Cell).Column(cell =>
                 {
-                    c.Item().Text($"• Zone: {PdfFormatting.Display(temperature.Zone)} | Setpoint: {temperature.SetpointCelsius:N1}°C");
-                    c.Item().Text($"• Allowable Variance: ±{temperature.AllowableVarianceCelsius:N1}°C | Compliance: {PdfFormatting.Display(temperature.Compliance)}");
-                    c.Item().Text($"• Continuous Telematics: {(temperature.RequiresContinuousTelematics ? "Required" : "Not required")}");
+                    cell.Item().Text($"{line.Code} - {line.Description}").SemiBold();
+                    cell.Item().Text(SubLine(line)).FontSize(8).FontColor(Colors.Grey.Darken1);
                 });
+                table.Cell().Element(PdfStyles.Cell).Text(line.PricingModel);
+                table.Cell().Element(PdfStyles.Cell).AlignRight().Text(line.Quantity.ToString("N2") + " (" + line.Unit + ")");
+                table.Cell().Element(PdfStyles.Cell).AlignRight()
+                    .Text(line.Priced ? PdfFormatting.Money(line.Selling, _quote.Currency) : "—")
+                    .Bold();
+                table.Cell().Element(PdfStyles.Cell).AlignRight()
+                    .Text(line.Priced ? PdfFormatting.Money(line.Buying, _quote.Currency) : "—");
+                index++;
             }
+        });
+    }
 
-            col.Item().PaddingTop(14).Table(table =>
+    // ── Multi-vehicle layout: rate matrix ──────────────────────────────────────
+
+    private void ComposeRateMatrix(IContainer container)
+    {
+        container.Column(col =>
+        {
+            col.Item().Text("RATES PER TRIP").Bold().FontSize(9).FontColor(Colors.Blue.Darken3);
+
+            col.Item().PaddingTop(4).Table(table =>
             {
                 table.ColumnsDefinition(columns =>
                 {
-                    columns.ConstantColumn(30);
-                    columns.RelativeColumn(4);
-                    columns.RelativeColumn(1.4f);
-                    columns.RelativeColumn(1.2f);
-                    columns.RelativeColumn(1.6f);
-                    columns.RelativeColumn(1.6f);
+                    columns.RelativeColumn(3);
+                    foreach (var _ in _columns)
+                    {
+                        columns.RelativeColumn(1.5f);
+                    }
                 });
 
                 table.Header(header =>
                 {
-                    header.Cell().Element(PdfStyles.HeaderCell).Text("Item");
-                    header.Cell().Element(PdfStyles.HeaderCell).Text("Charge Description");
-                    header.Cell().Element(PdfStyles.HeaderCell).Text("Pricing");
-                    header.Cell().Element(PdfStyles.HeaderCell).AlignRight().Text("Quantity");
-                    header.Cell().Element(PdfStyles.HeaderCell).AlignRight().Text($"Total ({_quote.Currency})");
-                    header.Cell().Element(PdfStyles.HeaderCell).AlignRight().Text("Buying");
+                    header.Cell().Element(PdfStyles.HeaderCell).Text("Delivery Location");
+                    foreach (var spec in _columns)
+                    {
+                        header.Cell().Element(PdfStyles.HeaderCell).AlignRight().Text(ColumnLabel(spec));
+                    }
                 });
 
-                var index = 1;
-                foreach (var line in _lines)
+                foreach (var lane in _lanes)
                 {
-                    table.Cell().Element(PdfStyles.Cell).Text(index.ToString("00"));
-                    table.Cell().Element(PdfStyles.Cell).Column(cell =>
+                    table.Cell().Element(PdfStyles.Cell).Text(lane).SemiBold();
+
+                    foreach (var spec in _columns)
                     {
-                        cell.Item().Text($"{line.Code} - {line.Description}").SemiBold();
-                        cell.Item().Text(SubLine(line)).FontSize(8).FontColor(Colors.Grey.Darken1);
-                    });
-                    table.Cell().Element(PdfStyles.Cell).Text(line.PricingModel);
-                    table.Cell().Element(PdfStyles.Cell).AlignRight().Text(line.Quantity.ToString("N2") + " (" + line.Unit + ")");
-                    table.Cell().Element(PdfStyles.Cell).AlignRight()
-                        .Text(line.Priced ? PdfFormatting.Money(line.Selling, _quote.Currency) : "—")
-                        .Bold();
-                    table.Cell().Element(PdfStyles.Cell).AlignRight()
-                        .Text(line.Priced ? PdfFormatting.Money(line.Buying, _quote.Currency) : "—");
-                    index++;
+                        table.Cell().Element(PdfStyles.Cell).AlignRight()
+                            .Text(CellAmount(lane, spec)).Bold();
+                    }
                 }
             });
 
-            col.Item().PaddingTop(8).Background(Colors.Grey.Lighten4).Padding(6).Row(row =>
+            col.Item().PaddingTop(4)
+                .Text("Rates are per trip and depend on the truck engaged. Only one rate per delivery location applies.")
+                .FontSize(8).FontColor(Colors.Grey.Darken1);
+        });
+    }
+
+    private string ColumnLabel(VehicleSpec spec) =>
+        $"{PdfFormatting.Display(spec.Type)} {NumberWordsToDigits(PdfFormatting.Display(spec.Tonnage))}"
+            .ToUpperInvariant();
+
+    private static readonly Dictionary<string, string> NumberWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["One"] = "1",
+        ["Two"] = "2",
+        ["Three"] = "3",
+        ["Four"] = "4",
+        ["Five"] = "5",
+        ["Six"] = "6",
+        ["Seven"] = "7",
+        ["Eight"] = "8",
+        ["Nine"] = "9",
+        ["Ten"] = "10",
+        ["Twelve"] = "12",
+        ["Fourteen"] = "14",
+        ["Sixteen"] = "16",
+        ["Twenty"] = "20",
+    };
+
+    private static readonly System.Text.RegularExpressions.Regex NumberWordPattern = new(
+        $@"\b({string.Join("|", NumberWords.Keys)})\b",
+        System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>"Two Tonner" becomes "2 Tonner". Text with no number word is returned unchanged.</summary>
+    private static string NumberWordsToDigits(string text) =>
+        NumberWordPattern.Replace(text, m => NumberWords[m.Value]);
+
+    /// <summary>Sum of everything priced under that lane + truck. A blank price is "—", never a partial sum.</summary>
+    private string CellAmount(string lane, VehicleSpec spec)
+    {
+        var cell = _tariffLines.Where(l => (l.Lane ?? "—") == lane && l.Vehicle == spec).ToList();
+        if (cell.Count == 0 || cell.Any(l => !l.Priced))
+        {
+            return "—";
+        }
+
+        return PdfFormatting.Money(cell.Sum(l => l.Selling), _quote.Currency);
+    }
+
+    /// <summary>Charges not tied to a truck (e.g. permits) apply to whichever truck is used.</summary>
+    private void ComposeCommonCharges(IContainer container)
+    {
+        container.Column(col =>
+        {
+            col.Item().Text("ADDITIONAL CHARGES (ALL TRUCKS)").Bold().FontSize(9).FontColor(Colors.Blue.Darken3);
+
+            col.Item().PaddingTop(4).Table(table =>
             {
-                row.RelativeItem().Text("TOTAL ESTIMATED SELLING CHARGES:").Bold().FontColor(Colors.Blue.Darken3);
-                row.RelativeItem().AlignRight().Text(PdfFormatting.Money(TotalSelling(), _quote.Currency))
-                    .Bold().FontSize(11).FontColor(Colors.Blue.Darken3);
-            });
-
-            col.Item().ShowEntire().Column(c =>
-            {
-                // 1. Terms & Special Conditions / Notes
-                if (!string.IsNullOrWhiteSpace(_quote.Notes))
+                table.ColumnsDefinition(c =>
                 {
-                    //c.Item().PaddingTop(14).Text("TERMS & SPECIAL CONDITIONS:").Bold().FontSize(8);
-
-                    c.Item().PaddingTop(3).Column(terms =>
-                    {
-                        // Use StringSplitOptions.None to preserve the empty lines
-                        var lines = _quote.Notes.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
-
-                        foreach (var line in lines)
-                        {
-                            if (string.IsNullOrWhiteSpace(line))
-                            {
-                                // Explicitly add vertical space for blank lines. 
-                                // Adjust the Height value to match your desired paragraph gap.
-                                terms.Item().Height(8);
-                            }
-                            else
-                            {
-                                terms.Item().PaddingBottom(2).Text(line.Trim()).FontSize(8);
-                            }
-                        }
-                    });
-                }
-
-                // 2. Separate Quotation Validity Block
-                if (_quote.ValidUntil.HasValue)
-                {
-                    c.Item().PaddingTop(10).Text(text =>
-                    {
-                        text.Span("Offer Validity: ").Bold().FontSize(8);
-                        text.Span($"This quotation is valid until {_quote.ValidUntil.Value:MMMM dd, yyyy}.").FontSize(8);
-                    });
-                }
-
-                c.Item().PaddingTop(28).Row(sig =>
-                {
-                    sig.RelativeItem().Column(s =>
-                    {
-                        s.Item().Text("Issued by:").SemiBold();
-                        s.Item().PaddingTop(35).LineHorizontal(1).LineColor(Colors.Grey.Lighten1);
-                        s.Item().PaddingTop(3).Text("Commercial Pricing & Operations").Bold();
-                        s.Item().Text(_tenant.CompanyName ?? _tenant.Name);
-                    });
-
-                    sig.ConstantItem(40);
-
-                    sig.RelativeItem().Column(s =>
-                    {
-                        s.Item().Text("Conforme & Accepted by:").SemiBold();
-                        s.Item().PaddingTop(35).LineHorizontal(1).LineColor(Colors.Grey.Lighten1);
-                        s.Item().PaddingTop(3).Text("Authorized Representative Signature").Bold();
-                        s.Item().Text(_customerName);
-                    });
+                    c.RelativeColumn(4);
+                    c.RelativeColumn(1.6f);
                 });
+
+                table.Header(h =>
+                {
+                    h.Cell().Element(PdfStyles.HeaderCell).Text("Charge Description");
+                    h.Cell().Element(PdfStyles.HeaderCell).AlignRight().Text($"Total ({_quote.Currency})");
+                });
+
+                foreach (var line in _commonLines)
+                {
+                    table.Cell().Element(PdfStyles.Cell).Text($"{line.Code} - {line.Description}").SemiBold();
+                    table.Cell().Element(PdfStyles.Cell).AlignRight()
+                        .Text(line.Priced ? PdfFormatting.Money(line.Selling, _quote.Currency) : "—").Bold();
+                }
             });
         });
     }
 
-    private static void Spec(RowDescriptor row, string label, string value) =>
-        row.RelativeItem().Column(c =>
+    // ── Notes, validity, signatures ────────────────────────────────────────────
+
+    private void ComposeNotesAndSignature(ColumnDescriptor c)
+    {
+        // 1. Terms & Special Conditions / Notes
+        if (!string.IsNullOrWhiteSpace(_quote.Notes))
+        {
+            c.Item().PaddingTop(3).Column(terms =>
+            {
+                // Use StringSplitOptions.None to preserve the empty lines
+                var noteLines = _quote.Notes.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+
+                foreach (var noteLine in noteLines)
+                {
+                    if (string.IsNullOrWhiteSpace(noteLine))
+                    {
+                        // Explicitly add vertical space for blank lines.
+                        // Adjust the Height value to match your desired paragraph gap.
+                        terms.Item().Height(8);
+                    }
+                    else
+                    {
+                        terms.Item().PaddingBottom(2).Text(noteLine.Trim()).FontSize(8);
+                    }
+                }
+            });
+        }
+
+        // 2. Separate Quotation Validity Block
+        if (_quote.ValidUntil.HasValue)
+        {
+            c.Item().PaddingTop(10).Text(text =>
+            {
+                text.Span("Offer Validity: ").Bold().FontSize(8);
+                text.Span($"This quotation is valid until {_quote.ValidUntil.Value:MMMM dd, yyyy}.").FontSize(8);
+            });
+        }
+
+        c.Item().PaddingTop(28).Row(sig =>
+        {
+            sig.RelativeItem().Column(s =>
+            {
+                s.Item().Text("Issued by:").SemiBold();
+                s.Item().PaddingTop(35).LineHorizontal(1).LineColor(Colors.Grey.Lighten1);
+                s.Item().PaddingTop(3).Text("Commercial Pricing & Operations").Bold();
+                s.Item().Text(_tenant.CompanyName ?? _tenant.Name);
+            });
+
+            sig.ConstantItem(40);
+
+            sig.RelativeItem().Column(s =>
+            {
+                s.Item().Text("Conforme & Accepted by:").SemiBold();
+                s.Item().PaddingTop(35).LineHorizontal(1).LineColor(Colors.Grey.Lighten1);
+                s.Item().PaddingTop(3).Text("Authorized Representative Signature").Bold();
+                s.Item().Text(_customerName);
+            });
+        });
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────────────
+
+    /// <summary>Distinct truck types across the tariffs ("Reefer", or "Reefer, Dry Van"); null if none.</summary>
+    private string? TruckTypeSummary()
+    {
+        var types = _columns
+            .Select(c => c.Type)
+            .Distinct()
+            .Select(t => PdfFormatting.Display(t))
+            .ToList();
+
+        return types.Count == 0 ? null : string.Join(", ", types);
+    }
+
+    private static void Spec(RowDescriptor row, string label, string value, float weight = 1f) =>
+        row.RelativeItem(weight).Column(c =>
         {
             c.Item().Text(label).FontSize(8).FontColor(Colors.Grey.Darken1).SemiBold();
             c.Item().Text(value).Bold();

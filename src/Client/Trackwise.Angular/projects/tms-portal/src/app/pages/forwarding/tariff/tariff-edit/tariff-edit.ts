@@ -8,7 +8,8 @@ import {
   type UpdateTariffCommand,
 } from "@trackwise/shared/api";
 import { ToastService } from "@/core/services";
-import { PageHeader, TariffForm, type TariffFormValue } from "@/shared/components";
+import { PageHeader } from "@/shared/components";
+import { TariffForm, type TariffFormValue } from "../components/tariff-form/tariff-form";
 
 @Component({
   selector: "app-tariff-edit",
@@ -33,8 +34,10 @@ export class TariffEditComponent implements OnInit {
           serviceLevel: tariff.serviceLevel,
           originLane: tariff.originLane ?? null,
           destinationLane: tariff.destinationLane ?? null,
+          truckType: tariff.truckType ?? null,
+          tonnageClass: tariff.tonnageClass ?? null,
           containerTypeId: tariff.containerTypeId ?? null,
-          currency: tariff.currency ?? "USD",
+          currency: tariff.currency ?? "PHP",
           effectiveFrom: tariff.effectiveFrom ?? "",
           carrierId: tariff.carrierId ?? null,
           contractId: tariff.contractId ?? null,
@@ -63,6 +66,8 @@ export class TariffEditComponent implements OnInit {
       effectiveFrom: formValue.effectiveFrom,
       originLane: formValue.originLane ?? undefined,
       destinationLane: formValue.destinationLane ?? undefined,
+      truckType: formValue.truckType ?? undefined,
+      tonnageClass: formValue.tonnageClass ?? undefined,
       containerTypeId: formValue.containerTypeId ?? undefined,
       carrierId: formValue.carrierId ?? undefined,
       contractId: formValue.contractId ?? undefined,

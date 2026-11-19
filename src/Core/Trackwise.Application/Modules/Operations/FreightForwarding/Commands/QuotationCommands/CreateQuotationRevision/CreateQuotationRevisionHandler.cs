@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Trackwise.Application.Abstractions;
+using Trackwise.Application.Abstractions.CurrentUser;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Services;
 using Trackwise.Domain.Entities;
 using Trackwise.Domain.Persistence;
@@ -10,7 +11,7 @@ namespace Trackwise.Application.Modules.Operations.FreightForwarding.Commands.Qu
 
 internal sealed class CreateQuotationRevisionHandler(
     ITenantUnitOfWork tenantUow,
-    IQuotationReferenceGenerator referenceGenerator)
+    IQuotationReferenceGenerator referenceGenerator, ICurrentUserService currentUserService)
     : IAppRequestHandler<CreateQuotationRevisionCommand, Result<Guid>>
 {
     public async Task<Result<Guid>> Handle(CreateQuotationRevisionCommand request, CancellationToken ct)
@@ -41,12 +42,13 @@ internal sealed class CreateQuotationRevisionHandler(
         var referenceNumber = await referenceGenerator.NextAsync(
             source.FreightMode,
             source.Branch.Code,
+            source.IsTemperatureControlled,
             ct);
 
         Quotation revision;
         try
         {
-            revision = source.CreateRevision(referenceNumber, nextRevisionNumber);
+            revision = source.CreateRevision(referenceNumber, nextRevisionNumber, currentUserService.GetUserName());
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {

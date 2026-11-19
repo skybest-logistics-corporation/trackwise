@@ -921,6 +921,11 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
                         .HasColumnType("character varying(450)")
                         .HasColumnName("confirmed_by");
 
+                    b.Property<string>("ContainerType")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("container_type");
+
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -1071,9 +1076,17 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
                         .HasColumnType("numeric")
                         .HasColumnName("temperature_min_c");
 
+                    b.Property<string>("TonnageClass")
+                        .HasColumnType("text")
+                        .HasColumnName("tonnage_class");
+
                     b.Property<string>("TruckSize")
                         .HasColumnType("text")
                         .HasColumnName("truck_size");
+
+                    b.Property<string>("TruckType")
+                        .HasColumnType("text")
+                        .HasColumnName("truck_type");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -3589,6 +3602,61 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
                     b.HasDiscriminator<string>("Type");
 
                     b.UseTphMappingStrategy();
+                });
+
+            modelBuilder.Entity("Trackwise.Domain.Entities.FreightForwarding.QuotationEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Actor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("actor");
+
+                    b.Property<string>("Details")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("details");
+
+                    b.Property<string>("FromStatus")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("from_status");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<Guid>("QuotationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("quotation_id");
+
+                    b.Property<Guid?>("RelatedId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("related_id");
+
+                    b.Property<string>("ToStatus")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("to_status");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("type");
+
+                    b.HasKey("Id")
+                        .HasName("pk_quotationevents");
+
+                    b.HasIndex("QuotationId", "OccurredAt")
+                        .HasDatabaseName("ix_quotationevents_quotation_id_occurred_at");
+
+                    b.ToTable("quotationevents", (string)null);
                 });
 
             modelBuilder.Entity("Trackwise.Domain.Entities.FuelCard", b =>
@@ -8669,6 +8737,14 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
                         .HasColumnType("uuid")
                         .HasColumnName("supersedes_tariff_id");
 
+                    b.Property<string>("TonnageClass")
+                        .HasColumnType("text")
+                        .HasColumnName("tonnage_class");
+
+                    b.Property<string>("TruckType")
+                        .HasColumnType("text")
+                        .HasColumnName("truck_type");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -12095,6 +12171,16 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
                     b.Navigation("Role");
                 });
 
+            modelBuilder.Entity("Trackwise.Domain.Entities.FreightForwarding.QuotationEvent", b =>
+                {
+                    b.HasOne("Trackwise.Domain.Entities.Quotation", null)
+                        .WithMany("Events")
+                        .HasForeignKey("QuotationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_quotationevents_quotations_quotation_id");
+                });
+
             modelBuilder.Entity("Trackwise.Domain.Entities.FuelCard", b =>
                 {
                     b.HasOne("Trackwise.Domain.Entities.Truck", "Truck")
@@ -13652,6 +13738,8 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
 
             modelBuilder.Entity("Trackwise.Domain.Entities.Quotation", b =>
                 {
+                    b.Navigation("Events");
+
                     b.Navigation("Lines");
                 });
 

@@ -26,6 +26,10 @@ public class BookingDto
     public Guid? QuotationId { get; set; }
     public string? QuotationReference { get; set; }
 
+    public TruckType? TruckType { get; set; }
+    public TruckTonnageClass? TonnageClass { get; set; }
+    public string ContainerType { get; set; } = default!;
+
     // Logistics snapshot
     public TransportMode Mode { get; set; }
     public FreightMode FreightMode { get; set; }
@@ -98,6 +102,9 @@ public class BookingSummaryDto
     public string? CustomerReference { get; set; }
     public Guid? QuotationId { get; set; }
     public string? QuotationReference { get; set; }
+    public TruckType? TruckType { get; set; }
+    public TruckTonnageClass? TonnageClass { get; set; }
+    public string ContainerType { get; set; } = default!;
     public string Currency { get; set; } = default!;
 
     public TransportMode Mode { get; set; }
