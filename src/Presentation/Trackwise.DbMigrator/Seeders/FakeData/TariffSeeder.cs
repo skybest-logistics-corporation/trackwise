@@ -77,6 +77,7 @@ internal class TariffSeeder(ILogger<TariffSeeder> logger) : SeederBase(logger)
             var tariff = Tariff.Create(
                 def.FreightMode, ServiceLevel.Standard, def.Name, def.Currency,
                 def.OriginPort, def.DestinationPort,
+                null, null,
                 def.UsesContainerType ? container40?.Id : null,
                 null, today.AddMonths(-1), null);
 

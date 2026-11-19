@@ -8,10 +8,12 @@ using Trackwise.Domain.Primitives.Enums;
 using Trackwise.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using FluentValidation;
+using Trackwise.Application.Abstractions.Email;
+using Trackwise.Application.Abstractions.CurrentUser;
 
 namespace Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.IssueQuotation;
 
-internal sealed class IssueQuotationHandler(ITenantUnitOfWork tenantUow)
+internal sealed class IssueQuotationHandler(ITenantUnitOfWork tenantUow, IEmailSender emailSender, ICurrentUserService currentUserService)
     : IAppRequestHandler<IssueQuotationCommand, Result>
 {
     public async Task<Result> Handle(IssueQuotationCommand req, CancellationToken ct)
@@ -37,7 +39,17 @@ internal sealed class IssueQuotationHandler(ITenantUnitOfWork tenantUow)
         try
         {
             // Freezes buying and selling numbers on every line to prevent tariff-drift
-            quotation.Issue(TimeSpan.FromDays(req.ValidityDays));
+            quotation.Issue(TimeSpan.FromDays(req.ValidityDays), currentUserService.GetUserName());
+
+            // Send email to customer if email is provided
+            if (!string.IsNullOrWhiteSpace(req.CustomerEmail))
+            {
+                var emailSubject = $"Quotation {quotation.ReferenceNumber} Issued";
+                var emailBody = new StringBuilder();
+                emailBody.AppendLine($"Dear Customer,");
+
+                await emailSender.SendEmailAsync(req.CustomerEmail, emailSubject, emailBody.ToString());
+            }
         }
         catch (InvalidOperationException ex)
         {

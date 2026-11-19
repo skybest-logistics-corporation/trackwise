@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Core\Trackwise.Domain.Primitives\Trackwise.Domain.Primitives.csproj" />
+    <ProjectReference Include="..\..\Core\Trackwise.Domain\Trackwise.Domain.csproj" />
   </ItemGroup>
 
 </Project>

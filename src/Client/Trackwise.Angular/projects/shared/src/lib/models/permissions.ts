@@ -150,6 +150,7 @@ export const Permission = {
   Quotation: {
     View: "Permission.Quotation.View",
     Manage: "Permission.Quotation.Manage",
+    Approve: "Permission.Quotation.Approve",
   },
   Booking: {
     View: "Permission.Booking.View",

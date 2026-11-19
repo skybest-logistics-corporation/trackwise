@@ -25286,7 +25286,7 @@
         "tags": [
           "Quotation"
         ],
-        "operationId": "AddQuotationLine",
+        "operationId": "AddQuotationLines",
         "parameters": [
           {
             "name": "id",
@@ -25302,17 +25302,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AddQuotationLineCommand"
+                "$ref": "#/components/schemas/AddQuotationLinesCommand"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/AddQuotationLineCommand"
+                "$ref": "#/components/schemas/AddQuotationLinesCommand"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/AddQuotationLineCommand"
+                "$ref": "#/components/schemas/AddQuotationLinesCommand"
               }
             }
           }
@@ -25323,8 +25323,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "string",
-                  "format": "uuid"
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
                 }
               }
             }
@@ -28985,6 +28988,76 @@
             "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/CreateTariffCommand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tariffs/copy": {
+      "post": {
+        "tags": [
+          "Tariff"
+        ],
+        "operationId": "CopyTariff",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopyTariffCommand"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopyTariffCommand"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopyTariffCommand"
               }
             }
           }
@@ -36479,13 +36552,9 @@
         },
         "additionalProperties": false
       },
-      "AddQuotationLineCommand": {
+      "AddQuotationLineItem": {
         "type": "object",
         "properties": {
-          "quotationId": {
-            "type": "string",
-            "format": "uuid"
-          },
           "tariffRateId": {
             "type": "string",
             "format": "uuid"
@@ -36516,6 +36585,23 @@
           },
           "notes": {
             "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AddQuotationLinesCommand": {
+        "type": "object",
+        "properties": {
+          "quotationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AddQuotationLineItem"
+            },
             "nullable": true
           }
         },
@@ -38196,6 +38282,16 @@
             "type": "string",
             "nullable": true
           },
+          "truckType": {
+            "$ref": "#/components/schemas/TruckType"
+          },
+          "tonnageClass": {
+            "$ref": "#/components/schemas/TruckTonnageClass"
+          },
+          "containerType": {
+            "type": "string",
+            "nullable": true
+          },
           "mode": {
             "$ref": "#/components/schemas/TransportMode"
           },
@@ -38597,6 +38693,16 @@
             "nullable": true
           },
           "quotationReference": {
+            "type": "string",
+            "nullable": true
+          },
+          "truckType": {
+            "$ref": "#/components/schemas/TruckType"
+          },
+          "tonnageClass": {
+            "$ref": "#/components/schemas/TruckTonnageClass"
+          },
+          "containerType": {
             "type": "string",
             "nullable": true
           },
@@ -40384,6 +40490,20 @@
           "toDate": {
             "type": "string",
             "format": "date"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CopyTariffCommand": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -42482,6 +42602,12 @@
           "destinationLane": {
             "type": "string",
             "nullable": true
+          },
+          "truckType": {
+            "$ref": "#/components/schemas/TruckType"
+          },
+          "tonnageClass": {
+            "$ref": "#/components/schemas/TruckTonnageClass"
           },
           "containerTypeId": {
             "type": "string",
@@ -47961,6 +48087,10 @@
           "validityDays": {
             "type": "integer",
             "format": "int32"
+          },
+          "customerEmail": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -52189,11 +52319,23 @@
             "type": "string",
             "nullable": true
           },
+          "customerEmail": {
+            "type": "string",
+            "nullable": true
+          },
           "referenceNumber": {
             "type": "string",
             "nullable": true
           },
           "currency": {
+            "type": "string",
+            "nullable": true
+          },
+          "rejectionReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "rejectedBy": {
             "type": "string",
             "nullable": true
           },
@@ -52324,9 +52466,70 @@
           "notes": {
             "type": "string",
             "nullable": true
+          },
+          "updatedBy": {
+            "type": "string",
+            "nullable": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "timeline": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuotationEventDto"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
+      },
+      "QuotationEventDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "$ref": "#/components/schemas/QuotationEventType"
+          },
+          "actor": {
+            "type": "string",
+            "nullable": true
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "details": {
+            "type": "string",
+            "nullable": true
+          },
+          "relatedId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "QuotationEventType": {
+        "enum": [
+          "created",
+          "edited",
+          "revision_created",
+          "submitted",
+          "approved",
+          "rejected",
+          "issued",
+          "accepted",
+          "expired",
+          "converted_to_booking"
+        ],
+        "type": "string"
       },
       "QuotationLineDto": {
         "type": "object",
@@ -52339,9 +52542,24 @@
             "type": "string",
             "format": "uuid"
           },
+          "tariffId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "tariffName": {
+            "type": "string",
+            "nullable": true
+          },
           "tariffRateId": {
             "type": "string",
             "format": "uuid"
+          },
+          "tariffTruckType": {
+            "$ref": "#/components/schemas/TruckType"
+          },
+          "tariffTonnageClass": {
+            "$ref": "#/components/schemas/TruckTonnageClass"
           },
           "chargeCode": {
             "type": "string",
@@ -52473,6 +52691,10 @@
             "nullable": true
           },
           "customerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerEmail": {
             "type": "string",
             "nullable": true
           },
@@ -54941,6 +55163,12 @@
           "destinationLane": {
             "type": "string",
             "nullable": true
+          },
+          "truckType": {
+            "$ref": "#/components/schemas/TruckType"
+          },
+          "tonnageClass": {
+            "$ref": "#/components/schemas/TruckTonnageClass"
           },
           "containerTypeId": {
             "type": "string",
@@ -59485,6 +59713,12 @@
           "destinationLane": {
             "type": "string",
             "nullable": true
+          },
+          "truckType": {
+            "$ref": "#/components/schemas/TruckType"
+          },
+          "tonnageClass": {
+            "$ref": "#/components/schemas/TruckTonnageClass"
           },
           "containerTypeId": {
             "type": "string",

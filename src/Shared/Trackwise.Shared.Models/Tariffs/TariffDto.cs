@@ -18,6 +18,8 @@ public class TariffDto
     public string? CustomerName { get; set; }
     public string? OriginLane { get; set; }
     public string? DestinationLane { get; set; }
+    public TruckType? TruckType { get; set; }
+    public TruckTonnageClass? TonnageClass { get; set; }
     public Guid? ContainerTypeId { get; set; }
 
     /// <summary>Resolved by the handler in one batched lookup, never off the navigation property.</summary>
@@ -94,6 +96,8 @@ public class CreateTariffRequest
     public string Currency { get; set; } = default!;
     public string? OriginLane { get; set; }
     public string? DestinationLane { get; set; }
+    public TruckType? TruckType { get; set; }
+    public TruckTonnageClass? TonnageClass { get; set; }
     public Guid? ContainerTypeId { get; set; }
     public Guid? CarrierId { get; set; }
     public DateOnly EffectiveFrom { get; set; }
@@ -117,6 +121,8 @@ public class UpdateTariffRequest
     public bool? IsActive { get; set; }
     public string? OriginLane { get; set; }
     public string? DestinationLane { get; set; }
+    public TruckType TruckType { get; set; }
+    public TruckTonnageClass? TonnageClass { get; set; }
     public Guid? ContainerTypeId { get; set; }
     public Guid? CarrierId { get; set; }
     public Guid? ContractId { get; set; }

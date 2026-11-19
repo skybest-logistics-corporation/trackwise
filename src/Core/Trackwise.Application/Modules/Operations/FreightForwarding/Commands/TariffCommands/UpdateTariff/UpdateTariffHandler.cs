@@ -50,6 +50,8 @@ internal sealed class UpdateTariffHandler(ITenantUnitOfWork tenantUow)
             isActive: null,
             originLane: req.OriginLane,
             destinationLane: req.DestinationLane,
+            truckType: req.TruckType,
+            tonnageClass: req.TonnageClass!,
             containerTypeId: req.ContainerTypeId,
             carrierId: req.CarrierId,
             contractId: req.ContractId);

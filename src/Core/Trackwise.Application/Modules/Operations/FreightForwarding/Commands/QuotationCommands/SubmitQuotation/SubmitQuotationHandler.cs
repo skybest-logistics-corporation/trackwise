@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using Trackwise.Application.Abstractions;
+using Trackwise.Application.Abstractions.CurrentUser;
 using Trackwise.Domain.Entities;
 using Trackwise.Domain.Persistence;
 using Trackwise.Domain.Primitives.Enums;
@@ -9,7 +10,7 @@ using Trackwise.Shared.Models;
 
 namespace Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.SubmitQuotation;
 
-internal sealed class SubmitQuotationHandler(ITenantUnitOfWork tenantUow)
+internal sealed class SubmitQuotationHandler(ITenantUnitOfWork tenantUow, ICurrentUserService currentUserService)
     : IAppRequestHandler<SubmitQuotationCommand, Result>
 {
     public async Task<Result> Handle(SubmitQuotationCommand req, CancellationToken ct)
@@ -28,7 +29,7 @@ internal sealed class SubmitQuotationHandler(ITenantUnitOfWork tenantUow)
 
         try
         {
-            quotation.Submit();
+            quotation.Submit(currentUserService.GetUserName());
         }
         catch (InvalidOperationException ex)
         {

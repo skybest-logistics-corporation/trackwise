@@ -45,6 +45,8 @@ import {
   PdfViewerComponent,
   type PdfLoader,
 } from "@/shared/components/pdf-viewer/pdf-viewer.component";
+import { truckTonnageClassLabels, truckTypeLabels } from "@/shared/constants/truck-options";
+import { EnumLabelPipe } from "@/shared/pipes";
 import { AddBookingChargeDialog } from "../components/add-booking-charge-dialog/add-booking-charge-dialog";
 import {
   bookingStatusLabel,
@@ -78,6 +80,7 @@ import {
     PdfViewerComponent,
     AddBookingChargeDialog,
     CreateTripDialog,
+    EnumLabelPipe,
   ],
 })
 export class BookingDetailsComponent implements OnInit {
@@ -98,6 +101,9 @@ export class BookingDetailsComponent implements OnInit {
   protected readonly openBookingPdfViewer = signal(false);
 
   protected readonly addChargeDialogVisible = signal(false);
+
+  protected readonly truckTypeLabels = truckTypeLabels;
+  protected readonly tonnageClassLabels = truckTonnageClassLabels;
 
   /** Wire to the Booking.Manage permission; until then always true. The server enforces it either way. */
   protected readonly canManage = computed(() => true);
@@ -249,6 +255,7 @@ export class BookingDetailsComponent implements OnInit {
     this.isLoading.set(true);
     try {
       const result = await this.api.invoke(getBookingById, { id });
+      console.log("Booking loaded:", result);
       this.booking.set(result);
     } catch {
       this.toastService.showError("Failed to load booking.");

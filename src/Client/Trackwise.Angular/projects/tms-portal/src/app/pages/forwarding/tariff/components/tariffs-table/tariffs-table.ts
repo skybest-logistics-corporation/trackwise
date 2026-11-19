@@ -1,5 +1,5 @@
 import { TitleCasePipe, UpperCasePipe } from "@angular/common";
-import { Component, computed, inject, input, output, signal } from "@angular/core";
+import { Component, computed, effect, inject, input, output, signal } from "@angular/core";
 import { Router, RouterLink } from "@angular/router";
 import type { AppError } from "@trackwise/shared";
 import type { TariffDto } from "@trackwise/shared/api";
@@ -16,6 +16,8 @@ import {
   type UiMenuItem,
 } from "@trackwise/shared/ui";
 import { DataContainer } from "@/shared/components";
+import { truckTonnageClassLabels, truckTypeLabels } from "@/shared/constants/truck-options";
+import { EnumLabelPipe } from "@/shared/pipes";
 
 @Component({
   selector: "app-tariffs-table",
@@ -24,6 +26,7 @@ import { DataContainer } from "@/shared/components";
     Card,
     DataContainer,
     DateFormatPipe,
+    EnumLabelPipe,
     TitleCasePipe,
     UpperCasePipe,
     RouterLink,
@@ -52,6 +55,25 @@ export class TariffsTable {
   public readonly deleteTariff = output<TariffDto>();
 
   protected readonly selectedRow = signal<TariffDto | null>(null);
+
+  protected readonly truckTypeLabels = truckTypeLabels;
+  protected readonly tonnageClassLabels = truckTonnageClassLabels;
+
+  constructor() {
+    effect(() => {
+      const rows = this.data();
+      console.log("[TariffsTable] data:", rows);
+      console.table(rows); // quick scan of the columns, including truckType / tonnageClass
+      console.log("[TariffsTable] state:", {
+        isLoading: this.isLoading(),
+        isEmpty: this.isEmpty(),
+        totalRecords: this.totalRecords(),
+        first: this.first(),
+        pageSize: this.pageSize(),
+        error: this.error(),
+      });
+    });
+  }
 
   protected readonly actionMenuItems = computed<UiMenuItem[]>(() => {
     const tariff = this.selectedRow();

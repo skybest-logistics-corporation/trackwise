@@ -1,5 +1,6 @@
 using MockQueryable;
 using NSubstitute;
+using Trackwise.Application.Abstractions.CurrentUser;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.CreateQuotation;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Services;
 using Trackwise.Domain.Entities;
@@ -23,6 +24,7 @@ public class CreateQuotationHandlerTests
     private readonly IQuotationRatingEngine _ratingEngine = Substitute.For<IQuotationRatingEngine>();
     private readonly IQuotationReferenceGenerator referenceGenerator = Substitute.For<IQuotationReferenceGenerator>();
     private readonly IFxRateService fxRateService = Substitute.For<IFxRateService>();
+    private readonly ICurrentUserService currentUserService = Substitute.For<ICurrentUserService>();
 
     private readonly Customer _customer;
     private readonly Branch _branch;
@@ -69,10 +71,10 @@ public class CreateQuotationHandlerTests
         _locationRepo.GetByIdAsync(_destination.Id, Arg.Any<CancellationToken>()).Returns(_destination);
         _locationRepo.Query().Returns(_ => new List<Location> { _origin, _destination }.BuildMock());
         fxRateService.GetRateAsync("USD", "PHP", Arg.Any<CancellationToken>()).Returns(56m);
-        referenceGenerator.NextAsync(FreightMode.Domestic, _branch.Code, Arg.Any<CancellationToken>())
+        referenceGenerator.NextAsync(FreightMode.Domestic, _branch.Code, false, Arg.Any<CancellationToken>())
             .Returns("QT-26-DOMMNL-00001");
 
-        _sut = new CreateQuotationHandler(_tenantUow, _ratingEngine, referenceGenerator, fxRateService);
+        _sut = new CreateQuotationHandler(_tenantUow, _ratingEngine, referenceGenerator, fxRateService, currentUserService);
     }
 
     [Fact]

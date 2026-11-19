@@ -2,7 +2,8 @@ import { Component, inject, signal } from "@angular/core";
 import { Router } from "@angular/router";
 import { Api, createTariff, type CreateTariffCommand } from "@trackwise/shared/api";
 import { ToastService } from "@/core/services";
-import { PageHeader, TariffForm, type TariffFormValue } from "@/shared/components";
+import { PageHeader } from "@/shared/components";
+import { TariffForm, type TariffFormValue } from "../components/tariff-form/tariff-form";
 
 @Component({
   selector: "app-tariff-add",
@@ -29,6 +30,8 @@ export class TariffAddComponent {
       serviceLevel: formValue.serviceLevel,
       originLane: formValue.originLane ?? undefined,
       destinationLane: formValue.destinationLane ?? undefined,
+      truckType: formValue.truckType ?? undefined,
+      tonnageClass: formValue.tonnageClass ?? undefined,
       containerTypeId: formValue.containerTypeId ?? undefined,
       currency: formValue.currency.trim().toUpperCase(),
       effectiveFrom: formValue.effectiveFrom,
