@@ -93,7 +93,7 @@ internal sealed class MergeEmployeesHandler(
         // transaction cannot span the tenant and master databases.
         var tenant = tenantUow.GetCurrentTenant();
 
-        if (loserUser is not null && (loserUser.TenantId == tenant.Id || loserUser.Tenant?.Id == tenant.Id))
+        if (loserUser is not null && tenant is not null && (loserUser.TenantId == tenant.Id || loserUser.Tenant?.Id == tenant.Id))
         {
             loserUser.Tenant = null;
             loserUser.TenantId = null;

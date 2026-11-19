@@ -67,7 +67,7 @@ internal sealed class DeleteEmployeeHandler(
         // databases, a pre-existing gap this change does not attempt to close.
         var tenant = tenantUow.GetCurrentTenant();
 
-        if (user is not null && (user.TenantId == tenant.Id || user.Tenant?.Id == tenant.Id))
+        if (user is not null && tenant is not null && (user.TenantId == tenant.Id || user.Tenant?.Id == tenant.Id))
         {
             user.Tenant = null;
             user.TenantId = null;
