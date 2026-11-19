@@ -51012,6 +51012,13 @@
           "description": {
             "type": "string",
             "nullable": true
+          },
+          "gateway": {
+            "$ref": "#/components/schemas/PaymentGateway"
+          },
+          "referenceNumber": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -51031,6 +51038,13 @@
           }
         },
         "additionalProperties": false
+      },
+      "PaymentGateway": {
+        "enum": [
+          "stripe",
+          "xendit"
+        ],
+        "type": "string"
       },
       "PaymentLinkDto": {
         "required": [
