@@ -1779,6 +1779,10 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Master
                                 .HasColumnType("numeric(18,2)")
                                 .HasColumnName("settings_default_rate_floor_per_mile");
 
+                            b1.Property<string>("DispatchPhoneNumber")
+                                .HasColumnType("text")
+                                .HasColumnName("settings_dispatch_phone_number");
+
                             b1.Property<string>("DistanceUnit")
                                 .IsRequired()
                                 .HasColumnType("text")

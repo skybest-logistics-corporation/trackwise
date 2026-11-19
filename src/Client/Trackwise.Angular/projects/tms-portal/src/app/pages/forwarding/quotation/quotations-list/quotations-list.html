@@ -1,5 +1,9 @@
 <div class="animate-in fade-in space-y-4">
-  <ui-page-header title="Quotations" addRoute="/quotations/add" addTooltip="Add a new quotation" />
+  <ui-page-header
+    title="Quotations"
+    [addRoute]="canManage ? '/quotations/add' : null"
+    addTooltip="Add a new quotation"
+  />
 
   <!-- Filter Panel -->
   <ui-card class="mb-4">

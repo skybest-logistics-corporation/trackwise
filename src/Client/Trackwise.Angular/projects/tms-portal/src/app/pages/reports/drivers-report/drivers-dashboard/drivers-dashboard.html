@@ -28,7 +28,7 @@
 
     <ui-grid [size]="{ xs: 12, md: 6, lg: 3 }" class="mb-4">
       <app-stat-card
-        icon="dollar-sign"
+        icon="philippine-peso"
         label="Total Earnings"
         [value]="(data()?.totalEarnings || 0 | currencyFormat) ?? '$0'"
         color="green"
@@ -70,7 +70,11 @@
               <div class="grow">
                 <ui-typography variant="h6" class="mb-1">{{ metric.metric }}</ui-typography>
                 <ui-typography variant="h5" class="mb-0">
-                  {{ metric.value | number: "1.1-1" }} {{ metric.unit }}
+                  @if (isCurrencyUnit(metric.unit)) {
+                    {{ metric.value | currencyFormat: metric.unit }}
+                  } @else {
+                    {{ metric.value | number: "1.1-1" }} {{ metric.unit }}
+                  }
                 </ui-typography>
               </div>
               <div class="shrink-0">

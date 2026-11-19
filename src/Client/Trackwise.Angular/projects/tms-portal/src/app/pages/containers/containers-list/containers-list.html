@@ -1,4 +1,8 @@
-<ui-page-header title="Containers" addRoute="/containers/add" addTooltip="Add a new container" />
+<ui-page-header
+  title="Containers"
+  [addRoute]="canManage ? '/containers/add' : null"
+  addTooltip="Add a new container"
+/>
 
 <ui-card>
   <ui-stack direction="row" align="end" gap="3" wrap class="mb-4">

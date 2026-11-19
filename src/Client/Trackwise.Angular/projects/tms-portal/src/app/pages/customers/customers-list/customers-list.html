@@ -1,4 +1,8 @@
-<ui-page-header title="Customers" addRoute="/customers/add" addTooltip="Add a new customer" />
+<ui-page-header
+  title="Customers"
+  [addRoute]="canManage ? '/customers/add' : null"
+  addTooltip="Add a new customer"
+/>
 
 <ui-stack direction="row" gap="2" class="mb-4">
   <ui-permission-guard [permissions]="Permission.Invitation.Manage">

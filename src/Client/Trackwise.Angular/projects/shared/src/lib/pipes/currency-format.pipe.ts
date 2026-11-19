@@ -1,6 +1,6 @@
 import { CurrencyPipe } from "@angular/common";
 import { inject, Pipe, type PipeTransform } from "@angular/core";
-import { LocalizationService } from "../services/localization.service";
+import { DEFAULT_CURRENCY, LocalizationService } from "../services/localization.service";
 
 @Pipe({ name: "currencyFormat", standalone: true })
 export class CurrencyFormatPipe implements PipeTransform {
@@ -25,7 +25,11 @@ export class CurrencyFormatPipe implements PipeTransform {
       return null;
     }
 
-    const code = currencyCode ?? this.localizationService?.getCurrencyCode() ?? "USD";
+    const code = (
+      currencyCode ??
+      this.localizationService?.getCurrencyCode() ??
+      DEFAULT_CURRENCY
+    ).toUpperCase();
     return this.currencyPipe.transform(value, code, display, digitsInfo);
   }
 }

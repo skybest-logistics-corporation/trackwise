@@ -40,7 +40,7 @@ export function getFinancialMetricsChartOptions(isDark = true) {
   };
 }
 
-export function getRevenueTrendChartOptions(isDark = true) {
+export function getRevenueTrendChartOptions(currencySymbol: string, isDark = true) {
   const p = getChartPalette(isDark);
   return {
     responsive: true,
@@ -67,7 +67,7 @@ export function getRevenueTrendChartOptions(isDark = true) {
         position: "left" as const,
         title: {
           display: true,
-          text: "Amount ($)",
+          text: `Amount (${currencySymbol})`,
           color: p.textColor,
         },
         grid: { color: p.gridColor },

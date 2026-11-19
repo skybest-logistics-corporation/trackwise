@@ -5,6 +5,7 @@ using Trackwise.Application.Utilities;
 using Trackwise.Domain.Entities;
 using Trackwise.Domain.Options;
 using Trackwise.Domain.Primitives.Enums;
+using Trackwise.Domain.Primitives.ValueObjects;
 using Trackwise.Domain.Persistence;
 using Trackwise.Shared.Identity.Roles;
 using Trackwise.Shared.Models;
@@ -46,7 +47,7 @@ internal sealed class CreateTenantHandler(
             // subscription later via the Subscriptions page.
             IsSubscriptionRequired = false
         };
-        tenant.Settings.ApplyRegionDefaults(req.Region ?? Region.US);
+        tenant.Settings.ApplyRegionDefaults(req.Region ?? TenantSettings.DefaultRegion);
 
         var existingTenant = await masterUow.Repository<Tenant>().GetAsync(i => i.Name == tenant.Name, ct);
 
@@ -126,7 +127,7 @@ internal sealed class CreateTenantHandler(
         var ownerRole = await tenantUow.Repository<TenantRole>()
             .GetAsync(r => r.Name == TenantRoles.Owner);
 
-        var employee = Employee.CreateEmployeeFromUser(owner);
+        var employee = Employee.CreateEmployeeFromUser(owner, tenant.Settings.Currency.ToString());
         if (ownerRole is not null)
         {
             employee.Role = ownerRole;

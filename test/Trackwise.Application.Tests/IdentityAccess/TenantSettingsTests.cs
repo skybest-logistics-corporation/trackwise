@@ -8,6 +8,17 @@ namespace Trackwise.Application.Tests.IdentityAccess;
 public class TenantSettingsTests
 {
     [Fact]
+    public void NewSettings_DefaultToThePhilippines()
+    {
+        var settings = new TenantSettings();
+
+        Assert.Equal(Region.PH, settings.Region);
+        Assert.Equal(CurrencyCode.PHP, settings.Currency);
+        Assert.Equal(DistanceUnit.Kilometers, settings.DistanceUnit);
+        Assert.Equal("Asia/Manila", settings.Timezone);
+    }
+
+    [Fact]
     public void ApplyRegionDefaults_Ph_PesoMetricAndManilaTime()
     {
         var settings = new TenantSettings();

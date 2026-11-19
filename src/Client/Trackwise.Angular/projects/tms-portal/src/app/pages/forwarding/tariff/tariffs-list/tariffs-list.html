@@ -1,5 +1,9 @@
 <div class="animate-in fade-in space-y-4">
-  <ui-page-header title="Tariffs" addRoute="/tariffs/add" addTooltip="Add a new tariff">
+  <ui-page-header
+    title="Tariffs"
+    [addRoute]="canManage ? '/tariffs/add' : null"
+    addTooltip="Add a new tariff"
+  >
     <ui-stack direction="row" gap="1">
       <ui-button
         appearance="text"

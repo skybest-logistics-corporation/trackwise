@@ -63,7 +63,7 @@ export class LoadsReportComponent extends BaseReportComponent<LoadsReportDto> im
   // charts state
   protected pieOptions = getLoadsPieOptions();
   protected typeChartOptions = getLoadsTypeChartOptions();
-  protected trendChartOptions = getLoadsTrendChartOptions();
+  protected trendChartOptions = getLoadsTrendChartOptions(this.localization.getCurrencySymbol());
   protected performanceChartOptions = getLoadsPerformanceChartOptions();
 
   ngOnInit(): void {
@@ -157,5 +157,10 @@ export class LoadsReportComponent extends BaseReportComponent<LoadsReportDto> im
         ],
       });
     }
+  }
+
+  /** Money metrics carry the tenant's ISO code as their unit (e.g. "PHP"). */
+  protected isCurrencyUnit(unit: string | null | undefined): boolean {
+    return !!unit && /^[A-Z]{3}$/.test(unit);
   }
 }

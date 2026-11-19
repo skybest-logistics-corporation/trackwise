@@ -45,7 +45,7 @@ public class TariffRate : AuditableEntity, ITenantEntity
     /// tariff's rates as dollars.
     /// </summary>
     public string SourceCurrency =>
-        (ChargeCode?.Currency is { Length: > 0 } code ? code : Tariff?.Currency ?? "USD").Trim().ToUpperInvariant();
+        (ChargeCode?.Currency is { Length: > 0 } code ? code : Tariff?.Currency ?? "PHP").Trim().ToUpperInvariant();
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

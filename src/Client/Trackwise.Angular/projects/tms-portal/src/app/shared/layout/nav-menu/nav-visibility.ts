@@ -3,7 +3,8 @@ import type { FeatureService, PermissionService } from "@trackwise/shared/servic
 
 /** The two gates any permission-and-feature-gated thing declares: nav items, dashboard panels. */
 export interface AccessGate {
-  permission?: string;
+  /** One permission, or several of which **any** held one satisfies the gate. */
+  permission?: string | string[];
   /** One flag, or several of which **any** enabled one satisfies the gate. */
   feature?: TenantFeature | TenantFeature[];
 }
@@ -17,8 +18,13 @@ export function passesAccessGate(
   featureService: FeatureService,
   permissionService: PermissionService,
 ): boolean {
-  if (gate.permission && !permissionService.hasPermission(gate.permission)) {
-    return false;
+  if (gate.permission) {
+    const hasAccess = Array.isArray(gate.permission)
+      ? permissionService.hasAnyPermission(...gate.permission)
+      : permissionService.hasPermission(gate.permission);
+    if (!hasAccess) {
+      return false;
+    }
   }
   return featureService.isAnyEnabled(gate.feature);
 }

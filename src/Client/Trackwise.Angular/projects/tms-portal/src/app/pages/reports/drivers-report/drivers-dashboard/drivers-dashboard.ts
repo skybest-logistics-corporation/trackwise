@@ -62,7 +62,9 @@ export class DriversDashboardComponent
 
   protected trendChartOptions = getDriversTrendChartOptions();
   protected efficiencyChartOptions = getDriversEfficiencyChartOptions();
-  protected performanceChartOptions = getDriversPerformanceChartOptions();
+  protected performanceChartOptions = getDriversPerformanceChartOptions(
+    this.localization.getCurrencySymbol(),
+  );
 
   ngOnInit(): void {
     this.fetch({ startDate: this.startDate(), endDate: this.endDate() });
@@ -143,4 +145,9 @@ export class DriversDashboardComponent
 
   protected getPerformanceLevel = getPerformanceLevel;
   protected getPerformanceSeverity = getPerformanceSeverity;
+
+  /** Money metrics carry the tenant's ISO code as their unit (e.g. "PHP"). */
+  protected isCurrencyUnit(unit: string | null | undefined): boolean {
+    return !!unit && /^[A-Z]{3}$/.test(unit);
+  }
 }

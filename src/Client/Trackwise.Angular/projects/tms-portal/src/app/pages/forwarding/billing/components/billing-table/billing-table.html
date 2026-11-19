@@ -52,7 +52,7 @@
           <!-- Money Total -->
           <td class="font-medium">
             @if ((invoice.total?.amount ?? null) !== null) {
-              {{ invoice.total.amount | currency: invoice.total.currency ?? "USD" }}
+              {{ invoice.total.amount | currency: invoice.total.currency ?? "PHP" }}
             } @else {
               —
             }

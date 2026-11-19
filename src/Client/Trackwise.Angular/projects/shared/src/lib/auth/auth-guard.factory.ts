@@ -70,9 +70,14 @@ export function createRoleGuard(options: RoleGuardOptions): CanActivateFn {
         }
 
         if (options.checkRoutePermission !== false) {
-          const permission = route.data["permission"] as string | undefined;
-          if (permission && !permissionService.hasPermission(permission)) {
-            return router.parseUrl(unauthorizedRedirect);
+          const permission = route.data["permission"] as string | string[] | undefined;
+          if (permission) {
+            const hasAccess = Array.isArray(permission)
+              ? permissionService.hasAnyPermission(...permission)
+              : permissionService.hasPermission(permission);
+            if (!hasAccess) {
+              return router.parseUrl(unauthorizedRedirect);
+            }
           }
         }
 

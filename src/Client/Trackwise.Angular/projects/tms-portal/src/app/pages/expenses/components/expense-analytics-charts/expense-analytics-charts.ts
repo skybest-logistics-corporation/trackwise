@@ -1,4 +1,5 @@
-import { Component, input } from "@angular/core";
+import { Component, inject, input } from "@angular/core";
+import { LocalizationService } from "@trackwise/shared/services";
 import { Card, Grid, Typography, UiChart } from "@trackwise/shared/ui";
 import { chartOptions, lineChartOptions } from "../expense-analytics.utils";
 
@@ -14,5 +15,7 @@ export class ExpenseAnalyticsCharts {
   public readonly monthlyTrendData = input<unknown>(null);
 
   protected readonly chartOptions = chartOptions;
-  protected readonly lineChartOptions = lineChartOptions;
+  protected readonly lineChartOptions = lineChartOptions(
+    inject(LocalizationService).getCurrencySymbol(),
+  );
 }

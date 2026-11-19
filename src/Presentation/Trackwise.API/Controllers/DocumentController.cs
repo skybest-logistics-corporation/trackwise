@@ -1,5 +1,6 @@
 using Trackwise.API.Extensions;
 using Trackwise.Domain.Primitives.Enums;
+using Trackwise.Shared.Identity.Policies;
 using Trackwise.Shared.Models;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -16,11 +17,17 @@ public class DocumentController(IMediator mediator) : ControllerBase
 {
     private const int MaxUploadSizeBytes = 20 * 1024 * 1024; // 20 MB
 
+    private const string ReadPolicy =
+        $"{Permission.Load.View}|{Permission.Truck.View}|{Permission.Employee.View}|{Permission.Driver.View}";
+
+    private const string WritePolicy =
+        $"{Permission.Load.Manage}|{Permission.Truck.Manage}|{Permission.MasterData.Manage}|{Permission.Employee.Manage}|{Permission.Driver.Manage}";
+
     // GET /documents/{owner}/{ownerId}
     [HttpGet(Name = "GetDocuments")]
     [ProducesResponseType(typeof(IEnumerable<DocumentDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-    [Authorize]
+    [Authorize(Policy = ReadPolicy)]
     public async Task<IActionResult> GetDocuments([FromQuery] GetDocumentsQuery query)
     {
         var result = await mediator.Send(query);
@@ -31,7 +38,7 @@ public class DocumentController(IMediator mediator) : ControllerBase
     [HttpGet("{documentId:guid}", Name = "GetDocumentById")]
     [ProducesResponseType(typeof(DocumentDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-    [Authorize]
+    [Authorize(Policy = ReadPolicy)]
     public async Task<IActionResult> GetDocumentById(Guid documentId)
     {
         var result = await mediator.Send(new GetDocumentByIdQuery { DocumentId = documentId });
@@ -47,7 +54,7 @@ public class DocumentController(IMediator mediator) : ControllerBase
     [HttpPost("upload", Name = "UploadDocument")]
     [ProducesResponseType(typeof(Guid), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-    [Authorize]
+    [Authorize(Policy = WritePolicy)]
     [RequestSizeLimit(MaxUploadSizeBytes)]
     public async Task<IActionResult> UploadDocument([FromForm] UploadDocumentRequest request)
     {
@@ -79,7 +86,7 @@ public class DocumentController(IMediator mediator) : ControllerBase
     [HttpGet("{documentId:guid}/download", Name = "DownloadDocument")]
     [ProducesResponseType(typeof(FileStreamResult), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-    [Authorize]
+    [Authorize(Policy = ReadPolicy)]
     public async Task<IActionResult> DownloadDocument(Guid documentId)
     {
         var userId = User.GetUserId();
@@ -106,7 +113,7 @@ public class DocumentController(IMediator mediator) : ControllerBase
     [HttpPut("{documentId:guid}", Name = "UpdateDocument")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-    [Authorize]
+    [Authorize(Policy = WritePolicy)]
     public async Task<IActionResult> UpdateDocument(Guid documentId, [FromBody] UpdateDocumentCommand request)
     {
         var userId = User.GetUserId();
@@ -126,7 +133,7 @@ public class DocumentController(IMediator mediator) : ControllerBase
     [HttpDelete("{documentId:guid}", Name = "DeleteDocument")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-    [Authorize]
+    [Authorize(Policy = WritePolicy)]
     public async Task<IActionResult> DeleteDocument(Guid documentId)
     {
         var result = await mediator.Send(new DeleteDocumentCommand
@@ -141,7 +148,7 @@ public class DocumentController(IMediator mediator) : ControllerBase
     [HttpPost("pod", Name = "CaptureProofOfDelivery")]
     [ProducesResponseType(typeof(Guid), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-    [Authorize]
+    [Authorize(Policy = WritePolicy)]
     [RequestSizeLimit(MaxUploadSizeBytes)] // 20MB limit for multiple photos
     public async Task<IActionResult> CaptureProofOfDelivery([FromForm] CaptureProofOfDeliveryRequest request)
     {
@@ -190,7 +197,7 @@ public class DocumentController(IMediator mediator) : ControllerBase
     [HttpPost("bol", Name = "CaptureBillOfLading")]
     [ProducesResponseType(typeof(Guid), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-    [Authorize]
+    [Authorize(Policy = WritePolicy)]
     [RequestSizeLimit(MaxUploadSizeBytes)] // 20MB limit for multiple photos
     public async Task<IActionResult> CaptureBillOfLading([FromForm] CaptureProofOfDeliveryRequest request)
     {

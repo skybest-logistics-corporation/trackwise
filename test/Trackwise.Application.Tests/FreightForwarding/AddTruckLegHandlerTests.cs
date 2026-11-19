@@ -1,3 +1,4 @@
+using Trackwise.Application.Tests.TestKit;
 using MockQueryable;
 using Trackwise.Application.Abstractions.CurrentUser;
 using Trackwise.Application.Abstractions.Geocoding;
@@ -76,6 +77,7 @@ public class AddTruckLegHandlerTests
         tenantUow.Repository<Terminal>().Returns(terminalRepo);
         tenantUow.Repository<Location>().Returns(siteRepo);
         tenantUow.Repository<Customer>().Returns(customerRepo);
+        tenantUow.GetCurrentTenant().Returns(TestTenant.Create());
         tenantUow.Repository<Employee>().Returns(employeeRepo);
 
         workfileRepo.GetByIdAsync(parent.Id, Arg.Any<CancellationToken>()).Returns(parent);
@@ -208,7 +210,7 @@ public class AddTruckLegHandlerTests
     {
         var load = Load.Create(
             "earlier", LoadType.GeneralFreight, 0, PortAddress, new GeoPoint(120.96, 14.60),
-            WarehouseAddress, new GeoPoint(121.06, 14.58), customer, null, null, withInvoice: false);
+            WarehouseAddress, new GeoPoint(121.06, 14.58), customer, null, null, "PHP", withInvoice: false);
         load.WorkfileId = legId;
         load.WorkfileContainerId = slotId;
         return load;

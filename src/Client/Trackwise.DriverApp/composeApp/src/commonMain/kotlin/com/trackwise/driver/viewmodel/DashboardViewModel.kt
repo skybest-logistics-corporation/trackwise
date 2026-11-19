@@ -4,6 +4,7 @@ import androidx.lifecycle.viewModelScope
 import com.trackwise.driver.api.ApiException
 import com.trackwise.driver.api.DriverApi
 import com.trackwise.driver.api.DvirApi
+import com.trackwise.driver.api.TenantApi
 import com.trackwise.driver.api.TripApi
 import com.trackwise.driver.api.TruckApi
 import com.trackwise.driver.api.bodyOrThrow
@@ -22,6 +23,7 @@ import com.trackwise.driver.model.StopBlock
 import com.trackwise.driver.model.TripEventDraft
 import com.trackwise.driver.model.TripEventInput
 import com.trackwise.driver.model.UndoableEvent
+import com.trackwise.driver.model.forDriver
 import com.trackwise.driver.model.matching
 import com.trackwise.driver.model.toStopBlocks
 import com.trackwise.driver.model.withPending
@@ -63,7 +65,9 @@ data class DashboardData(
     /** No signal: Today shows the trip as last loaded, plus the crew's taps since. */
     val offline: Boolean = false,
     /** Taps kept on the phone, waiting for signal. */
-    val waitingTaps: Int = 0
+    val waitingTaps: Int = 0,
+    /** What "Call office" dials; null when the company has no number set. */
+    val officePhone: String? = null
 )
 
 /** A trip as the API last sent it, before the taps waiting on the phone are added. */
@@ -73,7 +77,8 @@ private data class Loaded(
     val truck: TruckDto?,
     val trips: List<LoadedTrip>,
     val userId: String,
-    val offline: Boolean = false
+    val offline: Boolean = false,
+    val officePhone: String? = null
 ) {
     fun withTaps(pending: List<PendingTripEvent>) = DashboardData(
         truck = truck,
@@ -83,7 +88,8 @@ private data class Loaded(
         },
         currentUserId = userId,
         offline = offline,
-        waitingTaps = pending.size
+        waitingTaps = pending.size,
+        officePhone = officePhone
     )
 }
 
@@ -92,6 +98,7 @@ class DashboardViewModel(
     private val tripApi: TripApi,
     private val driverApi: DriverApi,
     private val dvirApi: DvirApi,
+    private val tenantApi: TenantApi,
     private val preferencesManager: PreferencesManager,
     private val locationSharing: LocationSharing,
     private val proximityWatcher: LoadProximityWatcher,
@@ -219,12 +226,15 @@ class DashboardViewModel(
         val driverId = driver.id ?: ""
 
         val inspectedTripIds = preTripInspectedTripIds(userId)
+        // A rescue crew's trips are another truck's, so they come with the rescues to cut them down by.
         val active = tripApi.getTrips(
             driverId = driverId,
+            includeRescues = true,
             onlyActiveTrips = true,
             orderBy = "-CreatedAt"
         ).bodyOrThrow().items.orEmpty()
             .filter { it.status in listOf(TripStatus.DISPATCHED, TripStatus.IN_TRANSIT) }
+            .map { it.forDriver(driverId) }
         val trips = (active + awaitingGarage(driverId))
             .map { trip -> LoadedTrip(trip, photosOf(trip), trip.id in inspectedTripIds) }
 
@@ -236,7 +246,7 @@ class DashboardViewModel(
         preferencesManager.saveDriverName(driver.fullName ?: "")
         preferencesManager.saveTruckNumber(truck?.number ?: "")
 
-        return Loaded(truck, trips, userId)
+        return Loaded(truck, trips, userId, officePhone = officePhone())
     }
 
     /**
@@ -246,10 +256,30 @@ class DashboardViewModel(
     private suspend fun awaitingGarage(driverId: String): List<TripDto> {
         val since = Clock.System.now() - 12.hours
         return runCatching {
-            tripApi.getTrips(driverId = driverId, status = TripStatus.COMPLETED, orderBy = "-CompletedAt", pageSize = 3)
-                .bodyOrThrow().items.orEmpty()
+            tripApi.getTrips(
+                driverId = driverId,
+                includeRescues = true,
+                status = TripStatus.COMPLETED,
+                orderBy = "-CompletedAt",
+                pageSize = 3
+            ).bodyOrThrow().items.orEmpty()
         }.getOrDefault(emptyList())
+            .map { it.forDriver(driverId) }
             .filter { it.garageArrivedAt == null && (it.completedAt ?: since) > since }
+    }
+
+    /** The dispatcher's line when the company set one, else the company phone; the last known one without signal. */
+    private suspend fun officePhone(): String? {
+        val tenantId = preferencesManager.getTenantId()
+        val fresh = tenantId?.let { id ->
+            runCatching { tenantApi.getTenantById(id).bodyOrThrow() }.getOrNull()
+        }
+        if (fresh != null) {
+            val phone = fresh.settings?.dispatchPhoneNumber?.takeIf { it.isNotBlank() } ?: fresh.phoneNumber
+            preferencesManager.saveOfficePhone(phone)
+            return phone?.takeIf { it.isNotBlank() }
+        }
+        return preferencesManager.getOfficePhone()
     }
 
     private suspend fun photosOf(trip: TripDto) =

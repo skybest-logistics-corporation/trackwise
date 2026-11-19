@@ -129,6 +129,7 @@ export class EmployeeEditDialog {
     return !!role && (DRIVING_ROLES as readonly string[]).includes(role);
   });
   protected readonly canChangeRole = signal(false);
+  protected readonly canDelete = this.permissionService.hasPermission(Permission.MasterData.Manage);
   protected readonly changeRoleDialogVisible = signal(false);
 
   /**

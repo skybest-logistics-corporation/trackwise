@@ -10053,6 +10053,123 @@
         }
       }
     },
+    "/drivers/trips/{tripId}/incidents": {
+      "post": {
+        "tags": [
+          "Driver"
+        ],
+        "operationId": "ReportDriverIncident",
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportDriverIncidentCommand"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportDriverIncidentCommand"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportDriverIncidentCommand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/drivers/incidents/{incidentId}/photos": {
+      "post": {
+        "tags": [
+          "Driver"
+        ],
+        "operationId": "AddDriverIncidentPhotos",
+        "parameters": [
+          {
+            "name": "incidentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "Photos": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "binary"
+                    }
+                  }
+                }
+              },
+              "encoding": {
+                "Photos": {
+                  "style": "form"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/drivers/update-load-proximity": {
       "post": {
         "tags": [
@@ -31518,6 +31635,13 @@
             "schema": {
               "type": "string",
               "format": "uuid"
+            }
+          },
+          {
+            "name": "IncludeRescues",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
             }
           },
           {
@@ -53669,6 +53793,39 @@
         ],
         "type": "string"
       },
+      "ReportDriverIncidentCommand": {
+        "type": "object",
+        "properties": {
+          "tripId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/IncidentKind"
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "vehicleDrivable": {
+            "type": "boolean"
+          },
+          "anyInjuries": {
+            "type": "boolean"
+          },
+          "latitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "ReportExceptionRequest": {
         "type": "object",
         "properties": {
@@ -55826,6 +55983,10 @@
           },
           "coldChainBookingNumbersTyped": {
             "type": "boolean"
+          },
+          "dispatchPhoneNumber": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false

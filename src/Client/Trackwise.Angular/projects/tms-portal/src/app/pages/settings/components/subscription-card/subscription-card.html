@@ -33,7 +33,7 @@
 
   <ui-grid container spacing="6">
     <!-- Pricing Breakdown -->
-    <ui-grid [size]="{ xs: 12, md: 8 }">
+    <ui-grid [size]="{ xs: 12, md: canManageSubscription ? 8 : 12 }">
       <ui-card>
         <ng-template #header>
           <div class="p-4 pb-0">
@@ -71,56 +71,58 @@
     </ui-grid>
 
     <!-- Quick Actions -->
-    <ui-grid [size]="{ xs: 12, md: 4 }">
-      <ui-card>
-        <ng-template #header>
-          <div class="p-4 pb-0">
-            <ui-typography variant="h3" tag="h3" weight="semibold" class="m-0">
-              Actions
-            </ui-typography>
-          </div>
-        </ng-template>
+    @if (canManageSubscription) {
+      <ui-grid [size]="{ xs: 12, md: 4 }">
+        <ui-card>
+          <ng-template #header>
+            <div class="p-4 pb-0">
+              <ui-typography variant="h3" tag="h3" weight="semibold" class="m-0">
+                Actions
+              </ui-typography>
+            </div>
+          </ng-template>
 
-        <ui-stack gap="2">
-          <ui-button
-            appearance="outlined"
-            block
-            [routerLink]="'/subscription/plans'"
-            label="Change Plan"
-            icon="refresh-cw"
-          />
-          <ui-button
-            intent="secondary"
-            block
-            label="Manage Billing"
-            icon="external-link"
-            [disabled]="isLoading()"
-            [loading]="isLoading()"
-            (click)="openBillingPortal()"
-          />
-
-          @if (isCancelledOrPending()) {
+          <ui-stack gap="2">
             <ui-button
-              intent="success"
-              block
-              label="Resume Subscription"
-              icon="refresh-cw"
-              [routerLink]="'/subscription/renew'"
-            />
-          } @else {
-            <ui-button
-              intent="danger"
               appearance="outlined"
               block
-              label="Cancel Subscription"
-              icon="x"
-              [disabled]="isLoading()"
-              (click)="confirmCancelSubscription()"
+              [routerLink]="'/subscription/plans'"
+              label="Change Plan"
+              icon="refresh-cw"
             />
-          }
-        </ui-stack>
-      </ui-card>
-    </ui-grid>
+            <ui-button
+              intent="secondary"
+              block
+              label="Manage Billing"
+              icon="external-link"
+              [disabled]="isLoading()"
+              [loading]="isLoading()"
+              (click)="openBillingPortal()"
+            />
+
+            @if (isCancelledOrPending()) {
+              <ui-button
+                intent="success"
+                block
+                label="Resume Subscription"
+                icon="refresh-cw"
+                [routerLink]="'/subscription/renew'"
+              />
+            } @else {
+              <ui-button
+                intent="danger"
+                appearance="outlined"
+                block
+                label="Cancel Subscription"
+                icon="x"
+                [disabled]="isLoading()"
+                (click)="confirmCancelSubscription()"
+              />
+            }
+          </ui-stack>
+        </ui-card>
+      </ui-grid>
+    }
   </ui-grid>
 } @else {
   <ui-stack align="center" gap="4" class="py-8 text-center">

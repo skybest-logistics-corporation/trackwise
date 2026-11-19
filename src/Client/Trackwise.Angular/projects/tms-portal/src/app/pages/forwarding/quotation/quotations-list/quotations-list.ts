@@ -1,8 +1,9 @@
 import { Component, computed, effect, inject, signal } from "@angular/core";
 import { form, FormField } from "@angular/forms/signals";
 import { Router } from "@angular/router";
-import { createListStore, getBranches } from "@trackwise/shared";
+import { createListStore, getBranches, Permission } from "@trackwise/shared";
 import type { BranchDto, CustomerDto, FreightMode, QuotationStatus } from "@trackwise/shared/api";
+import { PermissionService } from "@trackwise/shared/services";
 import {
   Card,
   Grid,
@@ -64,6 +65,9 @@ export class QuotationsListComponent {
   private readonly router = inject(Router);
   protected readonly store = inject(QuotationsListStore);
   protected readonly branchesStore = inject(BranchesStore);
+  protected readonly canManage = inject(PermissionService).hasPermission(
+    Permission.Quotation.Manage,
+  );
 
   protected readonly filterModel = signal<QuotationFilters>({ ...DEFAULT_FILTERS });
 

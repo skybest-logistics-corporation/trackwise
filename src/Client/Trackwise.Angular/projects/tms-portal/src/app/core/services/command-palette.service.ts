@@ -17,7 +17,7 @@ export interface SearchableItem {
 }
 
 /** Page rows inherit their gate from the `NavItem`; these have no nav entry, so they carry their own. */
-const QUICK_ACTIONS: (SearchableItem & { permission: string })[] = [
+const QUICK_ACTIONS: (SearchableItem & { permission: string | string[] })[] = [
   {
     id: "action-create-load",
     label: "Create Load",
@@ -36,7 +36,7 @@ const QUICK_ACTIONS: (SearchableItem & { permission: string })[] = [
     route: "/master-data/employees/add",
     type: "action",
     keywords: ["new", "hire", "driver"],
-    permission: Permission.Employee.Manage,
+    permission: Permission.MasterData.Manage,
   },
   {
     id: "action-add-customer",
@@ -66,7 +66,7 @@ const QUICK_ACTIONS: (SearchableItem & { permission: string })[] = [
     route: "/master-data/trucks/add",
     type: "action",
     keywords: ["new", "vehicle", "fleet"],
-    permission: Permission.Truck.Manage,
+    permission: Permission.MasterData.Manage,
   },
 ];
 
@@ -129,7 +129,9 @@ export class CommandPaletteService {
     }
 
     this.quickActions = QUICK_ACTIONS.filter((action) =>
-      this.permissionService.hasPermission(action.permission),
+      Array.isArray(action.permission)
+        ? this.permissionService.hasAnyPermission(...action.permission)
+        : this.permissionService.hasPermission(action.permission),
     );
     this.searchIndex = [...items, ...this.quickActions];
     this.recentPagesService.setRouteLabels(routeLabels);

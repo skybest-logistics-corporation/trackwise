@@ -13,6 +13,7 @@ import com.trackwise.driver.api.MessageApi
 import com.trackwise.driver.api.PrivacyApi
 import com.trackwise.driver.api.ReportApi
 import com.trackwise.driver.api.StatApi
+import com.trackwise.driver.api.TenantApi
 import com.trackwise.driver.api.TripApi
 import com.trackwise.driver.api.TruckApi
 import com.trackwise.driver.api.UserApi
@@ -38,6 +39,7 @@ import com.trackwise.driver.viewmodel.LoginViewModel
 import com.trackwise.driver.viewmodel.MyLicensesViewModel
 import com.trackwise.driver.viewmodel.PastLoadsViewModel
 import com.trackwise.driver.viewmodel.PodCaptureViewModel
+import com.trackwise.driver.viewmodel.ReportProblemViewModel
 import com.trackwise.driver.viewmodel.PrivacyViewModel
 import com.trackwise.driver.viewmodel.SettingsViewModel
 import com.trackwise.driver.viewmodel.StatsViewModel
@@ -70,6 +72,7 @@ fun commonModule() = module {
     single<PrivacyApi> { get<ApiFactory>().privacyApi }
     single<ReportApi> { get<ApiFactory>().reportApi }
     single<StatApi> { get<ApiFactory>().statApi }
+    single<TenantApi> { get<ApiFactory>().tenantApi }
     single<TripApi> { get<ApiFactory>().tripApi }
     single<TruckApi> { get<ApiFactory>().truckApi }
     single<UserApi> { get<ApiFactory>().userApi }
@@ -99,6 +102,7 @@ fun commonModule() = module {
     viewModelOf(::ChatViewModel)
     // viewModelOf resolves parameters by type, so two String ids would both get the first one
     viewModel { params -> PodCaptureViewModel(get(), get(), params[0], params[1], params[2]) }
+    viewModel { params -> ReportProblemViewModel(get(), get(), get(), params.get<String>()) }
     viewModelOf(::ConditionReportViewModel)
     viewModel { params -> DvirFormViewModel(get(), get(), get(), get(), params[0], params[1], params[2]) }
     viewModelOf(::PrivacyViewModel)

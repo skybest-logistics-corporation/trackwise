@@ -95,6 +95,30 @@ interface Strings {
     val locationBlockedBody: String
     val locationSettingsButton: String
 
+    val problemCardTitle: String
+    val problemCardBody: String
+    val problemButton: String
+    val callOffice: String
+    val problemTitle: String
+    val problemWhat: String
+    val kindAccident: String
+    val kindBreakdown: String
+    val kindOther: String
+    val truckCanGoOn: String
+    val anyoneHurt: String
+    val yes: String
+    val no: String
+    val problemNote: String
+    val problemPhotos: String
+    val sendProblem: String
+    fun problemSentTitle(caseNumber: String): String
+    val problemSentBody: String
+    val photosNotSent: String
+    val problemNotSent: String
+    val sendPhotos: String
+    val finish: String
+    fun rescueFor(truck: String): String
+
     val whenNow: String
     fun whenGps(time: String): String
     val whenEarlier: String
@@ -270,6 +294,30 @@ object TaglishStrings : Strings {
     override val locationOffButton = "BUKSAN ANG LOCATION"
     override val locationBlockedBody = "Naka-block ang location sa phone na ito. Pindutin ang button, tapos: Permissions → Location → Allow."
     override val locationSettingsButton = "BUKSAN ANG SETTINGS"
+
+    override val problemCardTitle = "May problema sa daan?"
+    override val problemCardBody = "Aksidente o nasiraan? Sabihan ang office dito, tapos tawagan sila."
+    override val problemButton = "I-REPORT ANG PROBLEMA"
+    override val callOffice = "TAWAGAN ANG OFFICE"
+    override val problemTitle = "Problema sa daan"
+    override val problemWhat = "Ano'ng nangyari?"
+    override val kindAccident = "Aksidente / may nabangga"
+    override val kindBreakdown = "Nasiraan"
+    override val kindOther = "Ibang problema"
+    override val truckCanGoOn = "Kaya pa bang tumakbo ng truck?"
+    override val anyoneHurt = "May nasaktan ba?"
+    override val yes = "Oo"
+    override val no = "Hindi"
+    override val problemNote = "Kwento (kung kaya)"
+    override val problemPhotos = "Litrato ng sira at ng lugar"
+    override val sendProblem = "IPADALA SA OFFICE"
+    override val problemSentBody = "Mag-ingat. Sasabihan kayo ng office kung may ibang truck na kukuha ng mga drop."
+    override val photosNotSent = "Nasa office na ang report, pero hindi naipadala ang litrato. Subukan ulit."
+    override val problemNotSent = "Hindi naipadala - walang signal? Tawagan ang office."
+    override val sendPhotos = "IPADALA ANG LITRATO"
+    override val finish = "TAPOS"
+    override fun problemSentTitle(caseNumber: String) = "Naipadala na sa office - $caseNumber"
+    override fun rescueFor(truck: String) = "Rescue para sa $truck"
 
     override val whenNow = "Ngayon lang"
     override fun whenGps(time: String) = "GPS: $time"
@@ -466,6 +514,30 @@ object EnglishStrings : Strings {
     override val locationBlockedBody = "Location is blocked on this phone. Tap the button, then: Permissions → Location → Allow."
     override val locationSettingsButton = "OPEN SETTINGS"
 
+    override val problemCardTitle = "Problem on the road?"
+    override val problemCardBody = "Accident or breakdown? Tell the office here, then call them."
+    override val problemButton = "REPORT A PROBLEM"
+    override val callOffice = "CALL OFFICE"
+    override val problemTitle = "Problem on the road"
+    override val problemWhat = "What happened?"
+    override val kindAccident = "Accident / hit something"
+    override val kindBreakdown = "Breakdown"
+    override val kindOther = "Other problem"
+    override val truckCanGoOn = "Can the truck still go on?"
+    override val anyoneHurt = "Is anyone hurt?"
+    override val yes = "Yes"
+    override val no = "No"
+    override val problemNote = "What happened (if you can)"
+    override val problemPhotos = "Photos of the damage and the scene"
+    override val sendProblem = "SEND TO OFFICE"
+    override val problemSentBody = "Stay safe. The office will tell you if another truck is coming for your drops."
+    override val photosNotSent = "The report is in, but the photos didn't send. Try again."
+    override val problemNotSent = "Not sent - no signal? Call the office."
+    override val sendPhotos = "SEND PHOTOS"
+    override val finish = "DONE"
+    override fun problemSentTitle(caseNumber: String) = "Sent to the office - $caseNumber"
+    override fun rescueFor(truck: String) = "Rescue for $truck"
+
     override val whenNow = "Just now"
     override fun whenGps(time: String) = "GPS: $time"
     override val whenEarlier = "Earlier…"
@@ -660,6 +732,30 @@ object BisayaStrings : Strings {
     override val locationOffButton = "ABLIHI ANG LOCATION"
     override val locationBlockedBody = "Naka-block ang location niining phone. Pindota ang button, dayon: Permissions → Location → Allow."
     override val locationSettingsButton = "ABLIHI ANG SETTINGS"
+
+    override val problemCardTitle = "Naay problema sa dalan?"
+    override val problemCardBody = "Aksidente o naguba? Sultihi ang office diri, dayon tawagi sila."
+    override val problemButton = "I-REPORT ANG PROBLEMA"
+    override val callOffice = "TAWAGI ANG OFFICE"
+    override val problemTitle = "Problema sa dalan"
+    override val problemWhat = "Unsa'y nahitabo?"
+    override val kindAccident = "Aksidente / naay nabangga"
+    override val kindBreakdown = "Naguba"
+    override val kindOther = "Laing problema"
+    override val truckCanGoOn = "Makadagan pa ba ang truck?"
+    override val anyoneHurt = "Naay naangol?"
+    override val yes = "Oo"
+    override val no = "Dili"
+    override val problemNote = "Istorya (kung kaya)"
+    override val problemPhotos = "Litrato sa guba ug sa lugar"
+    override val sendProblem = "IPADALA SA OFFICE"
+    override val problemSentBody = "Pag-amping. Sultihan mo sa office kung naay laing truck nga mokuha sa mga drop."
+    override val photosNotSent = "Naa na sa office ang report, pero wala napadala ang litrato. Sulayi pag-usab."
+    override val problemNotSent = "Wala napadala - walay signal? Tawagi ang office."
+    override val sendPhotos = "IPADALA ANG LITRATO"
+    override val finish = "HUMAN NA"
+    override fun problemSentTitle(caseNumber: String) = "Napadala na sa office - $caseNumber"
+    override fun rescueFor(truck: String) = "Rescue para sa $truck"
 
     override val whenNow = "Karon ra"
     override fun whenGps(time: String) = "GPS: $time"

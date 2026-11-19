@@ -110,9 +110,10 @@ internal sealed class UpdateTruckLegHandler(ITenantUnitOfWork tenantUow, IGeocod
                 ? await tenantUow.Repository<Employee>().GetByIdAsync(dispatcherId, ct)
                 : null;
 
+            var currency = tenantUow.GetCurrentTenant().Settings.Currency.ToString();
             await tenantUow.Repository<Load>().AddRangeAsync(
                 added.Select(slotId => TruckLegLoads.Build(
-                    leg, slotId, slotId is { } id ? labels[id] : null, from.Value!, to.Value!, customer, dispatcher, req)),
+                    leg, slotId, slotId is { } id ? labels[id] : null, from.Value!, to.Value!, customer, dispatcher, currency, req)),
                 ct);
         }
 

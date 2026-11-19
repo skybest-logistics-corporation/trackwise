@@ -10,7 +10,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -33,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.trackwise.driver.api.models.DvirType
+import com.trackwise.driver.api.models.TripDto
 import com.trackwise.driver.model.StopBlock
 import com.trackwise.driver.permission.RequestLocationPermissionFlow
 import com.trackwise.driver.permission.openAppSettings
@@ -42,6 +45,7 @@ import com.trackwise.driver.ui.components.AppTopBar
 import com.trackwise.driver.ui.components.CardContainer
 import com.trackwise.driver.ui.components.UiStateContent
 import com.trackwise.driver.ui.components.today.BigActionButton
+import com.trackwise.driver.ui.components.today.BigOutlinedButton
 import com.trackwise.driver.ui.components.today.FinishedTrip
 import com.trackwise.driver.ui.components.today.TodayStepCard
 import com.trackwise.driver.ui.components.today.TripEventSheet
@@ -59,6 +63,7 @@ fun DashboardScreen(
     onTripClick: (String) -> Unit,
     onTruckCheck: (truckId: String?, tripId: String?, type: DvirType) -> Unit,
     onStopPhoto: (block: StopBlock) -> Unit,
+    onReportProblem: (tripId: String) -> Unit,
     onOpenUrl: (String) -> Unit,
     viewModel: DashboardViewModel = koinViewModel()
 ) {
@@ -165,6 +170,15 @@ fun DashboardScreen(
                             onTripClick = { today.trip.id?.let(onTripClick) }
                         )
                     }
+
+                    item {
+                        ProblemCard(
+                            trips = data.trips.map { it.trip },
+                            officePhone = data.officePhone,
+                            onReport = onReportProblem,
+                            onCall = { phone -> onOpenUrl("tel:${phone.filter { it.isDigit() || it == '+' }}") }
+                        )
+                    }
                 }
             }
         }
@@ -246,6 +260,39 @@ private fun UnsentTapsDialog(taps: List<UnsentTripEvent>, onDismiss: () -> Unit)
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(s.ok) } }
     )
+}
+
+/**
+ * Always at the bottom of Today: report an accident or breakdown on a trip, and call the office. The
+ * call works without data, so it shows even when there is no trip.
+ */
+@Composable
+private fun ProblemCard(
+    trips: List<TripDto>,
+    officePhone: String?,
+    onReport: (tripId: String) -> Unit,
+    onCall: (String) -> Unit
+) {
+    val s = LocalStrings.current
+    if (trips.isEmpty() && officePhone == null) return
+    CardContainer {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(s.problemCardTitle, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            if (trips.isNotEmpty()) Text(s.problemCardBody)
+            trips.forEach { trip ->
+                val id = trip.id ?: return@forEach
+                BigActionButton(
+                    text = if (trips.size > 1) "${s.problemButton} · ${trip.name}" else s.problemButton,
+                    icon = Icons.Default.Warning,
+                    color = StepProblem,
+                    onClick = { onReport(id) }
+                )
+            }
+            officePhone?.let { phone ->
+                BigOutlinedButton(text = s.callOffice, icon = Icons.Default.Phone, onClick = { onCall(phone) })
+            }
+        }
+    }
 }
 
 /** Location can only be off because the phone blocks it; the crew can't switch it off themselves. */

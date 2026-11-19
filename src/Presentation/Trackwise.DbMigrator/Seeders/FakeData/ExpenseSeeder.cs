@@ -14,6 +14,7 @@ internal class ExpenseSeeder(ILogger<ExpenseSeeder> logger) : SeederBase(logger)
 {
     private readonly DateTime startDate = DateTime.UtcNow.AddMonths(-3);
     private readonly DateTime endDate = DateTime.UtcNow.AddDays(-1);
+    private string currency = "PHP";
 
     private static readonly string[] VendorNames =
     [
@@ -45,6 +46,7 @@ internal class ExpenseSeeder(ILogger<ExpenseSeeder> logger) : SeederBase(logger)
     {
         LogStarting();
 
+        currency = context.CurrentTenant?.Settings.Currency.ToString() ?? currency;
         var expenseRepository = context.TenantUnitOfWork.Repository<Expense>();
         var truckRepository = context.TenantUnitOfWork.Repository<Truck>();
 
@@ -104,7 +106,7 @@ internal class ExpenseSeeder(ILogger<ExpenseSeeder> logger) : SeederBase(logger)
 
         var expense = new CompanyExpense
         {
-            Amount = new Money { Amount = amount, Currency = "USD" },
+            Amount = new Money { Amount = amount, Currency = currency },
             VendorName = random.Pick(VendorNames),
             ExpenseDate = expenseDate,
             ReceiptBlobPath = $"receipts/company/{Guid.NewGuid()}.pdf",
@@ -133,7 +135,7 @@ internal class ExpenseSeeder(ILogger<ExpenseSeeder> logger) : SeederBase(logger)
 
         var expense = new TruckExpense
         {
-            Amount = new Money { Amount = amount, Currency = "USD" },
+            Amount = new Money { Amount = amount, Currency = currency },
             VendorName = random.Pick(VendorNames),
             ExpenseDate = expenseDate,
             ReceiptBlobPath = $"receipts/truck/{Guid.NewGuid()}.pdf",
@@ -165,7 +167,7 @@ internal class ExpenseSeeder(ILogger<ExpenseSeeder> logger) : SeederBase(logger)
 
         var expense = new BodyShopExpense
         {
-            Amount = new Money { Amount = random.Next(1000, 8000), Currency = "USD" },
+            Amount = new Money { Amount = random.Next(1000, 8000), Currency = currency },
             VendorName = random.Pick(["Joe's Body Shop", "Premier Collision Center", "Elite Auto Body", "Quality Auto Repair"]),
             ExpenseDate = expenseDate,
             ReceiptBlobPath = $"receipts/bodyshop/{Guid.NewGuid()}.pdf",

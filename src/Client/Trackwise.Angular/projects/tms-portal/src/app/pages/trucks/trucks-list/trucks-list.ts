@@ -1,5 +1,6 @@
 import { Component, computed, inject, signal } from "@angular/core";
 import { Router } from "@angular/router";
+import { Permission } from "@trackwise/shared";
 import {
   Api,
   restoreTruck,
@@ -7,6 +8,7 @@ import {
   type TruckDto as TruckMasterDataDto,
 } from "@trackwise/shared/api";
 import { AddressPipe } from "@trackwise/shared/pipes";
+import { PermissionService } from "@trackwise/shared/services";
 import {
   Badge,
   Card,
@@ -63,7 +65,9 @@ export class TrucksList {
   private readonly addressPipe = inject(AddressPipe);
   private readonly api = inject(Api);
   private readonly toastService = inject(ToastService);
+  private readonly permissionService = inject(PermissionService);
   protected readonly store = inject(TrucksListStore);
+  protected readonly canManage = this.permissionService.hasPermission(Permission.MasterData.Manage);
 
   protected readonly selectedRow = signal<TruckMasterDataDto | null>(null);
   protected readonly viewMode = signal<"table" | "map">("table");
@@ -77,13 +81,15 @@ export class TrucksList {
   protected readonly actionMenuItems = computed<UiMenuItem[]>(() => {
     const row = this.selectedRow();
     if (row?.deletedAt) {
-      return [
-        {
-          label: "Restore",
-          icon: "history",
-          command: () => this.restore(row),
-        },
-      ];
+      return this.canManage
+        ? [
+            {
+              label: "Restore",
+              icon: "history",
+              command: () => this.restore(row),
+            },
+          ]
+        : [];
     }
 
     return [
@@ -92,11 +98,15 @@ export class TrucksList {
         icon: "eye",
         command: () => this.router.navigateByUrl(`/master-data/trucks/${row!.id}`),
       },
-      {
-        label: "Edit truck",
-        icon: "pencil",
-        command: () => this.router.navigateByUrl(`/master-data/trucks/${row!.id}/edit`),
-      },
+      ...(this.canManage
+        ? [
+            {
+              label: "Edit truck",
+              icon: "pencil" as const,
+              command: () => this.router.navigateByUrl(`/master-data/trucks/${row!.id}/edit`),
+            },
+          ]
+        : []),
       {
         label: "Manage documents",
         icon: "folder",

@@ -1,7 +1,7 @@
 <div class="animate-in fade-in space-y-4">
   <ui-page-header
     title="Container Types"
-    addRoute="/master-data/container-types/add"
+    [addRoute]="canManage ? '/master-data/container-types/add' : null"
     addTooltip="Add a new container type"
   />
 

@@ -1,5 +1,5 @@
 import { DatePipe } from "@angular/common";
-import { Component, computed, signal, type OnInit } from "@angular/core";
+import { Component, computed, inject, signal, type OnInit } from "@angular/core";
 import { RouterModule } from "@angular/router";
 import {
   getMaintenanceReport,
@@ -9,6 +9,7 @@ import {
   type MaintenanceVendorBreakdownDto,
 } from "@trackwise/shared/api";
 import { CurrencyFormatPipe } from "@trackwise/shared/pipes";
+import { LocalizationService } from "@trackwise/shared/services";
 import {
   Grid,
   Icon,
@@ -59,6 +60,8 @@ export class MaintenanceReportComponent
   extends BaseReportComponent<MaintenanceReportDto>
   implements OnInit
 {
+  private readonly currencySymbol = inject(LocalizationService).getCurrencySymbol();
+
   protected readonly costTrendChartData = signal<Record<string, unknown>>({});
   protected readonly serviceTypeChartData = signal<Record<string, unknown>>({});
   protected readonly vendorChartData = signal<Record<string, unknown>>({});
@@ -92,7 +95,7 @@ export class MaintenanceReportComponent
       y: {
         beginAtZero: true,
         ticks: {
-          callback: (value: number) => "$" + value.toLocaleString(),
+          callback: (value: number) => this.currencySymbol + value.toLocaleString(),
         },
       },
     },
@@ -122,11 +125,11 @@ export class MaintenanceReportComponent
           beginAtZero: true,
           title: {
             display: true,
-            text: "Cost ($)",
+            text: `Cost (${this.currencySymbol})`,
             font: { weight: "bold" as const },
           },
           ticks: {
-            callback: (value: number) => "$" + value.toLocaleString(),
+            callback: (value: number) => this.currencySymbol + value.toLocaleString(),
           },
         },
       },

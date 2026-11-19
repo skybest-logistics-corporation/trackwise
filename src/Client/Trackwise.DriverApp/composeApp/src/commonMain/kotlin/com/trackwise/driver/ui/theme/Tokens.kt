@@ -18,11 +18,16 @@ object Spacing {
 }
 
 /**
- * Radius tokens for consistent corner rounding.
+ * Radius tokens, following shadcn/ui (--radius 0.5rem): sm 6, md 8 (inputs, buttons), lg 12 (cards), xl 16 (sheets).
  */
 object Radius {
-    val sm = 4.dp
+    val sm = 6.dp
     val md = 8.dp
     val lg = 12.dp
     val xl = 16.dp
+}
+
+/** shadcn draws edges with a 1dp hairline border instead of shadows. */
+object Border {
+    val hairline = 1.dp
 }

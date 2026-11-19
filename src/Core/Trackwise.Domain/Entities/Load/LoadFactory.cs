@@ -24,8 +24,8 @@ public static class LoadFactory
         Customer customer,
         Truck? assignedTruck,
         Employee? assignedDispatcher,
+        string currency,
         Trip? trip = null,
-        string currency = "USD",
         bool withInvoice = true)
     {
         var load = new Load

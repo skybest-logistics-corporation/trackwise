@@ -25,9 +25,11 @@ export class TenantService {
 
   /**
    * Signal that exposes the current tenant's currency setting.
-   * Defaults to 'USD' if not set.
+   * Defaults to 'PHP' if not set.
    */
-  public readonly tenantCurrency = computed(() => this._tenantData()?.settings?.currency ?? "USD");
+  public readonly tenantCurrency = computed(() =>
+    (this._tenantData()?.settings?.currency ?? "PHP").toUpperCase(),
+  );
 
   /** The tenant's operating mode. Single source for every solo-vs-fleet branch in the portal. */
   public readonly operatingMode = computed<OperatingMode>(

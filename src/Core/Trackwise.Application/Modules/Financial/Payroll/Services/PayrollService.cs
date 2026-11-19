@@ -83,7 +83,7 @@ internal class PayrollService(
     {
         var (invoiceAmount, totalDistance, totalHours) = CalculateSalaryWithDetails(employee, startDate, endDate);
         var tenant = tenantUow.GetCurrentTenant();
-        var currency = (tenant.Settings?.Currency ?? CurrencyCode.USD).ToString();
+        var currency = tenant.Settings.Currency.ToString();
 
         var subtotal = new Money { Amount = invoiceAmount, Currency = currency };
         var payrollInvoice = new PayrollInvoice

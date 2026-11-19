@@ -48,7 +48,7 @@ export class GrossBarchart implements OnInit {
   });
 
   protected readonly chartOptions = computed(() => {
-    const currencySymbol = this.localizationService?.getCurrencySymbol() ?? "$";
+    const currencySymbol = this.localizationService?.getCurrencySymbol() ?? "₱";
     const palette = getChartPalette(this.themeService.isDark());
     return {
       maintainAspectRatio: false,

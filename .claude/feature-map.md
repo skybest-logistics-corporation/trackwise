@@ -138,7 +138,9 @@ This file answers _where_. For _how it works_, follow the deep dive: **AI dispat
   `utils/rescue.ts`) and a "Rescue · truck" badge on each rescued drop. The rescue truck's own garage
   times: `Trip.RecordRescueGarageTimes` (left before the transfer, back after its last rescued drop),
   `PUT trips/{id}/rescues/{rescueId}/garage-times`, `rescue-garage-dialog`. Not yet: the crew plan
-  doesn't show the rescue truck as used that day
+  doesn't show the rescue truck as used that day. The rescue crew's Driver App: `GET trips?driverId=&includeRescues=true`
+  also returns trips they rescue, with `Rescues` filled; the app cuts each down to their drops
+  (`model/RescueRun.kt` - starts at the transfer, ends when the last one is left, no garage steps)
 - **Price out of date** is also stamped (only on a priced trip) when a drop is added or removed or
   the truck's tonnage class changes - pricing reads both; a same-size truck swap leaves the price
 
@@ -425,6 +427,14 @@ incidents/{id}/attachments/{attachmentId}`; viewed through the generic document 
   `monday-export/scripts/monday_incidents.py`; it sets the series past the highest case. Severity is
   judged from the text (Monday has none); dates are noon Manila. Fake `IncidentSeeder` (US accidents)
   only where there is no Monday data
+- From the Driver App (2026-11-11): the "Problem" card on Today -> `ReportProblemScreen`
+  (accident / breakdown / other, can the truck go on, anyone hurt, note, photos) ->
+  `POST drivers/trips/{tripId}/incidents` (`ReportDriverIncident`, `Driver.Manage`) opens a case
+  naming the reporter's crew and truck - the trip's own, or their rescue's (`DriverIncidentReport`) -
+  repeats within 10 minutes return the same case, and the office gets an in-app notification.
+  `POST drivers/incidents/{id}/photos` (only the case's own driver, until resolved). "Call office"
+  dials `TenantSettings.DispatchPhoneNumber` (Settings > Company > Dispatch Phone), else the company
+  phone; the app keeps the last number for when there's no data
 
 ### Driver behavior
 

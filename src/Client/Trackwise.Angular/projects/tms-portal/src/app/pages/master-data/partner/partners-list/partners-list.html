@@ -1,7 +1,7 @@
 <div class="animate-in fade-in space-y-4">
   <ui-page-header
     title="Business Partners"
-    addRoute="/master-data/partners/add"
+    [addRoute]="canManage ? '/master-data/partners/add' : null"
     addTooltip="Add a new business partner"
   />
 
