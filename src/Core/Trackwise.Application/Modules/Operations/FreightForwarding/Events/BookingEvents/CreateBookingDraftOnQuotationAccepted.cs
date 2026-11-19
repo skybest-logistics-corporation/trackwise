@@ -11,13 +11,15 @@ using Trackwise.Domain.Persistence;
 namespace Trackwise.Application.Modules.Operations.FreightForwarding.Events.BookingEvents;
 
 // ── 1. Quotation Accepted -> Booking Draft ───────────────────────────────────
-
 public class CreateBookingDraftOnQuotationAccepted(
     ITenantUnitOfWork _tenantUow) : INotificationHandler<QuotationAccepted>
 {
-
     public async Task Handle(QuotationAccepted e, CancellationToken ct)
     {
+        // TODO: Temporarily disabled
+        return;
+
+        /*
         var bookingRepo = _tenantUow.Repository<Booking>();
         var quotationRepo = _tenantUow.Repository<Quotation>();
 
@@ -29,6 +31,8 @@ public class CreateBookingDraftOnQuotationAccepted(
         // Lines are required: their issued price snapshots become the booking's locked charges
         var quotation = await quotationRepo.Query()
             .Include(q => q.Lines)
+                .ThenInclude(l => l.TariffRate)
+                    .ThenInclude(tr => tr.ChargeCode)
             .FirstOrDefaultAsync(q => q.Id == e.Id, ct)
             ?? throw new InvalidOperationException($"Quotation {e.Id} not found.");
 
@@ -38,5 +42,6 @@ public class CreateBookingDraftOnQuotationAccepted(
         var booking = Booking.CreateDraftFromQuotation(quotation, bookingSequence: existingCount + 1);
 
         await bookingRepo.AddAsync(booking, ct);
+        */
     }
 }

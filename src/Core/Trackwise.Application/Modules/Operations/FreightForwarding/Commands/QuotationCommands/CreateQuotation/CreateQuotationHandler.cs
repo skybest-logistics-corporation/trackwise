@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Stripe;
 using Trackwise.Application.Abstractions;
+using Trackwise.Application.Abstractions.CurrentUser;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Services;
 using Trackwise.Domain.Entities;
 using Trackwise.Domain.Persistence;
@@ -15,7 +16,8 @@ internal sealed class CreateQuotationHandler(
     ITenantUnitOfWork tenantUow,
     IQuotationRatingEngine ratingEngine,
     IQuotationReferenceGenerator referenceGenerator,
-    IFxRateService fxRateService
+    IFxRateService fxRateService,
+    ICurrentUserService currentUserService
     )
     : IAppRequestHandler<CreateQuotationCommand, Result<Guid>>
 {
@@ -37,8 +39,9 @@ internal sealed class CreateQuotationHandler(
             return Result<Guid>.Fail($"Branch with ID '{req.BranchId}' not found.");
 
         // 2. Reference numbers must be unique per tenant (the DB index is not unique, so enforce it here
-        //    and add a unique (TenantId, ReferenceNumber) index to close the race).
-        var referenceNumber = await referenceGenerator.NextAsync(req.FreightMode, branch.Code, ct);
+        //    and add a unique (TenantId, ReferenceNumber) index to close the race).\
+        var isColdChain = req.TemperatureSpec is not null;
+        var referenceNumber = await referenceGenerator.NextAsync(req.FreightMode, branch.Code, isColdChain, ct);
 
         // 3. Normalize and Resolve Route Stops (Multi-Drop or Point-to-Point)
         var stopDtos = QuotationRouteResolver.ResolveStops(req.Lane);
@@ -160,7 +163,8 @@ internal sealed class CreateQuotationHandler(
                 isHazardous: req.IsHazardous,
                 requiresCustomsBrokerage: req.RequiresCustomsBrokerage,
                 notes: req.Notes,
-                declaredCargoValuePhp: cargoValuePhp);
+                declaredCargoValuePhp: cargoValuePhp,
+                currentUserService.GetUserName());
 
             // 8. Auto-price. See the rating-engine checklist: category from ChargeCode, no fxRate when
             //    currencies match, percentage bases, and the cold-chain / customs lines Submit() demands.

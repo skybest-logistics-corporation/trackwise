@@ -71,7 +71,7 @@ public sealed class BookingPdfDocument : IDocument
 
     private static string DescribeCharge(BookingChargeLine charge)
     {
-        var parts = new List<string> { PdfFormatting.Display(charge.Category) };
+        var parts = new List<string> { PdfFormatting.Display(charge.Category) + $": {charge.Reason}" };
 
         if (charge.Source == BookingChargeSource.Additional)
         {

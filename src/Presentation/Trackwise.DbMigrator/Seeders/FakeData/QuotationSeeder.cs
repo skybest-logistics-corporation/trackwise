@@ -197,7 +197,7 @@ internal class QuotationSeeder(ILogger<QuotationSeeder> logger) : SeederBase(log
             Line(SeedCodes.Insurance, OperationalServiceType.Standard, 1, MarkupType.Flat, 0m, "0.20% of CIF, min $25"));
 
         exportQuotation.Approve("Seed Data");
-        exportQuotation.Issue(TimeSpan.FromDays(14)); // resolves CIF base from cargo value, then snapshots prices
+        exportQuotation.Issue(TimeSpan.FromDays(14), "System"); // resolves CIF base from cargo value, then snapshots prices
         await Save(exportQuotation);
 
         // =========================================================================
@@ -231,8 +231,8 @@ internal class QuotationSeeder(ILogger<QuotationSeeder> logger) : SeederBase(log
             Line(SeedCodes.TriDiscount, OperationalServiceType.Standard, 1, MarkupType.Flat, 0m, "Volume incentive"));
 
         triangularQuotation.Approve("Seed Data");
-        triangularQuotation.Issue(TimeSpan.FromDays(14));
-        triangularQuotation.Accept();
+        triangularQuotation.Issue(TimeSpan.FromDays(14), "System");
+        triangularQuotation.Accept("System");
         await Save(triangularQuotation);
 
         // =========================================================================
@@ -268,7 +268,7 @@ internal class QuotationSeeder(ILogger<QuotationSeeder> logger) : SeederBase(log
 
         AddReeferLines(coldChainQuotation, tariffs.DomesticReefer, markup: 20m);
 
-        coldChainQuotation.Submit(); // -> PendingApproval (high-value cargo)
+        coldChainQuotation.Submit("System"); // -> PendingApproval (high-value cargo)
         await Save(coldChainQuotation);
 
         // =========================================================================
@@ -296,7 +296,7 @@ internal class QuotationSeeder(ILogger<QuotationSeeder> logger) : SeederBase(log
 
         AddReeferLines(reeferQuotation, tariffs.DomesticReefer, markup: 15m);
 
-        reeferQuotation.Submit(); // standard value -> auto-approved by SYSTEM_AUTO_APPROVER
+        reeferQuotation.Submit("System"); // standard value -> auto-approved by SYSTEM_AUTO_APPROVER
         await Save(reeferQuotation);
 
         // =========================================================================

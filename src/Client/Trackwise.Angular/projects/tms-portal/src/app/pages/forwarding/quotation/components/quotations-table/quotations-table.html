@@ -52,7 +52,7 @@
           <td>
             <a
               [routerLink]="['/quotations', quotation.id]"
-              class="text-foreground max-w-64 truncate font-bold hover:underline"
+              class="text-foreground max-w-64 truncate font-medium hover:underline"
               (click)="$event.stopPropagation()"
             >
               {{ quotation.customerName }}
@@ -67,7 +67,7 @@
 
           <!-- Currency -->
           <td>
-            <span class="font-mono text-sm font-semibold">
+            <span class="text-muted-foreground font-mono text-sm font-medium">
               {{ quotation.currency | uppercase }}
             </span>
           </td>

@@ -6,7 +6,7 @@
       icon="list"
     />
   } @else {
-    <ui-data-table [value]="lines()" dataKey="id">
+    <ui-data-table [value]="rows()" dataKey="key">
       <ng-template #header>
         <tr>
           <th>Charge Code</th>
@@ -22,42 +22,89 @@
         </tr>
       </ng-template>
 
-      <ng-template #body let-line>
-        <tr>
-          <td class="font-medium">{{ line.chargeCode }}</td>
-          <td>
-            <span
-              class="bg-muted text-muted-foreground inline-flex rounded px-2 py-0.5 text-xs font-semibold uppercase"
-            >
-              {{ line.category ?? "base" }}
-            </span>
-          </td>
-          <td class="text-muted-foreground text-xs">
-            {{ formatText(line.serviceType) }}
-          </td>
-          <td class="text-muted-foreground">{{ line.chargeName }}</td>
-          <td>{{ transform(line.quantity, line.unit) }}</td>
-          <td class="font-mono text-sm">
-            {{ line.buyingAmount | number: "1.2-2" }} {{ line.buyingCurrency }}
-          </td>
-          <td>
-            {{ line.markupType | titlecase }}
-            {{ line.markupType === "percentage" ? line.markupValue + "%" : line.markupValue }}
-          </td>
-          <td class="font-mono text-sm font-semibold">
-            {{ line.sellingAmount | number: "1.2-2" }} {{ line.sellingCurrency }}
-          </td>
-          <td class="text-muted-foreground max-w-40 truncate">{{ line.notes }}</td>
-          <td class="text-right">
-            <ui-button
-              appearance="text"
-              icon="trash"
-              intent="danger"
-              ariaLabel="Remove line"
-              (click)="remove.emit(line.id)"
-            />
-          </td>
-        </tr>
+      <ng-template #body let-row>
+        @switch (row.kind) {
+          @case ("group") {
+            <!-- Tariff heading with subtotals aligned under Buying / Selling -->
+            <tr class="bg-muted/50 font-medium">
+              <td colspan="5">
+                {{ row.name }}
+                <span class="text-muted-foreground ml-2 text-xs font-normal">
+                  {{ row.count }} line{{ row.count === 1 ? "" : "s" }}
+                </span>
+              </td>
+              <td class="font-mono text-sm">
+                @for (m of row.buying; track m.currency) {
+                  <div>{{ m.amount | number: "1.2-2" }} {{ m.currency }}</div>
+                }
+              </td>
+              <td></td>
+              <td class="font-mono text-sm">
+                @for (m of row.selling; track m.currency) {
+                  <div>{{ m.amount | number: "1.2-2" }} {{ m.currency }}</div>
+                }
+              </td>
+              <td colspan="2"></td>
+            </tr>
+          }
+
+          @case ("line") {
+            @let line = row.line;
+            <tr>
+              <td class="text-muted-foreground pl-6 font-medium">{{ line.chargeCode }}</td>
+              <td>
+                <span
+                  class="bg-muted text-muted-foreground inline-flex rounded px-2 py-0.5 text-xs font-semibold uppercase"
+                >
+                  {{ line.category ?? "base" }}
+                </span>
+              </td>
+              <td class="text-muted-foreground text-xs">
+                {{ formatText(line.serviceType) }}
+              </td>
+              <td class="text-muted-foreground">{{ line.chargeName }}</td>
+              <td class="text-muted-foreground">{{ transform(line.quantity, line.unit) }}</td>
+              <td class="text-muted-foreground font-mono text-sm font-medium">
+                {{ line.buyingAmount | number: "1.2-2" }} {{ line.buyingCurrency }}
+              </td>
+              <td class="text-muted-foreground font-medium">
+                {{ line.markupType | titlecase }}
+                {{ line.markupType === "percentage" ? line.markupValue + "%" : line.markupValue }}
+              </td>
+              <td class="text-muted-foreground font-mono text-sm font-medium">
+                {{ line.sellingAmount | number: "1.2-2" }} {{ line.sellingCurrency }}
+              </td>
+              <td class="text-muted-foreground max-w-40 truncate">{{ line.notes }}</td>
+              <td class="text-right">
+                <ui-button
+                  appearance="text"
+                  icon="trash"
+                  intent="danger"
+                  ariaLabel="Remove line"
+                  (click)="remove.emit(line.id)"
+                />
+              </td>
+            </tr>
+          }
+
+          @case ("total") {
+            <tr class="border-t-2 font-medium">
+              <td colspan="5">Total</td>
+              <td class="font-mono text-sm">
+                @for (m of row.buying; track m.currency) {
+                  <div>{{ m.amount | number: "1.2-2" }} {{ m.currency }}</div>
+                }
+              </td>
+              <td></td>
+              <td class="font-mono text-sm">
+                @for (m of row.selling; track m.currency) {
+                  <div>{{ m.amount | number: "1.2-2" }} {{ m.currency }}</div>
+                }
+              </td>
+              <td colspan="2"></td>
+            </tr>
+          }
+        }
       </ng-template>
     </ui-data-table>
   }

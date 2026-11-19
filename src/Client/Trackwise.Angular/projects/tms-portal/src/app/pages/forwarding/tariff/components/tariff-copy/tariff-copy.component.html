@@ -1,0 +1,21 @@
+<ui-dialog header="Copy Tariff" [(open)]="isOpen" [modal]="true" width="450px">
+  <!-- Native submission: the formRoot directive will intercept the type="submit" button -->
+  <form [formRoot]="form" class="p-2">
+    <ui-form-field>
+      <ui-text-field
+        id="tariff-name"
+        [formField]="form.name"
+        type="text"
+        placeholder="Enter a name for the new tariff"
+      />
+    </ui-form-field>
+
+    <div class="dialog-actions mt-4">
+      <ui-stack direction="row" justify="end" gap="2">
+        <ui-button appearance="outlined" type="button" label="Cancel" (click)="close()" />
+
+        <ui-button type="submit" label="Create Copy" [loading]="isSubmitting()" />
+      </ui-stack>
+    </div>
+  </form>
+</ui-dialog>

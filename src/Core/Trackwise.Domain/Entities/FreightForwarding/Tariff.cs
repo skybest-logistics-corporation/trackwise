@@ -20,6 +20,8 @@ public class Tariff : AuditableEntity, ITenantEntity
     public string? DestinationLane { get; private set; }
     public Guid? ContainerTypeId { get; private set; }         // master container-type list
 
+    public TruckType? TruckType { get; set; }
+    public TruckTonnageClass? TonnageClass { get; set; }
     public virtual ContainerType? ContainerType { get; private set; }
     public DateOnly EffectiveFrom { get; private set; }
     public DateOnly? EffectiveTo { get; private set; }
@@ -44,6 +46,8 @@ public class Tariff : AuditableEntity, ITenantEntity
         string currency,
         string? originLane,
         string? destinationLane,
+        TruckType? truckType,
+        TruckTonnageClass? tonnageClass,
         Guid? containerTypeId,
         Guid? carrierId,
         DateOnly effectiveFrom,
@@ -58,6 +62,8 @@ public class Tariff : AuditableEntity, ITenantEntity
             Currency = currency.ToUpperInvariant(),
             OriginLane = originLane,
             DestinationLane = destinationLane,
+            TruckType = truckType,
+            TonnageClass = tonnageClass,
             ContainerTypeId = containerTypeId,
             CarrierId = carrierId,
             ContractId = contractId,
@@ -82,6 +88,8 @@ public class Tariff : AuditableEntity, ITenantEntity
             CustomerId = source.CustomerId,
             OriginLane = source.OriginLane,
             DestinationLane = source.DestinationLane,
+            TruckType = source.TruckType,
+            TonnageClass = source.TonnageClass,
             ContainerTypeId = source.ContainerTypeId,
             EffectiveFrom = effectiveFrom,
             EffectiveTo = effectiveTo,
@@ -147,6 +155,8 @@ public class Tariff : AuditableEntity, ITenantEntity
         bool? isActive,
         string? originLane,
         string? destinationLane,
+        TruckType? truckType,
+        TruckTonnageClass? tonnageClass,
         Guid? containerTypeId,
         Guid? carrierId,
         Guid? contractId)
@@ -163,6 +173,8 @@ public class Tariff : AuditableEntity, ITenantEntity
         if (containerTypeId.HasValue) ContainerTypeId = containerTypeId.Value;
         if (carrierId.HasValue) CarrierId = carrierId.Value;
         if (contractId.HasValue) ContractId = contractId.Value;
+        if (truckType != default) TruckType = truckType;
+        if (tonnageClass.HasValue) TonnageClass = tonnageClass.Value;
         DomainEvents.Add(new TariffUpdated(Id, Name));
     }
 }

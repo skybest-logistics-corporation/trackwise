@@ -248,6 +248,7 @@ public static class Permission
     {
         public const string View = $"{nameof(Permission)}.{nameof(Quotation)}.View";
         public const string Manage = $"{nameof(Permission)}.{nameof(Quotation)}.Manage";
+        public const string Approve = $"{nameof(Permission)}.{nameof(Quotation)}.Approve";
     }
 
     public static class Booking

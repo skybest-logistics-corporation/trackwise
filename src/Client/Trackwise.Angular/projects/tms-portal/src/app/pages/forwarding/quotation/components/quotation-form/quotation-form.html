@@ -166,13 +166,12 @@
                       <ui-select-field
                         id="originLocation"
                         [formField]="form.originLocationId!"
-                        [options]="
-                          !model().customer
-                            ? [{ label: 'Select a customer first', value: '' }]
-                            : selectedCustomerLocationOptions()
-                        "
+                        [options]="locationOptions()"
                         optionLabel="label"
                         optionValue="value"
+                        [filter]="!!model().customer"
+                        filterPlaceholder="Search locations"
+                        placeholder="Select a location"
                       />
                     </ui-form-field>
                   </ui-grid>
@@ -186,13 +185,12 @@
                       <ui-select-field
                         id="destinationLocationId"
                         [formField]="form.destinationLocationId!"
-                        [options]="
-                          !model().customer
-                            ? [{ label: 'Select a customer first', value: '' }]
-                            : selectedCustomerLocationOptions()
-                        "
+                        [options]="locationOptions()"
                         optionLabel="label"
                         optionValue="value"
+                        [filter]="!!model().customer"
+                        filterPlaceholder="Search locations"
+                        placeholder="Select a location"
                       />
                     </ui-form-field>
                   </ui-grid>
@@ -237,7 +235,7 @@
                   </ui-form-field>
                 </ui-grid>
 
-                <!-- Conditional Customs & HAZMAT -->
+                <!-- Conditional Customs, HAZMAT & Reefer -->
                 <ui-grid [size]="{ xs: 12 }">
                   <ui-stack direction="row" gap="6" class="mt-2">
                     @if (!isDomestic()) {
@@ -252,6 +250,13 @@
                       id="isHazardous"
                       [formField]="form.isHazardous"
                       label="Dangerous Goods / HAZMAT Classification"
+                    />
+
+                    <ui-checkbox-field
+                      id="requiresActiveRefrigeration"
+                      [formField]="form.requiresActiveRefrigeration"
+                      label="Temperature-Controlled (Reefer / Cold Chain)"
+                      (change)="toggleColdChain($any($event).target.checked)"
                     />
                   </ui-stack>
                 </ui-grid>
@@ -409,15 +414,6 @@
                       [maxlength]="3"
                     />
                   </ui-form-field>
-                </ui-grid>
-
-                <ui-grid [size]="{ xs: 12 }">
-                  <ui-checkbox-field
-                    id="requiresActiveRefrigeration"
-                    [formField]="form.requiresActiveRefrigeration"
-                    label="Cargo Requires Temperature Control / Cold Chain Protocol"
-                    (change)="toggleColdChain($any($event).target.checked)"
-                  />
                 </ui-grid>
               </ui-grid>
             </ui-stack>

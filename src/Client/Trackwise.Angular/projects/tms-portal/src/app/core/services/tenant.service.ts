@@ -130,6 +130,6 @@ export class TenantService {
     }
 
     this._tenantData.set(tenant);
-    console.log("Fetched tenant data:", tenant);
+    // console.log("Fetched tenant data:", tenant);
   }
 }

@@ -73,6 +73,10 @@ public partial class Booking : AuditableEntity, ITenantEntity
     public virtual Quotation? Quotation { get; set; }
     public string? QuotationReference { get; private set; }
 
+    public TruckType? TruckType { get; set; }
+    public TruckTonnageClass? TonnageClass { get; set; }
+    public string ContainerType { get; set; } = default!;
+
     // Logistics context (snapshotted from quotation, editable while Draft)
     public TransportMode Mode { get; private set; }
     public FreightMode FreightMode { get; private set; }
@@ -147,6 +151,9 @@ public partial class Booking : AuditableEntity, ITenantEntity
             Currency = quotation.Currency,
             QuotationId = quotation.Id,
             QuotationReference = quotation.ReferenceNumber,
+            TruckType = quotation.Lines.FirstOrDefault()?.TariffRate?.Tariff?.TruckType,
+            TonnageClass = quotation.Lines.FirstOrDefault()?.TariffRate?.Tariff?.TonnageClass,
+            ContainerType = quotation.Lines.FirstOrDefault()?.TariffRate?.Tariff?.ContainerType?.ToString() ?? string.Empty,
             Mode = quotation.Mode,
             FreightMode = quotation.FreightMode,
             ShipmentType = quotation.ShipmentType,
@@ -586,7 +593,8 @@ public class BookingChargeLine : AuditableEntity, ITenantEntity
             TariffRateId = line.TariffRateId,
             Category = line.Category,
             ServiceType = line.ServiceType,
-            Description = line.Notes ?? line.Category.ToString(),
+            Description = $"{line.TariffRate?.ChargeCode?.Code}",
+            Reason = $"{line.TariffRate?.Tariff?.OriginLane} - {line.TariffRate?.Tariff?.DestinationLane}",
             Quantity = line.Quantity,
             Currency = line.Currency,
             BuyingAmount = line.SnapshotBuyingAmount.Value,
