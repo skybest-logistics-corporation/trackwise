@@ -258,6 +258,15 @@
           <ui-surface variant="elevated" [border]="true">
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
               <ui-form-field
+                label="Dispatch Phone"
+                for="dispatchPhoneNumber"
+                hint="What the Driver App's Call office button dials. Leave empty to use the company phone."
+                class="mb-0"
+              >
+                <ui-phone-field [formField]="form.dispatchPhoneNumber" />
+              </ui-form-field>
+
+              <ui-form-field
                 label="Minimum Broker Credit Score"
                 for="minBrokerCreditScore"
                 hint="Load-board bookings from brokers scoring below this (0-100) are blocked unless a dispatcher overrides. Leave empty to disable."

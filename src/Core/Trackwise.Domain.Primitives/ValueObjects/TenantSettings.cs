@@ -58,6 +58,12 @@ public record TenantSettings
     public bool ColdChainBookingNumbersTyped { get; set; }
 
     /// <summary>
+    /// The number the Driver App's "Call office" button dials - the dispatcher on duty, which is often
+    /// not the front desk. Null falls back to the company phone.
+    /// </summary>
+    public string? DispatchPhoneNumber { get; set; }
+
+    /// <summary>
     /// Sets <paramref name="region" /> with its currency, units, date format and time zone, so a PH
     /// tenant starts on PHP, kilometres and Manila time instead of the US defaults. Other settings
     /// are left as they are.

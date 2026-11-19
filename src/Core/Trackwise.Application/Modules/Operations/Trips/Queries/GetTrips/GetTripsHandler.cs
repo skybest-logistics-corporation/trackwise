@@ -1,6 +1,7 @@
 using Trackwise.Application.Modules.IdentityAccess.Employees;
 using Trackwise.Application.Abstractions;
 using Trackwise.Application.Modules.Operations;
+using Trackwise.Application.Modules.Operations.Trips.Services;
 using Trackwise.Domain.Entities;
 using Trackwise.Domain.Persistence;
 using Trackwise.Domain.Primitives.Enums;
@@ -38,9 +39,11 @@ internal sealed class GetTripsHandler(ITenantUnitOfWork tenantUow)
             query = query.Where(i => i.TruckId == req.TruckId.Value);
         }
 
-        if (req.DriverId.HasValue)
+        if (req.DriverId is { } driverId)
         {
-            query = query.Where(i => i.DriverId == req.DriverId.Value);
+            query = req.IncludeRescues
+                ? query.Where(i => i.DriverId == driverId || i.Rescues.Any(r => r.DriverId == driverId))
+                : query.Where(i => i.DriverId == driverId);
         }
 
         if (req.StartDate.HasValue && req.EndDate.HasValue)
@@ -82,6 +85,14 @@ internal sealed class GetTripsHandler(ITenantUnitOfWork tenantUow)
                 NameOf(helperNames, trip.HelperId),
                 NameOf(helperNames, trip.SecondHelperId))))
             .ToArray();
+
+        if (req.IncludeRescues)
+        {
+            var rescues = await TripRescueReader.ForTripsAsync(tenantUow, trips.Select(t => t.Id).ToList(), ct);
+            items = items
+                .Select(dto => dto with { Rescues = rescues.Where(r => r.TripId == dto.Id).ToList() })
+                .ToArray();
+        }
 
         return PagedResult<TripDto>.Ok(items, totalItems, req.PageSize);
     }
