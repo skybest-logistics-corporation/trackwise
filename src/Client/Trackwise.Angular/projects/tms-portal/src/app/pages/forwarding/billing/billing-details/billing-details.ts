@@ -119,7 +119,7 @@ export class BillingDetailsComponent implements OnInit {
     return parts.join(" · ");
   });
 
-  protected readonly currency = computed(() => this.billing()?.total?.currency ?? "USD");
+  protected readonly currency = computed(() => this.billing()?.total?.currency ?? "PHP");
 
   protected readonly sortedLineItems = computed(() =>
     [...(this.billing()?.lineItems ?? [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),

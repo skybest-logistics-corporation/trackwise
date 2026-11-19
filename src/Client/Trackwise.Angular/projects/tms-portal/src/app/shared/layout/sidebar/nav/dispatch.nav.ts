@@ -32,7 +32,7 @@ export const dispatchNav: NavSection = {
     {
       id: "rate-agreements",
       label: "Rate Agreements",
-      icon: "dollar-sign",
+      icon: "philippine-peso",
       route: "/rate-agreements",
       permission: Permission.Tariff.View,
     },

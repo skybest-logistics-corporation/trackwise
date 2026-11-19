@@ -52,7 +52,7 @@ internal sealed class CreateEmployeeHandler(
         var tenant = tenantUow.GetCurrentTenant();
 
         user.Tenant = tenant;
-        var employee = Employee.CreateEmployeeFromUser(user, req.Salary, req.SalaryType);
+        var employee = Employee.CreateEmployeeFromUser(user, tenant.Settings.Currency.ToString(), req.Salary, req.SalaryType);
         employee.Code = await codes.NextAsync(nameof(Employee), "EMP", ct: ct);
         employee.BranchId = req.BranchId;
 

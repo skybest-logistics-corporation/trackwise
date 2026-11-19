@@ -9,6 +9,7 @@ enum class CountryCode(
     val flag: String,
     val phoneLength: Int = 10
 ) {
+    PH("+63", "Philippines", "🇵🇭", 10),
     US("+1", "United States", "\uD83C\uDDFA\uD83C\uDDF8", 10),
     CA("+1", "Canada", "\uD83C\uDDE8\uD83C\uDDE6", 10),
     MX("+52", "Mexico", "\uD83C\uDDF2\uD83C\uDDFD", 10),
@@ -29,7 +30,7 @@ enum class CountryCode(
         get() = "$name  $countryName ($dialCode)"
 
     companion object {
-        val DEFAULT = US
+        val DEFAULT = PH
 
         fun fromDialCode(dialCode: String): CountryCode? {
             return entries.find { it.dialCode == dialCode }
@@ -56,8 +57,13 @@ enum class CountryCode(
                 }
             }
 
-            // If no country code found, assume it's a local number with default country
-            return DEFAULT to normalized.removePrefix("+")
+            return DEFAULT to toLocalDigits(DEFAULT, normalized.removePrefix("+"))
+        }
+
+        /** Filipinos write mobile numbers as 0917…; the trunk 0 isn't part of the +63 number. */
+        fun toLocalDigits(country: CountryCode, digits: String): String {
+            val local = if (country == PH) digits.removePrefix("0") else digits
+            return local.take(country.phoneLength)
         }
     }
 }

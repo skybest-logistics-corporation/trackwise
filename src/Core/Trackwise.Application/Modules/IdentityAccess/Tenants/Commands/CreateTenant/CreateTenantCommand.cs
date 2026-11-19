@@ -15,7 +15,7 @@ public class CreateTenantCommand : ICommand
     /// <summary>Null falls back to <see cref="Domain.Primitives.Enums.OperatingMode.Fleet"/>.</summary>
     public OperatingMode? OperatingMode { get; set; }
 
-    /// <summary>Sets the tenant's currency, units and time zone too. Null falls back to <see cref="Domain.Primitives.Enums.Region.US"/>.</summary>
+    /// <summary>Sets the tenant's currency, units and time zone too. Null falls back to <see cref="TenantSettings.DefaultRegion"/> (PH).</summary>
     public Region? Region { get; set; }
 
     // Owner account created alongside the tenant

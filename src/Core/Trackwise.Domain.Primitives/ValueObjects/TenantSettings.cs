@@ -4,19 +4,22 @@ using Trackwise.Domain.Primitives.Enums;
 namespace Trackwise.Domain.Primitives.ValueObjects;
 
 /// <summary>
-/// Regional and localization settings for a tenant.
+/// Regional and localization settings for a tenant. Defaults are the Philippines (PHP, metric,
+/// Manila time) - the region new tenants start in unless created for another.
 /// </summary>
 [ComplexType]
 public record TenantSettings
 {
-    public Region Region { get; set; } = Region.US;
-    public DistanceUnit DistanceUnit { get; set; } = DistanceUnit.Miles;
-    public CurrencyCode Currency { get; set; } = CurrencyCode.USD;
+    public const Region DefaultRegion = Region.PH;
+
+    public Region Region { get; set; } = DefaultRegion;
+    public DistanceUnit DistanceUnit { get; set; } = DistanceUnit.Kilometers;
+    public CurrencyCode Currency { get; set; } = CurrencyCode.PHP;
     public DateFormatType DateFormat { get; set; } = DateFormatType.US;
-    public string Timezone { get; set; } = "America/New_York";
-    public WeightUnit WeightUnit { get; set; } = WeightUnit.Pounds;
-    public VolumeUnit VolumeUnit { get; set; } = VolumeUnit.Gallons;
-    public TemperatureUnit TemperatureUnit { get; set; } = TemperatureUnit.Fahrenheit;
+    public string Timezone { get; set; } = "Asia/Manila";
+    public WeightUnit WeightUnit { get; set; } = WeightUnit.Kilograms;
+    public VolumeUnit VolumeUnit { get; set; } = VolumeUnit.Liters;
+    public TemperatureUnit TemperatureUnit { get; set; } = TemperatureUnit.Celsius;
 
     /// <summary>Drives the UX preset (hidden team surfaces, dashboard layout) and the AI dispatch prompt.</summary>
     public OperatingMode OperatingMode { get; set; } = OperatingMode.Fleet;

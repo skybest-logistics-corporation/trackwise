@@ -75,7 +75,7 @@ internal class StaffSeeder(ILogger<StaffSeeder> logger, IHostEnvironment environ
                 continue;
             }
 
-            var employee = Employee.CreateEmployeeFromUser(user);
+            var employee = Employee.CreateEmployeeFromUser(user, tenant.Settings.Currency.ToString());
             employee.JobTitle = staff.Title;
             employee.Code = await codes.NextAsync(nameof(Employee), "EMP", ct: cancellationToken);
             employee.Address = context.Region?.CompanyAddress;

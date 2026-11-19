@@ -60,7 +60,7 @@ export function getDriversTrendChartOptions(isDark = true) {
   };
 }
 
-export function getDriversPerformanceChartOptions(isDark = true) {
+export function getDriversPerformanceChartOptions(currencySymbol: string, isDark = true) {
   const p = getChartPalette(isDark);
   return {
     responsive: true,
@@ -82,7 +82,7 @@ export function getDriversPerformanceChartOptions(isDark = true) {
         beginAtZero: true,
         title: {
           display: true,
-          text: "Earnings ($)",
+          text: `Earnings (${currencySymbol})`,
           color: p.textColor,
         },
         grid: { color: p.gridColor },

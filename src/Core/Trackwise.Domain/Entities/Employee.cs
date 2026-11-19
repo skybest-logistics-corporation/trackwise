@@ -94,7 +94,7 @@ public class Employee : AuditableEntity, ITenantEntity, IMasterDataRecord, IBran
     /// </summary>
     public Address? Address { get; set; }
 
-    public Money Salary { get; set; } = Money.Zero("USD");
+    public Money Salary { get; set; } = Money.Zero("PHP");
     public SalaryType SalaryType { get; set; } = SalaryType.None;
 
     private EmployeeStatus status = EmployeeStatus.Active;
@@ -196,6 +196,7 @@ public class Employee : AuditableEntity, ITenantEntity, IMasterDataRecord, IBran
 
     public static Employee CreateEmployeeFromUser(
         User user,
+        string currency,
         decimal salary = 0,
         SalaryType salaryType = SalaryType.None)
     {
@@ -207,7 +208,7 @@ public class Employee : AuditableEntity, ITenantEntity, IMasterDataRecord, IBran
             FirstName = user.FirstName,
             LastName = user.LastName,
             PhoneNumber = user.PhoneNumber,
-            Salary = new() { Amount = salary, Currency = "USD" },
+            Salary = new() { Amount = salary, Currency = currency },
             SalaryType = salaryType
         };
 

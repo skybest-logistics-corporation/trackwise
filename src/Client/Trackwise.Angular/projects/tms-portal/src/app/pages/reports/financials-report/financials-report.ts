@@ -1,5 +1,6 @@
 import { DecimalPipe } from "@angular/common";
-import { Component, signal, type OnInit } from "@angular/core";
+import { Component, inject, signal, type OnInit } from "@angular/core";
+import { LocalizationService } from "@trackwise/shared";
 import {
   getFinancialsReport,
   type FinancialMetricDto,
@@ -58,7 +59,9 @@ export class FinancialsReportComponent
   protected readonly financialMetricsChartData = signal<Record<string, unknown>>({});
 
   protected readonly invoiceStatusChartOptions = getInvoiceStatusChartOptions();
-  protected revenueTrendChartOptions = getRevenueTrendChartOptions();
+  protected revenueTrendChartOptions = getRevenueTrendChartOptions(
+    inject(LocalizationService).getCurrencySymbol(),
+  );
   protected financialMetricsChartOptions = getFinancialMetricsChartOptions();
 
   ngOnInit(): void {

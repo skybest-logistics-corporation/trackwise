@@ -24,19 +24,21 @@ export const chartOptions = {
   maintainAspectRatio: false,
 };
 
-export const lineChartOptions = {
-  plugins: { legend: { display: false } },
-  responsive: true,
-  maintainAspectRatio: false,
-  scales: {
-    y: {
-      beginAtZero: true,
-      ticks: {
-        callback: (value: number) => "$" + value.toLocaleString(),
+export function lineChartOptions(currencySymbol: string) {
+  return {
+    plugins: { legend: { display: false } },
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          callback: (value: number) => currencySymbol + value.toLocaleString(),
+        },
       },
     },
-  },
-};
+  };
+}
 
 export function buildTypeChart(stats: ExpenseStatsDto | null): unknown {
   const byType = stats?.byType ?? [];

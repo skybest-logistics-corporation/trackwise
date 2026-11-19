@@ -6,7 +6,12 @@ namespace Trackwise.Domain.Primitives.ValueObjects;
 public record Money
 {
     public required decimal Amount { get; set; }
-    public required string Currency { get; set; }
+    /// <summary>ISO 4217 code, stored upper-case: a client sending the tenant's "php" still gets "PHP".</summary>
+    public required string Currency
+    {
+        get;
+        set => field = value?.Trim().ToUpperInvariant() ?? "";
+    }
     public static Money Zero(string currency) => new() { Amount = 0M, Currency = currency };
 
     /// <summary>

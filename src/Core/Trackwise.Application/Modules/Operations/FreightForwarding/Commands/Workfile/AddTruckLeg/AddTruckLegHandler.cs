@@ -87,9 +87,10 @@ internal sealed class AddTruckLegHandler(
         var leg = TruckingWorkfile.CreateLeg(reference, parent, req.Role, header);
 
         var slotIds = req.ContainerSlotIds.Count == 0 ? [null] : req.ContainerSlotIds.Cast<Guid?>().ToList();
+        var currency = tenantUow.GetCurrentTenant().Settings.Currency.ToString();
         var loads = slotIds
             .Select(slotId => TruckLegLoads.Build(
-                leg, slotId, slotId is { } id ? labels[id] : null, from.Value!, to.Value!, customer, dispatcher, req))
+                leg, slotId, slotId is { } id ? labels[id] : null, from.Value!, to.Value!, customer, dispatcher, currency, req))
             .ToList();
 
         await tenantUow.Repository<Workfile>().AddAsync(leg, ct);

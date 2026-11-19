@@ -2,7 +2,6 @@ using Trackwise.Application.Modules.Financial.Tax.Services;
 using Trackwise.Application.Abstractions;
 using Trackwise.Domain.Entities;
 using Trackwise.Domain.Persistence;
-using Trackwise.Domain.Primitives.Enums;
 using Trackwise.Domain.Primitives.ValueObjects;
 using Trackwise.Shared.Models;
 
@@ -31,7 +30,7 @@ internal sealed class CreateLoadInvoiceHandler(
         }
 
         var tenant = tenantUow.GetCurrentTenant();
-        var currency = (tenant.Settings?.Currency ?? CurrencyCode.USD).ToString();
+        var currency = tenant.Settings.Currency.ToString();
 
         var amount = new Money { Amount = req.PaymentAmount, Currency = currency };
         var invoice = new LoadInvoice

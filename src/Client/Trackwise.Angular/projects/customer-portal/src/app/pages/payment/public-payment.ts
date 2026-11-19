@@ -69,7 +69,7 @@ export class PublicPayment {
   protected readonly paymentAmount = signal<number | null>(null);
 
   /** Currency reported by the invoice - drives the currency input + formatting. */
-  protected readonly currency = computed(() => this.invoice()?.total?.currency ?? "USD");
+  protected readonly currency = computed(() => this.invoice()?.total?.currency ?? "PHP");
 
   /** True when the invoice carries any tax - drives the Rate% / Tax columns + breakdown row. */
   protected readonly hasTax = computed(() => {

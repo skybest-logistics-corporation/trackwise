@@ -121,19 +121,19 @@
                   <td>{{ rate.pricingModel | titlecase }}</td>
                   <td>{{ rate.unit }}</td>
                   <td class="text-right">
-                    {{ rate.baseAmount | currency: tariff.currency ?? "USD" }}
+                    {{ rate.baseAmount | currency: tariff.currency ?? "PHP" }}
                   </td>
                   <td class="text-right">
                     {{
                       (rate.minimum ?? null) !== null
-                        ? (rate.minimum | currency: tariff.currency ?? "USD")
+                        ? (rate.minimum | currency: tariff.currency ?? "PHP")
                         : "-"
                     }}
                   </td>
                   <td class="text-right">
                     {{
                       (rate.maximum ?? null) !== null
-                        ? (rate.maximum | currency: tariff.currency ?? "USD")
+                        ? (rate.maximum | currency: tariff.currency ?? "PHP")
                         : "-"
                     }}
                   </td>

@@ -1,6 +1,7 @@
 import { PercentPipe } from "@angular/common";
-import { Component, computed, signal, type OnInit } from "@angular/core";
+import { Component, computed, inject, signal, type OnInit } from "@angular/core";
 import { RouterModule } from "@angular/router";
+import { LocalizationService } from "@trackwise/shared";
 import {
   getPayrollReport,
   type PayrollReportDto,
@@ -72,8 +73,9 @@ export class PayrollReportComponent
   );
 
   protected readonly statusChartOptions = getPayrollStatusChartOptions();
-  protected readonly trendChartOptions = getPayrollTrendChartOptions();
-  protected readonly salaryTypeChartOptions = getSalaryTypeChartOptions();
+  private readonly currencySymbol = inject(LocalizationService).getCurrencySymbol();
+  protected readonly trendChartOptions = getPayrollTrendChartOptions(this.currencySymbol);
+  protected readonly salaryTypeChartOptions = getSalaryTypeChartOptions(this.currencySymbol);
 
   ngOnInit(): void {
     this.fetch({ startDate: this.startDate(), endDate: this.endDate() });
