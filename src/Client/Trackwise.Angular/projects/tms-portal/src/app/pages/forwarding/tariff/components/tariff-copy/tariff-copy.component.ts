@@ -1,5 +1,5 @@
 import { Component, effect, inject, input, model, output, signal } from "@angular/core";
-import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from "@angular/forms";
+import { NonNullableFormBuilder, ReactiveFormsModule } from "@angular/forms";
 import { form, FormField, FormRoot, maxLength, required } from "@angular/forms/signals";
 import { Api, copyTariff } from "@trackwise/shared/api";
 import { Stack, UiButton, UiDialog, UiFormField, UiTextField } from "@trackwise/shared/ui";

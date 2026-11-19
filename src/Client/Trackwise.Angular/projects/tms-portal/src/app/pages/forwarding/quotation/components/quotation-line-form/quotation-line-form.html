@@ -302,7 +302,7 @@
                   <span class="text-slate-400">|</span>
                   <span class="text-slate-500 dark:text-slate-400">
                     {{ serviceTypeLabel(line.serviceType) }}, qty {{ line.quantity ?? "–" }}, markup
-                    @if (line.markupValue != null) {
+                    @if (line.markupValue !== null) {
                       {{
                         line.markupType === "percentage"
                           ? line.markupValue + "%"
@@ -328,7 +328,7 @@
               </span>
 
               <span class="hidden shrink-0 flex-col items-end sm:flex">
-                @if (estimate?.sell != null) {
+                @if (estimate?.sell !== null) {
                   <span class="font-semibold tabular-nums">
                     {{ estimate!.sell | number: "1.2-2" }}
                   </span>
