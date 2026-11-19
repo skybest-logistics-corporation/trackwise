@@ -23,8 +23,8 @@ export const employeeRoutes: Routes = [
     data: {
       breadcrumb: "Add",
       // Writes go through /master-data/employees - see EmployeeController.cs (MasterData) vs the
-      // trimmed, read-only EmployeeController.cs. Permission.Employee.Manage is unused server-side
-      // now, matching Truck.Manage's fate.
+      // trimmed, read-only EmployeeController.cs. Permission.Employee.Manage stays on the edit dialog
+      // (role assignment and password resets still use it).
       permission: Permission.MasterData.Manage,
     },
   },

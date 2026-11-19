@@ -1,5 +1,9 @@
 <div class="animate-in fade-in space-y-4">
-  <ui-page-header title="Gensets" addRoute="/master-data/gensets/add" addTooltip="Add a new genset" />
+  <ui-page-header
+    title="Gensets"
+    [addRoute]="canManage ? '/master-data/gensets/add' : null"
+    addTooltip="Add a new genset"
+  />
 
   <ui-card>
     <ui-stack gap="3" class="p-4">

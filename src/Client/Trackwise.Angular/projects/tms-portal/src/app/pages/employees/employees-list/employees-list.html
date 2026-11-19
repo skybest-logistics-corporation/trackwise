@@ -1,6 +1,6 @@
 <ui-page-header
   title="List Employees"
-  addRoute="/master-data/employees/add"
+  [addRoute]="canManage ? '/master-data/employees/add' : null"
   addTooltip="Add a new employee"
 />
 

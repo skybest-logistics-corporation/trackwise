@@ -134,20 +134,22 @@
     </ui-stack>
   </form>
 
-  <ui-accordion class="mt-6">
-    <ui-accordion-panel>
-      <ui-accordion-header>
-        <span class="text-danger">Danger Zone</span>
-      </ui-accordion-header>
-      <ui-accordion-content>
-        <p class="text-muted-foreground mb-4">
-          Removing an employee revokes their access to this tenant if they hold a live login, and
-          can be restored later from the employees list.
-        </p>
-        <ui-button intent="danger" label="Remove Employee" icon="trash" (click)="deleted.emit()" />
-      </ui-accordion-content>
-    </ui-accordion-panel>
-  </ui-accordion>
+  @if (canDelete) {
+    <ui-accordion class="mt-6">
+      <ui-accordion-panel>
+        <ui-accordion-header>
+          <span class="text-danger">Danger Zone</span>
+        </ui-accordion-header>
+        <ui-accordion-content>
+          <p class="text-muted-foreground mb-4">
+            Removing an employee revokes their access to this tenant if they hold a live login, and
+            can be restored later from the employees list.
+          </p>
+          <ui-button intent="danger" label="Remove Employee" icon="trash" (click)="deleted.emit()" />
+        </ui-accordion-content>
+      </ui-accordion-panel>
+    </ui-accordion>
+  }
 </ui-dialog>
 
 @if (employee()) {

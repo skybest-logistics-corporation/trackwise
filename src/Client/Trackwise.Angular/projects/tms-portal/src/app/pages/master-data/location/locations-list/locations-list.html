@@ -1,7 +1,7 @@
 <div class="animate-in fade-in space-y-4">
   <ui-page-header
     title="Locations"
-    addRoute="/master-data/locations/add"
+    [addRoute]="canManage ? '/master-data/locations/add' : null"
     addTooltip="Add a new location"
   />
 

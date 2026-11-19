@@ -1,7 +1,7 @@
 <div class="animate-in fade-in space-y-4">
   <ui-page-header
     title="Branches"
-    addRoute="/master-data/branches/add"
+    [addRoute]="canManage ? '/master-data/branches/add' : null"
     addTooltip="Add a new branch"
   />
 

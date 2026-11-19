@@ -1,6 +1,7 @@
 import { DatePipe, DecimalPipe } from "@angular/common";
 import { Component, computed, inject, signal, type OnInit } from "@angular/core";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
+import { Permission } from "@trackwise/shared";
 import {
   Api,
   cancelBooking,
@@ -39,6 +40,7 @@ import {
   UiSelectField,
   UiTextareaField,
 } from "@trackwise/shared/ui";
+import { PermissionService } from "@/core/auth";
 import { ToastService } from "@/core/services";
 import { CreateTripDialog, PageHeader } from "@/shared/components";
 import {
@@ -88,6 +90,7 @@ export class BookingDetailsComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly toastService = inject(ToastService);
   private readonly router = inject(Router);
+  private readonly permissionService = inject(PermissionService);
 
   protected readonly booking = signal<BookingDto | null>(null);
   protected readonly isLoading = signal(false);
@@ -105,8 +108,9 @@ export class BookingDetailsComponent implements OnInit {
   protected readonly truckTypeLabels = truckTypeLabels;
   protected readonly tonnageClassLabels = truckTonnageClassLabels;
 
-  /** Wire to the Booking.Manage permission; until then always true. The server enforces it either way. */
-  protected readonly canManage = computed(() => true);
+  protected readonly canManage = computed(() =>
+    this.permissionService.hasPermission(Permission.Booking.Manage),
+  );
 
   protected readonly isCompleted = computed(() => this.status() === "completed");
 
@@ -156,11 +160,9 @@ export class BookingDetailsComponent implements OnInit {
   protected readonly blockers = computed(() => this.booking()?.confirmationBlockers ?? []);
   protected readonly canConfirm = computed(() => this.isDraft() && this.blockers().length === 0);
 
-  /**
-   * Buying cost and margin are internal. Wire this to your permission check; until then it is
-   * always true, so make sure customer-facing views never reuse this page.
-   */
-  protected readonly canViewCosts = computed(() => true);
+  protected readonly canViewCosts = computed(() =>
+    this.permissionService.hasPermission(Permission.Booking.ViewCosts),
+  );
 
   /** Only an added, not-yet-invoiced charge can be removed (quoted charges are locked). */
   protected canRemoveCharge(charge: BookingChargeDto): boolean {

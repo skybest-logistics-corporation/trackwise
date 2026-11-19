@@ -1,6 +1,7 @@
 import { CommonModule } from "@angular/common";
 import { Component, effect, inject, input, signal } from "@angular/core";
 import { Router, RouterModule } from "@angular/router";
+import { Permission } from "@trackwise/shared";
 import {
   Api,
   getEmployeeById,
@@ -10,6 +11,7 @@ import {
 } from "@trackwise/shared/api";
 import { paymentMethodTypeOptions, salaryTypeOptions } from "@trackwise/shared/api/enums";
 import { CurrencyFormatPipe } from "@trackwise/shared/pipes";
+import { PermissionService } from "@trackwise/shared/services";
 import {
   Card,
   Divider,
@@ -50,6 +52,9 @@ export class EmployeePayrollInvoices {
   private readonly api = inject(Api);
   private readonly router = inject(Router);
   protected readonly store = inject(EmployeePayrollListStore);
+  protected readonly canManagePayroll = inject(PermissionService).hasPermission(
+    Permission.Payroll.Manage,
+  );
 
   protected readonly employeeId = input.required<string>();
   protected readonly employee = signal<EmployeeDto | null>(null);

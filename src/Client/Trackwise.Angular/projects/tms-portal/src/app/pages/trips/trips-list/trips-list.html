@@ -1,5 +1,5 @@
 <div class="animate-in fade-in">
-  <ui-page-header title="Trips" addRoute="/trips/add" addTooltip="Add a new trip">
+  <ui-page-header title="Trips" [addRoute]="canManage ? '/trips/add' : null" addTooltip="Add a new trip">
     <ui-button
       appearance="text"
       size="lg"
