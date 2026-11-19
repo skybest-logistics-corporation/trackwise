@@ -2,32 +2,25 @@ package com.trackwise.driver.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Primary Colors
-val PrimaryBlue = Color(0xFF2196F3)
-val PrimaryDarkBlue = Color(0xFF1976D2)
-val PrimaryLightBlue = Color(0xFF64B5F6)
+// shadcn/ui "zinc" palette. The app's look comes from these: near-black primary,
+// white or near-black surfaces, hairline zinc borders, muted zinc secondary text.
+val Zinc50 = Color(0xFFFAFAFA)
+val Zinc100 = Color(0xFFF4F4F5)
+val Zinc200 = Color(0xFFE4E4E7)
+val Zinc300 = Color(0xFFD4D4D8)
+val Zinc400 = Color(0xFFA1A1AA)
+val Zinc500 = Color(0xFF71717A)
+val Zinc600 = Color(0xFF52525B)
+val Zinc700 = Color(0xFF3F3F46)
+val Zinc800 = Color(0xFF27272A)
+val Zinc900 = Color(0xFF18181B)
+val Zinc950 = Color(0xFF09090B)
 
-// Background Colors
-val BackgroundLight = Color(0xFFDAE5F3)
-val CardBackground = Color(0xFFF5F5F5)
-val SurfaceLight = Color(0xFFFFFFFF)
-
-// Text Colors
-val TextPrimary = Color(0xFF212121)
-val TextSecondary = Color(0xFF757575)
-val TextHint = Color(0xFFBDBDBD)
-
-// Status Colors
-val SuccessGreen = Color(0xFF4CAF50)
-val ErrorRed = Color(0xFFF44336)
-val WarningOrange = Color(0xFFFF9800)
-val InfoBlue = Color(0xFF2196F3)
-
-// Dark Theme Colors
-val PrimaryBlueDark = Color(0xFF90CAF9)
-val BackgroundDark = Color(0xFF121212)
-val SurfaceDark = Color(0xFF1E1E1E)
-val CardBackgroundDark = Color(0xFF2C2C2C)
+// Destructive. Red-600 on light so error text stays readable in sunlight; red-500 on dark.
+val Red600 = Color(0xFFDC2626)
+val Red500 = Color(0xFFEF4444)
+val Red50 = Color(0xFFFEF2F2)
+val Red950 = Color(0xFF450A0A)
 
 // Vehicle Diagram Colors
 val DiagramBackground = Color(0xFFF5F5F5)
