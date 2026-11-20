@@ -23,7 +23,7 @@ public class QuotationRevisionIdentityTests
     {
         var revision = CreateRevision();
 
-        var exception = Assert.Throws<InvalidOperationException>(() => Update(revision, freightMode: FreightMode.Import));
+        var exception = Assert.Throws<InvalidOperationException>(() => Update(revision, freightMode: FreightMode.Reefer));
 
         Assert.Contains("same customer, freight mode, and route", exception.Message);
     }
@@ -69,7 +69,7 @@ public class QuotationRevisionIdentityTests
             "QT-2026-DOM-00001",
             "USD",
             TransportMode.Road,
-            FreightMode.Domestic,
+            FreightMode.Trucking,
             ShipmentType.FTL,
             Incoterm.DAP,
             LaneTransit.PointToPoint(

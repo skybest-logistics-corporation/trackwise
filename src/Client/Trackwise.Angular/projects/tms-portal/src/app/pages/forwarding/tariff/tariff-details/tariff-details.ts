@@ -1,5 +1,14 @@
 import { CurrencyPipe, DatePipe, TitleCasePipe, UpperCasePipe } from "@angular/common";
-import { Component, DestroyRef, inject, input, signal, type OnInit } from "@angular/core";
+import {
+  Component,
+  DestroyRef,
+  effect,
+  inject,
+  input,
+  signal,
+  untracked,
+  type OnInit,
+} from "@angular/core";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import {
@@ -58,7 +67,7 @@ import { TariffCopyComponent } from "../components/tariff-copy/tariff-copy.compo
     TariffCopyComponent,
   ],
 })
-export class TariffDetails implements OnInit {
+export class TariffDetails {
   private readonly api = inject(Api);
   private readonly toastService = inject(ToastService);
   private readonly router = inject(Router);
@@ -78,30 +87,31 @@ export class TariffDetails implements OnInit {
 
   protected readonly isCopyOpen = signal(false);
 
-  ngOnInit(): void {
-    void this.loadTariff();
+  private loadToken = 0;
 
-    this.route.paramMap
-      .pipe(
-        map((params) => params.get("id")),
-        distinctUntilChanged(),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe((id) => {
-        if (id) void this.loadTariff();
-      });
+  constructor() {
+    effect(() => {
+      const id = this.id();
+      untracked(() => void this.loadTariff(id));
+    });
   }
 
-  protected async loadTariff(): Promise<void> {
+  protected async loadTariff(id: string = this.id()): Promise<void> {
+    const token = ++this.loadToken;
     this.isLoading.set(true);
     try {
-      const response = await this.api.invoke(getTariffById, { id: this.id() });
-      console.log("Tariff Details Response:", response);
-      this.tariff.set(response);
+      const response = await this.api.invoke(getTariffById, { id });
+      if (token === this.loadToken) {
+        this.tariff.set(response);
+      }
     } catch {
-      this.toastService.showError("Failed to load tariff");
+      if (token === this.loadToken) {
+        this.toastService.showError("Failed to load tariff");
+      }
     } finally {
-      this.isLoading.set(false);
+      if (token === this.loadToken) {
+        this.isLoading.set(false);
+      }
     }
   }
 

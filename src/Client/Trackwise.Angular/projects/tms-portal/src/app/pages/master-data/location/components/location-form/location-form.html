@@ -1,5 +1,5 @@
 <ui-grid container spacing="3">
-  <ui-grid [size]="{ xs: 12, lg: 9, xl: 8 }">
+  <ui-grid [size]="embedded() ? { xs: 12 } : { xs: 12, lg: 9, xl: 8 }">
     <form [formRoot]="form">
       <ui-stack gap="4">
         <ui-stack tag="section" gap="3">

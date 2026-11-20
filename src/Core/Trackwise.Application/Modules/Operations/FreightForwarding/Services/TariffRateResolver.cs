@@ -44,24 +44,24 @@ internal sealed class TariffRateResolver(ITenantUnitOfWork tenantUow) : ITariffR
         }
 
         // Client-specific tariffs take precedence over contract-specific and general tariffs.
-        if (contractId.HasValue)
-        {
-            var contractedRate = await query
-                .Where(r => r.Tariff!.ContractId == contractId.Value &&
-                            r.Tariff.CustomerId == null &&
-                            r.Tariff.Mode == mode &&
-                            (originLane == null || r.Tariff.OriginLane == originLane) &&
-                            (destinationLane == null || r.Tariff.DestinationLane == destinationLane))
-                .OrderByDescending(r => r.Tariff!.Version)
-                .FirstOrDefaultAsync(ct);
+        //if (contractId.HasValue)
+        //{
+        //    var contractedRate = await query
+        //        .Where(r => r.Tariff!.ContractRef == contractId.Value &&
+        //                    r.Tariff.CustomerId == null &&
+        //                    r.Tariff.Mode == mode &&
+        //                    (originLane == null || r.Tariff.OriginLane == originLane) &&
+        //                    (destinationLane == null || r.Tariff.DestinationLane == destinationLane))
+        //        .OrderByDescending(r => r.Tariff!.Version)
+        //        .FirstOrDefaultAsync(ct);
 
-            if (contractedRate is not null)
-                return contractedRate;
-        }
+        //    if (contractedRate is not null)
+        //        return contractedRate;
+        //}
 
         // Fall back to a general tariff when no client or contract rate matches.
         var standardRate = await query
-            .Where(r => r.Tariff!.ContractId == null && r.Tariff.CustomerId == null &&
+            .Where(r => r.Tariff!.CustomerId == null &&
                         r.Tariff.Mode == mode)
             .Where(r => (originLane == null || r.Tariff!.OriginLane == originLane) &&
                         (destinationLane == null || r.Tariff!.DestinationLane == destinationLane))

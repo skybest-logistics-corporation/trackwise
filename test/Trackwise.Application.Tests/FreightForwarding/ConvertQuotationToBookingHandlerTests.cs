@@ -153,7 +153,7 @@ public class ConvertQuotationToBookingHandlerTests
             referenceNumber: "QT-TEST-001",
             currency: "USD",
             mode: TransportMode.Road,
-            freightMode: FreightMode.Domestic,
+            freightMode: FreightMode.Trucking,
             shipmentType: ShipmentType.FTL,
             incoterm: Incoterm.DAP,
             lane: lane,

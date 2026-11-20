@@ -20,6 +20,8 @@
         optionValue="value"
         filter
         filterPlaceholder="Search location"
+        createLabel="Create new location"
+        (createNew)="onCreateLocation($event)"
       />
     </ui-form-field>
 
@@ -35,4 +37,22 @@
       </ui-stack>
     </div>
   </form>
+</ui-dialog>
+
+<ui-dialog
+  header="Add New Location for this client"
+  [(open)]="createLocationOpen"
+  [modal]="true"
+  width="900px"
+>
+  @if (createLocationOpen()) {
+    <app-location-form
+      [embedded]="true"
+      [isLoading]="isLoading()"
+      [initialCustomer]="initialCustomer()"
+      [initialName]="newLocationName()"
+      (save)="create($event)"
+      (cancel)="createLocationOpen.set(false)"
+    />
+  }
 </ui-dialog>
