@@ -14,15 +14,10 @@ namespace Trackwise.Infrastructure.Documents.Pdf.Quotations;
 /// The customer-facing formal rate offer. Everything it prints comes from the quotation
 /// aggregate plus the names the application layer resolved for it.
 /// <para>
-/// Routing depends on the freight mode. Reefer and Trucking quote a stop-by-stop lane;
-/// every other mode (Domestic / Import / Export / Triangular) quotes Port of Loading to
-/// Port of Discharge.
-/// </para>
-/// <para>
-/// Two charge layouts (lane modes only): a quotation priced for a single truck type/size prints
-/// the itemised charge table; a quotation whose tariffs span several truck types/sizes prints a
-/// rate matrix (one row per delivery lane, one column per truck) because those lines are
-/// alternatives, not charges that add up.
+/// Two layouts: a quotation priced for a single truck type/size prints the itemised charge
+/// table; a quotation whose tariffs span several truck types/sizes prints a rate matrix
+/// (one row per delivery lane, one column per truck) because those lines are alternatives,
+/// not charges that add up.
 /// </para>
 /// </summary>
 public sealed class QuotationPdfDocument : IDocument
@@ -34,9 +29,6 @@ public sealed class QuotationPdfDocument : IDocument
     private readonly string? _customerAddress;
     private readonly IReadOnlyDictionary<Guid, string> _locationNames;
     private readonly IReadOnlyList<PricedLine> _lines;
-
-    /// <summary>Reefer / Trucking: routed by lane. Everything else: routed by POL / POD.</summary>
-    private readonly bool _isLaneMode;
 
     // Multi-tariff layout state
     private readonly IReadOnlyList<PricedLine> _tariffLines;
@@ -72,8 +64,6 @@ public sealed class QuotationPdfDocument : IDocument
         _logo = PdfLogo.TryDecode(request.LogoBytes);
         _lines = BuildLines(request);
 
-        _isLaneMode = _quote.FreightMode is FreightMode.Reefer or FreightMode.Trucking;
-
         _tariffLines = _lines.Where(l => l.Vehicle.HasValue).ToList();
         _commonLines = _lines.Where(l => !l.Vehicle.HasValue).ToList();
 
@@ -87,8 +77,7 @@ public sealed class QuotationPdfDocument : IDocument
         _lanes = _tariffLines.Select(l => l.Lane ?? "—").Distinct().ToList(); // keeps first-seen order
 
         // More than one truck type/size = alternatives, so a single itemised table would be misleading.
-        // Only lane modes can have alternatives; a port-routed quotation never renders as a matrix.
-        _isMatrix = _isLaneMode && _columns.Count > 1;
+        _isMatrix = _columns.Count > 1;
     }
 
     /// <summary>
@@ -249,13 +238,9 @@ public sealed class QuotationPdfDocument : IDocument
                 Spec(row, "Currency", _quote.Currency);
             });
 
-            // Non-lane modes route by POL / POD. Lane modes: each matrix row has its own lane, so one
-            // quotation-level route would contradict it and the matrix only states the common pickup point.
-            if (!_isLaneMode)
-            {
-                ComposePorts(col);
-            }
-            else if (_isMatrix)
+            // Each lane has its own row in the matrix, so one quotation-level route would contradict it.
+            // The matrix only states the common pickup point.
+            if (_isMatrix)
             {
                 ComposePickup(col);
             }
@@ -296,35 +281,6 @@ public sealed class QuotationPdfDocument : IDocument
     private List<RouteStop> OrderedStops() =>
         (_quote.Lane?.Stops ?? []).OrderBy(s => s.Sequence).ToList();
 
-    /// <summary>
-    /// Non-lane modes (Domestic / Import / Export / Triangular): Port of Loading to Port of Discharge.
-    /// Requires Quotation.Pol / Quotation.Pod to be loaded (Include) by whoever builds the request.
-    /// </summary>
-    private void ComposePorts(ColumnDescriptor col)
-    {
-        var isAir = _quote.Mode == TransportMode.Air;
-
-        col.Item().PaddingTop(14).Text("PORT ROUTING")
-            .Bold().FontSize(9).FontColor(Colors.Blue.Darken3);
-
-        col.Item().PaddingTop(4).Column(c =>
-        {
-            c.Item().Text($"• {(isAir ? "Airport of Departure" : "Port of Loading")} (POL): {TerminalName(_quote.Pol)}");
-            c.Item().Text($"• {(isAir ? "Airport of Destination" : "Port of Discharge")} (POD): {TerminalName(_quote.Pod)}");
-        });
-    }
-
-    private static string TerminalName(Terminal? terminal)
-    {
-        if (terminal is null)
-        {
-            return "To be advised";
-        }
-
-        var label = $"{terminal.Code} - {terminal.Name}";
-        return string.IsNullOrWhiteSpace(terminal.CountryCode) ? label : $"{label} ({terminal.CountryCode})";
-    }
-
     /// <summary>Matrix mode: only the pickup point, since each lane has its own row.</summary>
     private void ComposePickup(ColumnDescriptor col)
     {
@@ -355,11 +311,7 @@ public sealed class QuotationPdfDocument : IDocument
                 c.Item().Text($"• Route: {LocationName(stops.First().LocationId)} to {LocationName(stops.Last().LocationId)} ({stops.Count} stop(s))");
             }
 
-            var distanceKm = _quote.Lane?.TotalDistanceKm ?? 0m;
-            if (distanceKm > 0m)
-            {
-                c.Item().Text($"• Distance: {distanceKm:N2} km");
-            }
+            c.Item().Text($"• Distance: {(_quote.Lane?.TotalDistanceKm ?? 0m):N2} km");
 
             foreach (var stop in stops)
             {
@@ -394,8 +346,7 @@ public sealed class QuotationPdfDocument : IDocument
             });
         }
 
-        // Temperature control only applies to Reefer.
-        var temperature = _quote.FreightMode == FreightMode.Reefer ? _quote.TemperatureSpec : null;
+        var temperature = _quote.TemperatureSpec;
         if (temperature is not null)
         {
             col.Item().PaddingTop(14).Text("COLD CHAIN PROFILE")
@@ -446,8 +397,7 @@ public sealed class QuotationPdfDocument : IDocument
                     cell.Item().Text(SubLine(line)).FontSize(8).FontColor(Colors.Grey.Darken1);
                 });
                 table.Cell().Element(PdfStyles.Cell).Text(line.PricingModel);
-                table.Cell().Element(PdfStyles.Cell).AlignRight()
-                    .Text(line.Quantity.ToString("N2") + (string.IsNullOrWhiteSpace(line.Unit) ? string.Empty : $" ({line.Unit})"));
+                table.Cell().Element(PdfStyles.Cell).AlignRight().Text(line.Quantity.ToString("N2") + " (" + line.Unit + ")");
                 table.Cell().Element(PdfStyles.Cell).AlignRight()
                     .Text(line.Priced ? PdfFormatting.Money(line.Selling, _quote.Currency) : "—")
                     .Bold();
@@ -458,7 +408,7 @@ public sealed class QuotationPdfDocument : IDocument
         });
     }
 
-    // ── Multi-vehicle layout: rate matrix (lane modes only) ────────────────────
+    // ── Multi-vehicle layout: rate matrix ──────────────────────────────────────
 
     private void ComposeRateMatrix(IContainer container)
     {

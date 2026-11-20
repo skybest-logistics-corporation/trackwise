@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Stripe;
 using Trackwise.Application.Abstractions;
 using Trackwise.Application.Abstractions.CurrentUser;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Services;
@@ -7,6 +8,7 @@ using Trackwise.Domain.Persistence;
 using Trackwise.Domain.Primitives.Enums;
 using Trackwise.Domain.Primitives.ValueObjects;
 using Trackwise.Shared.Models;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.CreateQuotation;
 
@@ -25,7 +27,6 @@ internal sealed class CreateQuotationHandler(
         var locationRepo = tenantUow.Repository<Location>();
         var quotationRepo = tenantUow.Repository<Quotation>();
         var branchRepo = tenantUow.Repository<Branch>();
-        var terminalRepo = tenantUow.Repository<Terminal>();
 
         // 1. Verify Customer
         var customer = await customerRepo.GetByIdAsync(req.CustomerId, ct);
@@ -39,85 +40,46 @@ internal sealed class CreateQuotationHandler(
 
         // 2. Reference numbers must be unique per tenant (the DB index is not unique, so enforce it here
         //    and add a unique (TenantId, ReferenceNumber) index to close the race).\
-        var referenceNumber = await referenceGenerator.NextAsync(req.FreightMode, branch.Code, ct);
+        var isColdChain = req.TemperatureSpec is not null;
+        var referenceNumber = await referenceGenerator.NextAsync(req.FreightMode, branch.Code, isColdChain, ct);
 
-        // 3. Normalize and Resolve Route Stops (Multi-Drop or Point-to-Point) - lane mode only.
-        //    Reefer/Trucking quote a real stop-by-stop lane; every other mode quotes by POL/POD.
-        var isLaneMode = req.FreightMode == FreightMode.Reefer || req.FreightMode == FreightMode.Trucking;
+        // 3. Normalize and Resolve Route Stops (Multi-Drop or Point-to-Point)
+        var stopDtos = QuotationRouteResolver.ResolveStops(req.Lane);
+        if (stopDtos.Count < 2)
+            return Result<Guid>.Fail("A quote transit route must contain at least two stops (Origin and Destination).");
 
-        List<RouteStopDto> stopDtos = [];
-        decimal totalDistanceKm = 0m;
-        Guid? pol = null;
-        Guid? pod = null;
+        // 4. Load & Validate All Stop Locations (single query instead of one per stop)
+        var locationIds = stopDtos.Select(s => s.LocationId).Distinct().ToList();
+        var locations = await locationRepo.Query()
+            .Where(l => locationIds.Contains(l.Id))
+            .ToDictionaryAsync(l => l.Id, ct);
 
-        if (isLaneMode)
+        foreach (var locId in locationIds)
         {
-            if (req.Lane is null)
-                return Result<Guid>.Fail("Lane routing information is required for Reefer and Trucking freight modes.");
+            if (!locations.TryGetValue(locId, out var loc) || !loc.IsActive || loc.DeletedAt.HasValue)
+                return Result<Guid>.Fail($"Location '{locId}' is invalid, inactive, or soft-deleted.");
 
-            stopDtos = QuotationRouteResolver.ResolveStops(req.Lane);
-            if (stopDtos.Count < 2)
-                return Result<Guid>.Fail("A quote transit route must contain at least two stops (Origin and Destination).");
+            if (loc.MergedIntoId.HasValue)
+                return Result<Guid>.Fail($"Location '{loc.Code}' has been merged into another site and cannot be used.");
 
-            // 4. Load & Validate All Stop Locations (single query instead of one per stop)
-            var locationIds = stopDtos.Select(s => s.LocationId).Distinct().ToList();
-            var locations = await locationRepo.Query()
-                .Where(l => locationIds.Contains(l.Id))
-                .ToDictionaryAsync(l => l.Id, ct);
+            if (loc.Type == LocationType.Zone)
+                return Result<Guid>.Fail($"Location '{loc.Code}' is a Zone grouping. Stops must reference physical facilities or delivery points.");
 
-            var locationError = QuotationRouteResolver.ValidateLocations(locationIds, locations, req.CustomerId);
-            if (locationError is not null)
-                return Result<Guid>.Fail(locationError);
-
-            foreach (var locId in locationIds)
-            {
-                if (!locations.TryGetValue(locId, out var loc) || !loc.IsActive || loc.DeletedAt.HasValue)
-                    return Result<Guid>.Fail($"Location '{locId}' is invalid, inactive, or soft-deleted.");
-
-                if (loc.MergedIntoId.HasValue)
-                    return Result<Guid>.Fail($"Location '{loc.Code}' has been merged into another site and cannot be used.");
-
-                if (loc.Type == LocationType.Zone)
-                    return Result<Guid>.Fail($"Location '{loc.Code}' is a Zone grouping. Stops must reference physical facilities or delivery points.");
-
-                if (loc.CustomerId.HasValue && loc.CustomerId.Value != req.CustomerId)
-                    return Result<Guid>.Fail($"Private Location '{loc.Code}' does not belong to Customer '{req.CustomerId}'.");
-            }
-
-            // 5. Resolve Route Distance (Multi-Leg Haversine if omitted)
-            decimal laneDistanceKm = req.Lane.TotalDistanceKm ?? 0m;
-            if (laneDistanceKm <= 0m)
-            {
-                var calculatedDistance = QuotationRouteResolver.CalculateRouteDistance(stopDtos, locations);
-                if (calculatedDistance is null)
-                {
-                    return Result<Guid>.Fail(
-                        "Distance could not be auto-calculated because one or more stop locations lack surveyed GPS coordinates. Please specify TotalDistanceKm explicitly.");
-                }
-                laneDistanceKm = calculatedDistance.Value;
-            }
-
-            totalDistanceKm = laneDistanceKm;
+            if (loc.CustomerId.HasValue && loc.CustomerId.Value != req.CustomerId)
+                return Result<Guid>.Fail($"Private Location '{loc.Code}' does not belong to Customer '{req.CustomerId}'.");
         }
-        else
+
+        // 5. Resolve Route Distance (Multi-Leg Haversine if omitted)
+        decimal totalDistanceKm = req.Lane.TotalDistanceKm ?? 0m;
+        if (totalDistanceKm <= 0m)
         {
-            if (req.Lane is not null)
-                return Result<Guid>.Fail("A route lane is not applicable to Domestic/Import/Export/Triangular freight modes.");
-
-            if (!req.PolId.HasValue || !req.PodId.HasValue)
-                return Result<Guid>.Fail("POL and POD are required for Domestic/Import/Export/Triangular freight modes.");
-
-            pol = req.PolId;
-            pod = req.PodId;
-
-            var terminalIds = new[] { pol.Value, pod.Value }.Distinct().ToList();
-            var terminals = await terminalRepo.Query()
-                .Where(t => terminalIds.Contains(t.Id))
-                .ToDictionaryAsync(t => t.Id, ct);
-
-            var portError = QuotationRouteResolver.ValidateTerminals(pol, pod, terminals);
-            if (portError is not null)
-                return Result<Guid>.Fail(portError);
+            var calculatedDistance = QuotationRouteResolver.CalculateRouteDistance(stopDtos, locations);
+            if (calculatedDistance is null)
+            {
+                return Result<Guid>.Fail(
+                    "Distance could not be auto-calculated because one or more stop locations lack surveyed GPS coordinates. Please specify TotalDistanceKm explicitly.");
+            }
+            totalDistanceKm = calculatedDistance.Value;
         }
 
         // 6. Build the aggregate. Domain invariants throw ArgumentException / InvalidOperationException;
@@ -125,23 +87,18 @@ internal sealed class CreateQuotationHandler(
         Quotation quotation;
         try
         {
-            // Only lane modes carry a real stop-by-stop LaneTransit.
-            LaneTransit? lane = null;
-            if (isLaneMode)
-            {
-                var routeStops = stopDtos
-                    .OrderBy(s => s.Sequence)
-                    .Select(s => RouteStop.Create(
-                        sequence: s.Sequence,
-                        locationId: s.LocationId,
-                        type: s.Type,
-                        windowStart: s.WindowStart,
-                        windowEnd: s.WindowEnd,
-                        instructions: s.Instructions))
-                    .ToList();
+            var routeStops = stopDtos
+                .OrderBy(s => s.Sequence)
+                .Select(s => RouteStop.Create(
+                    sequence: s.Sequence,
+                    locationId: s.LocationId,
+                    type: s.Type,
+                    windowStart: s.WindowStart,
+                    windowEnd: s.WindowEnd,
+                    instructions: s.Instructions))
+                .ToList();
 
-                lane = new LaneTransit(routeStops, totalDistanceKm);
-            }
+            var lane = new LaneTransit(routeStops, totalDistanceKm);
 
             // 6a. Cargo. A "blank" cargo block is treated as no cargo (the validator skips it, and
             //     CargoSpecification.Create would reject an empty commodity).
@@ -207,9 +164,7 @@ internal sealed class CreateQuotationHandler(
                 requiresCustomsBrokerage: req.RequiresCustomsBrokerage,
                 notes: req.Notes,
                 declaredCargoValuePhp: cargoValuePhp,
-                polId: pol,
-                podId: pod,
-                createdBy: currentUserService.GetUserName());
+                currentUserService.GetUserName());
 
             // 8. Auto-price. See the rating-engine checklist: category from ChargeCode, no fxRate when
             //    currencies match, percentage bases, and the cold-chain / customs lines Submit() demands.

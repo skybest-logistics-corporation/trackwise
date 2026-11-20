@@ -80,7 +80,7 @@ public static partial class TariffMapper
             containerTypeId: request.ContainerTypeId,
             carrierId: request.CarrierId,
             effectiveFrom: request.EffectiveFrom,
-            contractRef: request.ContractRef); // Adjust mapping here if contractId vs createdById differs in domain signature
+            contractId: createdById); // Adjust mapping here if contractId vs createdById differs in domain signature
     }
 
     /// <summary>
@@ -102,7 +102,7 @@ public static partial class TariffMapper
             tonnageClass: request.TonnageClass!,
             containerTypeId: request.ContainerTypeId,
             carrierId: request.CarrierId,
-            contractRef: request.ContractRef!);
+            contractId: request.ContractId);
     }
 
     /// <summary>

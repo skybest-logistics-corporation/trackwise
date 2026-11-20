@@ -86,8 +86,6 @@ export const freightModeOptions: SelectOption<FreightMode>[] = [
   { label: "Import", value: "import" as FreightMode },
   { label: "Export", value: "export" as FreightMode },
   { label: "Triangular", value: "triangular" as FreightMode },
-  { label: "Reefer", value: "reefer" as FreightMode },
-  { label: "Trucking", value: "trucking" as FreightMode },
 ];
 
 export const serviceLevelOptions: SelectOption<ServiceLevel>[] = [

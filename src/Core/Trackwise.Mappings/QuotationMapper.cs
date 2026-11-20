@@ -9,7 +9,6 @@ using Trackwise.Shared.Models.Quotations;
 namespace Trackwise.Mappings;
 
 [Mapper]
-[UseStaticMapper(typeof(TerminalMapper))]
 public static partial class QuotationMapper
 {
     // =========================================================================
@@ -40,13 +39,9 @@ public static partial class QuotationMapper
     [MapProperty("CargoSpec.TotalWeightKg", nameof(QuotationDto.TotalWeightKg))]
     [MapProperty("CargoSpec.PalletCount", nameof(QuotationDto.PalletCount))]
     [MapProperty("CargoSpec.DeclaredCargoValue.Amount", nameof(QuotationDto.DeclaredCargoValueAmount))]
-    // NEW: the currency was previously unmapped and always came back null
-    [MapProperty("CargoSpec.DeclaredCargoValue.Currency", nameof(QuotationDto.DeclaredCargoValueCurrency))]
     // Lifecycle history: names differ (Events -> Timeline) and we force chronological order.
     // UpdatedAt maps by name and goes through ToUtcOffset below.
     [MapProperty(nameof(Quotation.Events), nameof(QuotationDto.Timeline), Use = nameof(MapTimeline))]
-    // NEW: PolId, PodId, Pol and Pod map by name. Pol/Pod (Terminal -> TerminalSummaryDto)
-    // use ToTerminalSummary below, so the handler must Include() both navigations.
     public static partial QuotationDto ToDto(this Quotation entity);
 
     /// <summary>
@@ -72,11 +67,6 @@ public static partial class QuotationMapper
     [MapperIgnoreSource(nameof(Quotation.RejectedAt))]
     [MapperIgnoreSource(nameof(Quotation.RejectionReason))]
     [MapperIgnoreSource(nameof(Quotation.ApprovalEscalationReason))]
-    // NEW: the summary has no port fields
-    [MapperIgnoreSource(nameof(Quotation.PolId))]
-    [MapperIgnoreSource(nameof(Quotation.Pol))]
-    [MapperIgnoreSource(nameof(Quotation.PodId))]
-    [MapperIgnoreSource(nameof(Quotation.Pod))]
     [MapperIgnoreTarget(nameof(QuotationSummaryDto.CustomerName))]
     [MapperIgnoreTarget(nameof(QuotationSummaryDto.CustomerEmail))]
     [MapperIgnoreTarget(nameof(QuotationSummaryDto.BranchName))]

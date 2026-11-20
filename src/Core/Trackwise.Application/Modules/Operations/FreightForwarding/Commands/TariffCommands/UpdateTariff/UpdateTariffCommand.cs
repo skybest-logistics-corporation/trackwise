@@ -20,5 +20,5 @@ public class UpdateTariffCommand : ICommand<Result>
     public TruckTonnageClass? TonnageClass { get; set; }
     public Guid? ContainerTypeId { get; set; }
     public Guid? CarrierId { get; set; }
-    public string? ContractRef { get; set; }
+    public Guid? ContractId { get; set; }
 }

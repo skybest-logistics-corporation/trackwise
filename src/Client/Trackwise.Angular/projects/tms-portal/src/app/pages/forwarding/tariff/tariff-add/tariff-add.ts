@@ -36,18 +36,18 @@ export class TariffAddComponent {
       currency: formValue.currency.trim().toUpperCase(),
       effectiveFrom: formValue.effectiveFrom,
       carrierId: formValue.carrierId ?? undefined,
-      contractRef: formValue.contractRef ?? undefined,
+      contractId: formValue.contractId ?? undefined,
       customerId: formValue.customerId ?? undefined,
     };
 
     try {
-      const tariffId = await this.api.invoke(createTariff, {
+      await this.api.invoke(createTariff, {
         body: command,
       });
 
       this.toastService.showSuccess("A new tariff has been created successfully");
 
-      await this.router.navigate(["/tariffs", tariffId]);
+      await this.router.navigateByUrl("/tariffs");
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "An unexpected error occurred.";
 

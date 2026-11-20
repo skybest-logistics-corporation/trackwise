@@ -4,7 +4,6 @@
   filterPlaceholder="Type a driver name or truck number"
   optionLabel="label"
   optionValue="truck"
-  optionDisabled="disabled"
   [options]="options()"
   [filter]="true"
   [showClear]="true"
@@ -14,7 +13,7 @@
   (touch)="markTouched()"
 >
   <ng-template #item let-option>
-    <div class="flex items-center gap-2" [class.opacity-50]="option.disabled">
+    <div class="flex items-center gap-2">
       <span class="font-bold">{{ option.truck.number }}</span>
       @if (option.truck.mainDriver) {
         <span class="text-muted-foreground text-sm">- {{ option.truck.mainDriver.fullName }}</span>
@@ -23,8 +22,6 @@
             and {{ option.truck.secondaryDriver.fullName }}
           </span>
         }
-      } @else if (option.disabled) {
-        <span class="text-muted-foreground text-sm italic">- No main driver assigned</span>
       }
       <span class="text-muted-foreground text-sm">
         ({{ option.truck.type | enumLabel: truckTypeLabels }}) -

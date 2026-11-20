@@ -1,5 +1,6 @@
 import { CurrencyPipe, DatePipe, TitleCasePipe, UpperCasePipe } from "@angular/common";
-import { Component, DestroyRef, effect, inject, input, signal, untracked } from "@angular/core";
+import { Component, DestroyRef, inject, input, signal, type OnInit } from "@angular/core";
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import {
   Api,
@@ -23,6 +24,7 @@ import {
   UiDataTable,
   UiTabsImports,
 } from "@trackwise/shared/ui";
+import { distinctUntilChanged, map } from "rxjs";
 import { ToastService } from "@/core/services";
 import { PageHeader } from "@/shared/components";
 import { truckTonnageClassLabels, truckTypeLabels } from "@/shared/constants/truck-options";
@@ -56,7 +58,7 @@ import { TariffCopyComponent } from "../components/tariff-copy/tariff-copy.compo
     TariffCopyComponent,
   ],
 })
-export class TariffDetails {
+export class TariffDetails implements OnInit {
   private readonly api = inject(Api);
   private readonly toastService = inject(ToastService);
   private readonly router = inject(Router);
@@ -76,31 +78,30 @@ export class TariffDetails {
 
   protected readonly isCopyOpen = signal(false);
 
-  private loadToken = 0;
+  ngOnInit(): void {
+    void this.loadTariff();
 
-  constructor() {
-    effect(() => {
-      const id = this.id();
-      untracked(() => void this.loadTariff(id));
-    });
+    this.route.paramMap
+      .pipe(
+        map((params) => params.get("id")),
+        distinctUntilChanged(),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((id) => {
+        if (id) void this.loadTariff();
+      });
   }
 
-  protected async loadTariff(id: string = this.id()): Promise<void> {
-    const token = ++this.loadToken;
+  protected async loadTariff(): Promise<void> {
     this.isLoading.set(true);
     try {
-      const response = await this.api.invoke(getTariffById, { id });
-      if (token === this.loadToken) {
-        this.tariff.set(response);
-      }
+      const response = await this.api.invoke(getTariffById, { id: this.id() });
+      console.log("Tariff Details Response:", response);
+      this.tariff.set(response);
     } catch {
-      if (token === this.loadToken) {
-        this.toastService.showError("Failed to load tariff");
-      }
+      this.toastService.showError("Failed to load tariff");
     } finally {
-      if (token === this.loadToken) {
-        this.isLoading.set(false);
-      }
+      this.isLoading.set(false);
     }
   }
 

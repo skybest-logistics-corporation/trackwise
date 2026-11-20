@@ -67,7 +67,7 @@ internal sealed class TariffConfiguration : IEntityTypeConfiguration<Tariff>
             .IsRequired(false);
 
         // Indexes
-        builder.HasIndex(x => new { x.Name, x.Mode, x.ServiceLevel, x.CustomerId, x.IsActive })
+        builder.HasIndex(x => new { x.Name, x.Mode, x.ServiceLevel, x.ContractId, x.CustomerId, x.IsActive })
             .IsUnique();
 
         // Relationships (we'll configure FKs in the infrastructure layer if needed)
