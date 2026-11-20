@@ -7,5 +7,5 @@ namespace Trackwise.Application.Modules.Operations.FreightForwarding.Services;
 
 public interface IQuotationReferenceGenerator
 {
-    Task<string> NextAsync(FreightMode freightMode, string branchCode, bool isColdChain, CancellationToken ct);
+    Task<string> NextAsync(FreightMode freightMode, string branchCode, CancellationToken ct);
 }

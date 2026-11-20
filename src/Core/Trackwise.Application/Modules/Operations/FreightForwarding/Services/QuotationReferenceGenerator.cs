@@ -11,9 +11,9 @@ internal sealed class QuotationReferenceGenerator(ITenantUnitOfWork tenantUow, T
     private const string Prefix = "QT";
     private const int SequenceWidth = 5;
 
-    public async Task<string> NextAsync(FreightMode freightMode, string branchCode, bool isColdChain, CancellationToken ct)
+    public async Task<string> NextAsync(FreightMode freightMode, string branchCode, CancellationToken ct)
     {
-        var prefix = BuildPrefix(freightMode, branchCode, isColdChain);
+        var prefix = BuildPrefix(freightMode, branchCode);
 
         // Sequence is scoped to year + freight mode + branch. Order by length first so a
         // sequence that outgrows the padding (100000) still sorts after 99999.
@@ -30,14 +30,19 @@ internal sealed class QuotationReferenceGenerator(ITenantUnitOfWork tenantUow, T
     }
 
     /// <summary>e.g. "QT-26-DOMMNL-"</summary>
-    private string BuildPrefix(FreightMode freightMode, string branchCode, bool isColdChain)
+    private string BuildPrefix(FreightMode freightMode, string branchCode)
     {
         var code = Branch.NormalizeCode(branchCode);
         if (code.Length == 0)
             throw new ArgumentException("Branch code is required to generate a quotation reference.", nameof(branchCode));
 
         var year = (clock.GetUtcNow().Year % 100).ToString("D2");
-        var mode = isColdChain ? "CCL" : freightMode.ToString()[..3].ToUpperInvariant();
+        var mode = freightMode switch
+        {
+            FreightMode.Reefer => "CCL",
+            FreightMode.Trucking => "TRK",
+            _ => freightMode.ToString()[..3].ToUpperInvariant()
+        };
 
         return $"{Prefix}-{year}-{mode}{code}-";
     }

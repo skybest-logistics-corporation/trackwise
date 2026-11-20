@@ -18,6 +18,7 @@ import {
   removeQuotationLine,
   submitQuotation,
   type ConvertQuotationToBookingRequest,
+  type FreightMode,
   type QuotationDto,
   type QuotationEventType,
   type QuotationLineDto,
@@ -61,6 +62,8 @@ interface TimelineMeta {
   icon: IconName;
   color: IconColor;
 }
+
+const LANE_FREIGHT_MODES: readonly FreightMode[] = ["reefer", "trucking"];
 
 @Component({
   selector: "app-quotation-details",
@@ -199,6 +202,32 @@ export class QuotationDetailsComponent implements OnInit {
     const q = this.quotation();
     return !!q && q.status !== "draft" && q.revisionNumber === q.revisions?.length;
   });
+
+  /** Reefer / Trucking quote a stop-by-stop lane; everything else quotes POL / POD. */
+  protected readonly isLaneBased = computed(() => {
+    const mode = this.quotation()?.freightMode;
+    return !!mode && LANE_FREIGHT_MODES.includes(mode);
+  });
+
+  protected readonly isReefer = computed(() => this.quotation()?.freightMode === "reefer");
+
+  protected readonly sortedStops = computed(() =>
+    [...(this.quotation()?.stops ?? [])].sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0)),
+  );
+
+  protected readonly stopTypeLabels: Record<string, string> = {
+    pickup: "Pickup",
+    dropoff: "Drop-off",
+    waypoint: "Waypoint",
+    cross_dock_staging: "Cross-dock Staging",
+  };
+
+  protected readonly polLabel = computed(() =>
+    this.quotation()?.mode === "air" ? "Airport of Departure (POL)" : "Port of Loading (POL)",
+  );
+  protected readonly podLabel = computed(() =>
+    this.quotation()?.mode === "air" ? "Airport of Destination (POD)" : "Port of Discharge (POD)",
+  );
 
   /**
    * Triggered when the trash icon is clicked in the table.

@@ -81,7 +81,7 @@ public class CreateQuotationRevisionHandlerTests
             .Returns(Task.CompletedTask);
 
         // FIXED: Return the exact reference number the assertion expects
-        referenceGenerator.NextAsync(Arg.Any<FreightMode>(), Arg.Any<string>(), false, Arg.Any<CancellationToken>())
+        referenceGenerator.NextAsync(Arg.Any<FreightMode>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns("QT-2026-DOM-00002");
 
         var sut = new CreateQuotationRevisionHandler(tenantUow, referenceGenerator, currentUserService);
@@ -162,7 +162,7 @@ public class CreateQuotationRevisionHandlerTests
             "QT-2026-DOM-00001",
             "USD",
             TransportMode.Road,
-            FreightMode.Domestic,
+            FreightMode.Trucking,
             ShipmentType.FTL,
             Incoterm.DAP,
             lane,
