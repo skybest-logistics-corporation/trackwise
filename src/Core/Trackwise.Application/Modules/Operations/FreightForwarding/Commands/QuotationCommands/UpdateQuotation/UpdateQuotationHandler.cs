@@ -43,81 +43,40 @@ internal sealed class UpdateQuotationHandler(
         if (await customerRepo.GetByIdAsync(req.CustomerId, ct) is null)
             return Result<Guid>.Fail($"Customer with ID '{req.CustomerId}' not found.", ErrorCodes.NotFound);
 
-        // 5. Route - lane mode (Reefer/Trucking) quotes a stop-by-stop lane; every other
-        //    mode quotes by POL/POD.
-        var isLaneMode = req.FreightMode == FreightMode.Reefer || req.FreightMode == FreightMode.Trucking;
+        // 5. Route
+        var stopDtos = QuotationRouteResolver.ResolveStops(req.Lane);
+        if (stopDtos.Count < 2)
+            return Result<Guid>.Fail("A quote transit route must contain at least two stops (Origin and Destination).", ErrorCodes.RouteTooFewStops);
 
-        List<RouteStopDto> stopDtos = [];
-        decimal totalDistanceKm = 0m;
-        Guid? pol = null;
-        Guid? pod = null;
+        var locationIds = stopDtos.Select(s => s.LocationId).Distinct().ToList();
+        var locations = await locationRepo.Query()
+            .Where(l => locationIds.Contains(l.Id))
+            .ToDictionaryAsync(l => l.Id, ct);
 
-        if (isLaneMode)
+        var locationError = QuotationRouteResolver.ValidateLocations(locationIds, locations, req.CustomerId);
+        if (locationError is not null)
+            return Result<Guid>.Fail(locationError);
+
+        decimal totalDistanceKm = req.Lane.TotalDistanceKm ?? 0m;
+        if (totalDistanceKm <= 0m)
         {
-            if (req.Lane is null)
-                return Result<Guid>.Fail("Lane routing information is required for Reefer and Trucking freight modes.", ErrorCodes.RouteTooFewStops);
-
-            stopDtos = QuotationRouteResolver.ResolveStops(req.Lane);
-            if (stopDtos.Count < 2)
-                return Result<Guid>.Fail("A quote transit route must contain at least two stops (Origin and Destination).", ErrorCodes.RouteTooFewStops);
-
-            var locationIds = stopDtos.Select(s => s.LocationId).Distinct().ToList();
-            var locations = await locationRepo.Query()
-                .Where(l => locationIds.Contains(l.Id))
-                .ToDictionaryAsync(l => l.Id, ct);
-
-            var locationError = QuotationRouteResolver.ValidateLocations(locationIds, locations, req.CustomerId);
-            if (locationError is not null)
-                return Result<Guid>.Fail(locationError);
-
-            decimal laneDistanceKm = req.Lane.TotalDistanceKm ?? 0m;
-            if (laneDistanceKm <= 0m)
-            {
-                var calculated = QuotationRouteResolver.CalculateRouteDistance(stopDtos, locations);
-                if (calculated is null)
-                    return Result<Guid>.Fail(
-                        "Distance could not be auto-calculated because one or more stop locations lack surveyed GPS coordinates. Please specify TotalDistanceKm explicitly.", ErrorCodes.DistanceNotCalculable);
-                laneDistanceKm = calculated.Value;
-            }
-
-            totalDistanceKm = laneDistanceKm;
-        }
-        else
-        {
-            if (req.Lane is not null)
-                return Result<Guid>.Fail("A route lane is not applicable to Domestic/Import/Export/Triangular freight modes.", ErrorCodes.RouteTooFewStops);
-
-            if (!req.PolId.HasValue || !req.PodId.HasValue)
-                return Result<Guid>.Fail("POL and POD are required for Domestic/Import/Export/Triangular freight modes.", ErrorCodes.RouteTooFewStops);
-
-            pol = req.PolId;
-            pod = req.PodId;
-
-            var portIds = new List<Guid> { pol.Value, pod.Value };
-            var ports = await locationRepo.Query()
-                .Where(l => portIds.Contains(l.Id))
-                .ToDictionaryAsync(l => l.Id, ct);
-
-            var portError = QuotationRouteResolver.ValidateLocations(portIds, ports, req.CustomerId);
-            if (portError is not null)
-                return Result<Guid>.Fail(portError);
+            var calculated = QuotationRouteResolver.CalculateRouteDistance(stopDtos, locations);
+            if (calculated is null)
+                return Result<Guid>.Fail(
+                    "Distance could not be auto-calculated because one or more stop locations lack surveyed GPS coordinates. Please specify TotalDistanceKm explicitly.", ErrorCodes.DistanceNotCalculable);
+            totalDistanceKm = calculated.Value;
         }
 
         // 6. Apply changes through the aggregate, then reprice
         try
         {
-            // Only lane modes carry a real stop-by-stop LaneTransit.
-            LaneTransit? lane = null;
-            if (isLaneMode)
-            {
-                var routeStops = stopDtos
-                    .OrderBy(s => s.Sequence)
-                    .Select(s => RouteStop.Create(s.Sequence, s.LocationId, s.Type,
-                        s.WindowStart, s.WindowEnd, s.Instructions))
-                    .ToList();
+            var routeStops = stopDtos
+                .OrderBy(s => s.Sequence)
+                .Select(s => RouteStop.Create(s.Sequence, s.LocationId, s.Type,
+                    s.WindowStart, s.WindowEnd, s.Instructions))
+                .ToList();
 
-                lane = new LaneTransit(routeStops, totalDistanceKm);
-            }
+            var lane = new LaneTransit(routeStops, totalDistanceKm);
 
             CargoSpecification? cargoSpec = null;
             decimal? cargoValuePhp = null;
@@ -185,9 +144,7 @@ internal sealed class UpdateQuotationHandler(
                 isHazardous: req.IsHazardous,
                 requiresCustomsBrokerage: req.RequiresCustomsBrokerage,
                 notes: req.Notes,
-                declaredCargoValuePhp: cargoValuePhp,
-                polId: pol,
-                podId: pod); // same as create, until the FX service is enabled
+                declaredCargoValuePhp: cargoValuePhp); // same as create, until the FX service is enabled
 
             await ratingEngine.AutoPriceAsync(quotation, customerContractId: null, ct);
         }

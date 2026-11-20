@@ -7,7 +7,6 @@ using Trackwise.Domain.Primitives.Enums;
 using Trackwise.Shared.Models;
 using Trackwise.Shared.Models.QuotationEvents;
 using Trackwise.Shared.Models.Quotations;
-using Trackwise.Mappings;
 
 namespace Trackwise.Application.Modules.Operations.FreightForwarding.Queries;
 
@@ -25,8 +24,6 @@ internal sealed class GetQuotationByIdHandler(ITenantUnitOfWork tenantUow)
             .Include(q => q.Lines)
                 .ThenInclude(l => l.TariffRate)
                     .ThenInclude(tr => tr!.ChargeCode)
-            .Include(q => q.Pod)
-            .Include(q => q.Pol)
             .FirstOrDefaultAsync(q => q.Id == req.Id, ct);
 
         if (quotation is null)
@@ -158,10 +155,6 @@ internal sealed class GetQuotationByIdHandler(ITenantUnitOfWork tenantUow)
             Incoterm = quotation.Incoterm,
             TotalDistanceKm = quotation.Lane?.TotalDistanceKm ?? 0m,
             Stops = stopsDto,
-            PolId = quotation.PolId,
-            Pol = quotation.Pol.ToTerminalSummary(),
-            PodId = quotation.PodId,
-            Pod = quotation.Pod.ToTerminalSummary(),
             Commodity = quotation.CargoSpec?.Commodity ?? null,
             TotalWeightKg = quotation.CargoSpec?.TotalWeightKg > 0 ? quotation.CargoSpec?.TotalWeightKg : null,
             PalletCount = quotation.CargoSpec?.PalletCount > 0 ? quotation.CargoSpec?.PalletCount : null,

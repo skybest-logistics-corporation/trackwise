@@ -31,7 +31,7 @@ internal sealed class GetTariffsHandler(ITenantUnitOfWork tenantUow)
                 (t.OriginLane != null && t.OriginLane.ToLower().Contains(search)) ||
                 (t.DestinationLane != null && t.DestinationLane.ToLower().Contains(search)) ||
                 t.Currency.ToLower().Contains(search) ||
-                (t.ContractRef != null && t.ContractRef.ToString()!.ToLower().Contains(search)));
+                (t.ContractId != null && t.ContractId.ToString()!.ToLower().Contains(search)));
         }
 
         if (req.Mode.HasValue)
@@ -43,8 +43,8 @@ internal sealed class GetTariffsHandler(ITenantUnitOfWork tenantUow)
         if (req.CarrierId.HasValue)
             query = query.Where(t => t.CarrierId == req.CarrierId.Value);
 
-        if (!string.IsNullOrWhiteSpace(req.ContractRef))
-            query = query.Where(t => t.ContractRef == req.ContractRef);
+        if (req.ContractId.HasValue)
+            query = query.Where(t => t.ContractId == req.ContractId.Value);
 
         if (req.CustomerId.HasValue)
             query = query.Where(t => t.CustomerId == req.CustomerId.Value);
@@ -77,7 +77,7 @@ internal sealed class GetTariffsHandler(ITenantUnitOfWork tenantUow)
                 Mode = t.Mode,
                 ServiceLevel = t.ServiceLevel,
                 CarrierId = t.CarrierId,
-                ContractRef = t.ContractRef,
+                ContractId = t.ContractId,
                 CustomerId = t.CustomerId,
                 CustomerName = t.Customer == null ? null : t.Customer.Name,
                 OriginLane = t.OriginLane,
