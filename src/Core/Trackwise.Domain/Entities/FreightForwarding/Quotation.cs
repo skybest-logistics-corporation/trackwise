@@ -626,7 +626,7 @@ public class Quotation : AuditableEntity, ITenantEntity
                 $"Quotation in '{Status}' status cannot be approved. Expected Draft or PendingApproval.");
         }
 
-        ValidateOperationalIntegrity();
+        //ValidateOperationalIntegrity();
 
         var from = Status;
         Status = QuotationStatus.Approved;

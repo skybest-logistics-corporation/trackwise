@@ -84,8 +84,17 @@ public partial class Booking : AuditableEntity, ITenantEntity
     public Incoterm Incoterm { get; private set; }
     /// <summary>Route lane - populated for Reefer/Trucking bookings; null for POL/POD-based shipments.</summary>
     public LaneTransit? Lane { get; private set; }
-    public DateTimeOffset? RequestedPickupStart => Lane?.FirstPickup.WindowStart;
-    public DateTimeOffset? RequestedDeliveryEnd => Lane?.FinalDrop.WindowEnd;
+    /// <summary>Port of Loading - only applicable to the non-lane (Domestic / Import / Export / Triangular) modes.</summary>
+    public Guid? PolId { get; private set; }
+    public virtual Terminal? Pol { get; private set; }
+    /// <summary>Port of Discharge - only for the non-lane modes.</summary>
+    public Guid? PodId { get; private set; }
+    public virtual Terminal? Pod { get; private set; }
+    public DateTimeOffset? RequestedPickupStart =>
+        Lane?.Stops?.FirstOrDefault(s => s.Type == StopType.Pickup)?.WindowStart;
+
+    public DateTimeOffset? RequestedDeliveryEnd =>
+        Lane?.Stops?.LastOrDefault(s => s.Type == StopType.Dropoff)?.WindowEnd;
     public CargoSpecification? CargoSpec { get; private set; }
     public decimal? DeclaredCargoValuePhp { get; private set; }
 
@@ -159,7 +168,11 @@ public partial class Booking : AuditableEntity, ITenantEntity
             FreightMode = quotation.FreightMode,
             ShipmentType = quotation.ShipmentType,
             Incoterm = quotation.Incoterm,
-            Lane = ApplyRequestedDates(quotation.Lane, requestedPickupDate, requestedDeliveryDate),
+            Lane = IsLaneMode(quotation.FreightMode)
+                ? ApplyRequestedDates(quotation.Lane, requestedPickupDate, requestedDeliveryDate)
+                : null,
+            PolId = quotation.PolId,
+            PodId = quotation.PodId,
             CargoSpec = quotation.CargoSpec,
             DeclaredCargoValuePhp = quotation.DeclaredCargoValuePhp,
             TemperatureSpec = quotation.TemperatureSpec,
@@ -178,6 +191,11 @@ public partial class Booking : AuditableEntity, ITenantEntity
         booking.DomainEvents.Add(new BookingDraftCreated(booking.Id, quotation.Id, quotation.CustomerId));
         return booking;
     }
+
+    // Lane is only applicable to Reefer and Trucking freight modes; everything else quotes by
+    // POL/POD and carries no stop-by-stop route.
+    private static bool IsLaneMode(FreightMode freightMode) =>
+        freightMode == FreightMode.Reefer || freightMode == FreightMode.Trucking;
 
     private static LaneTransit? ApplyRequestedDates(
         LaneTransit? lane,

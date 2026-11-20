@@ -1033,6 +1033,14 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
                         .HasColumnType("uuid")
                         .HasColumnName("pickup_site_id");
 
+                    b.Property<Guid?>("PodId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("pod_id");
+
+                    b.Property<Guid?>("PolId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("pol_id");
+
                     b.Property<Guid?>("QuotationId")
                         .HasColumnType("uuid")
                         .HasColumnName("quotation_id");
@@ -1106,6 +1114,12 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
 
                     b.HasIndex("CreditCheckStatus")
                         .HasDatabaseName("ix_bookings_credit_check_status");
+
+                    b.HasIndex("PodId")
+                        .HasDatabaseName("ix_bookings_pod_id");
+
+                    b.HasIndex("PolId")
+                        .HasDatabaseName("ix_bookings_pol_id");
 
                     b.HasIndex("QuotationId")
                         .HasDatabaseName("ix_bookings_quotation_id")
@@ -11690,6 +11704,18 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
                         .IsRequired()
                         .HasConstraintName("fk_bookings_customers_customer_id");
 
+                    b.HasOne("Trackwise.Domain.Entities.Terminal", "Pod")
+                        .WithMany()
+                        .HasForeignKey("PodId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_bookings_terminal_pod_id");
+
+                    b.HasOne("Trackwise.Domain.Entities.Terminal", "Pol")
+                        .WithMany()
+                        .HasForeignKey("PolId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_bookings_terminal_pol_id");
+
                     b.HasOne("Trackwise.Domain.Entities.Quotation", "Quotation")
                         .WithMany()
                         .HasForeignKey("QuotationId")
@@ -11832,6 +11858,10 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
                     b.Navigation("Customer");
 
                     b.Navigation("Lane");
+
+                    b.Navigation("Pod");
+
+                    b.Navigation("Pol");
 
                     b.Navigation("Quotation");
 

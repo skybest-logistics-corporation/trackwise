@@ -40,7 +40,7 @@ internal sealed class GetUnassignedBookingsHandler(ITenantUnitOfWork tenantUow)
 
         // One lookup each for every location on every lane, and for the customers.
         var locationIds = bookings
-            .SelectMany(b => b.Lane.Stops.Select(s => s.LocationId))
+            .SelectMany(b => (b.Lane?.Stops ?? []).Select(s => s.LocationId))
             .Distinct()
             .ToList();
         var locationNames = await tenantUow.Repository<Location>().Query().AsNoTracking()

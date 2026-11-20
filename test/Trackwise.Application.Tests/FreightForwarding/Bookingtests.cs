@@ -152,6 +152,33 @@ public class BookingTests
     }
 
     [Fact]
+    public void CreateDraftFromQuotation_NonLaneMode_IgnoresLaneAndRequests()
+    {
+        var quotation = TestQuotations.Accepted(DomesticQuotation());
+        var pickup = new DateTime(2026, 11, 20, 8, 0, 0, DateTimeKind.Utc);
+
+        var booking = Booking.CreateDraftFromQuotation(
+            quotation, 1, requestedPickupDate: pickup, requestedDeliveryDate: pickup.AddDays(2));
+
+        Assert.Equal(BookingStatus.Draft, booking.Status);
+        Assert.Null(booking.Lane);
+        Assert.Null(booking.RequestedPickupStart);
+        Assert.Null(booking.RequestedDeliveryEnd);
+    }
+
+    [Fact]
+    public void RequestedDates_LaneWithoutStops_ReturnNullInsteadOfThrowing()
+    {
+        // EF materialises an optional owned lane as a proxy even when there are no real stops;
+        // the computed dates must not run First/Last over an empty collection.
+        var booking = NewDraft();
+        typeof(Booking).GetProperty(nameof(Booking.Lane))!.SetValue(booking, new LaneTransit());
+
+        Assert.Null(booking.RequestedPickupStart);
+        Assert.Null(booking.RequestedDeliveryEnd);
+    }
+
+    [Fact]
     public void CreateDraftFromQuotation_RaisesDraftCreatedEvent()
     {
         var quotation = AcceptedQuotation();
@@ -721,6 +748,24 @@ public class BookingTests
     private static Quotation DraftQuotation() => NewQuotation();
 
     private static Quotation AcceptedQuotation() => TestQuotations.Accepted(NewQuotation());
+
+    /// <summary>
+    /// A lane-less (POL/POD-based) quotation: Domestic mode, no route lane, only port references.
+    /// </summary>
+    private static Quotation DomesticQuotation() => Quotation.Create(
+        customerId: Guid.NewGuid(),
+        branchId: Guid.NewGuid(),
+        referenceNumber: "QT-26-DOMMNL-00010",
+        currency: "USD",
+        mode: TransportMode.Road,
+        freightMode: FreightMode.Domestic,
+        shipmentType: ShipmentType.FTL,
+        incoterm: Incoterm.DAP,
+        lane: null,
+        cargoSpec: null,
+        polId: Guid.NewGuid(),
+        podId: Guid.NewGuid());
+
 
     /// <summary>Same stops and order as the booking's lane, with both windows shifted by <paramref name="shiftDays"/>.</summary>
     private static LaneTransit SameRoute(Booking booking, int shiftDays)

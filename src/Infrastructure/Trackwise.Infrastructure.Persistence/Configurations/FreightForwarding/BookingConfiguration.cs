@@ -64,6 +64,23 @@ internal sealed class BookingConfiguration : IEntityTypeConfiguration<Booking>
             lane.OwnsMany(l => l.Stops);
         });
 
+        // Port of Loading / Port of Discharge - optional references for the non-lane (POL/POD) modes.
+        builder.HasOne(x => x.Pol)
+            .WithMany()
+            .HasForeignKey(x => x.PolId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(x => x.Pod)
+            .WithMany()
+            .HasForeignKey(x => x.PodId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Property(x => x.PolId)
+            .IsRequired(false);
+
+        builder.Property(x => x.PodId)
+            .IsRequired(false);
+
         builder.OwnsOne(x => x.CargoSpec, cargo =>
         {
             cargo.ToJson("cargo_spec");
