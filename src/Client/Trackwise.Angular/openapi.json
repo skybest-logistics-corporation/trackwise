@@ -38428,6 +38428,22 @@
           "incoterm": {
             "$ref": "#/components/schemas/Incoterm"
           },
+          "polId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "pol": {
+            "$ref": "#/components/schemas/TerminalSummaryDto"
+          },
+          "podId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "pod": {
+            "$ref": "#/components/schemas/TerminalSummaryDto"
+          },
           "requestedPickupStart": {
             "type": "string",
             "format": "date-time",
@@ -38842,6 +38858,16 @@
           },
           "shipmentType": {
             "$ref": "#/components/schemas/ShipmentType"
+          },
+          "polId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "podId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           },
           "requestedPickupStart": {
             "type": "string",

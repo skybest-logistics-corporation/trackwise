@@ -11,6 +11,7 @@ namespace Trackwise.Mappings;
 /// (ToDtoCore); the small mappings are hand-written so a mismatch shows up as a plain compiler error.
 /// </summary>
 [Mapper]
+[UseStaticMapper(typeof(TerminalMapper))]
 public static partial class BookingMapper
 {
     // ── Detail ───────────────────────────────────────────────────────────────

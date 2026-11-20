@@ -19,6 +19,8 @@ internal sealed class GetBookingByIdHandler(ITenantUnitOfWork tenantUow)
             .AsNoTracking()
             .Include(b => b.Charges)
             .Include(b => b.Documents)
+            .Include(b => b.Pol)
+            .Include(b => b.Pod)
             .FirstOrDefaultAsync(b => b.Id == req.Id, ct);
 
         if (booking is null)

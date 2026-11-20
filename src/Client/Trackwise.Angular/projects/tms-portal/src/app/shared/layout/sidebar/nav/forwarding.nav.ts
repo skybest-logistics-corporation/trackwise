@@ -42,6 +42,14 @@ export const forwardingNav: NavSection = {
     //   comingSoon: true,
     // },
     {
+      id: "Booking Expenses",
+      label: "Booking Expenses",
+      icon: "file",
+      route: "/booking-expenses",
+      permission: Permission.Billing.View,
+      // comingSoon: true,
+    },
+    {
       id: "Billing & Invoicing",
       label: "Billing & Invoicing",
       icon: "file",
