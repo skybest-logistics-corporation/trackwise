@@ -130,7 +130,7 @@ export class LocationForm {
 
   /** Rendered inside a dialog: full width, and Cancel closes it instead of navigating. */
   public readonly embedded = input(false);
-  public readonly cancel = output<void>();
+  public readonly dismiss = output<void>();
 
   /** Pre-selects the owning customer on a new record, e.g. from the customer's own page. */
   public readonly initialCustomer = input<CustomerDto | null>(null);

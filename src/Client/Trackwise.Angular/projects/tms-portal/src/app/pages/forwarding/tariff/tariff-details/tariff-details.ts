@@ -1,15 +1,5 @@
 import { CurrencyPipe, DatePipe, TitleCasePipe, UpperCasePipe } from "@angular/common";
-import {
-  Component,
-  DestroyRef,
-  effect,
-  inject,
-  input,
-  signal,
-  untracked,
-  type OnInit,
-} from "@angular/core";
-import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
+import { Component, DestroyRef, effect, inject, input, signal, untracked } from "@angular/core";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import {
   Api,
@@ -33,7 +23,6 @@ import {
   UiDataTable,
   UiTabsImports,
 } from "@trackwise/shared/ui";
-import { distinctUntilChanged, map } from "rxjs";
 import { ToastService } from "@/core/services";
 import { PageHeader } from "@/shared/components";
 import { truckTonnageClassLabels, truckTypeLabels } from "@/shared/constants/truck-options";
