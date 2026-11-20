@@ -82,10 +82,9 @@ public partial class Booking : AuditableEntity, ITenantEntity
     public FreightMode FreightMode { get; private set; }
     public ShipmentType ShipmentType { get; private set; }
     public Incoterm Incoterm { get; private set; }
-    /// <summary>Route lane - populated for Reefer/Trucking bookings; null for POL/POD-based shipments.</summary>
-    public LaneTransit? Lane { get; private set; }
-    public DateTimeOffset? RequestedPickupStart => Lane?.FirstPickup.WindowStart;
-    public DateTimeOffset? RequestedDeliveryEnd => Lane?.FinalDrop.WindowEnd;
+    public LaneTransit Lane { get; private set; } = default!;
+    public DateTimeOffset? RequestedPickupStart => Lane.FirstPickup.WindowStart;
+    public DateTimeOffset? RequestedDeliveryEnd => Lane.FinalDrop.WindowEnd;
     public CargoSpecification? CargoSpec { get; private set; }
     public decimal? DeclaredCargoValuePhp { get; private set; }
 
@@ -179,12 +178,12 @@ public partial class Booking : AuditableEntity, ITenantEntity
         return booking;
     }
 
-    private static LaneTransit? ApplyRequestedDates(
-        LaneTransit? lane,
+    private static LaneTransit ApplyRequestedDates(
+        LaneTransit lane,
         DateTime? requestedPickupDate,
         DateTime? requestedDeliveryDate)
     {
-        if (lane is null || (requestedPickupDate is null && requestedDeliveryDate is null))
+        if (requestedPickupDate is null && requestedDeliveryDate is null)
             return lane;
 
         var pickupStart = requestedPickupDate.HasValue
@@ -223,7 +222,7 @@ public partial class Booking : AuditableEntity, ITenantEntity
     }
 
     /// <summary>Operational dates/stops can be refined on the booking (e.g. confirmed pickup window).</summary>
-    public void UpdateLane(LaneTransit? lane)
+    public void UpdateLane(LaneTransit lane)
     {
         EnsureDraft();
         ArgumentNullException.ThrowIfNull(lane);
@@ -264,12 +263,8 @@ public partial class Booking : AuditableEntity, ITenantEntity
             Id, oldPickup, RequestedPickupStart, oldDelivery, RequestedDeliveryEnd, reason, requestedBy));
     }
 
-    private static void EnsureSameRoute(LaneTransit? current, LaneTransit? proposed)
+    private static void EnsureSameRoute(LaneTransit current, LaneTransit proposed)
     {
-        if (current is null || proposed is null)
-            throw new InvalidOperationException(
-                "Reschedule requires both the booking and the proposed lane to be set. Stops, order, and locations must remain the same.");
-
         var a = current.Stops.OrderBy(s => s.Sequence).ToList();
         var b = proposed.Stops.OrderBy(s => s.Sequence).ToList();
 

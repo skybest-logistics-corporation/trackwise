@@ -15,7 +15,7 @@ public class GetTariffsQuery : IQuery<PagedResult<TariffDto>>
     public FreightMode? Mode { get; set; }
     public ServiceLevel? ServiceLevel { get; set; }
     public Guid? CarrierId { get; set; }
-    public string? ContractRef { get; set; }
+    public Guid? ContractId { get; set; }
     public Guid? CustomerId { get; set; }
     public string? OriginLane { get; set; }
     public string? DestinationLane { get; set; }

@@ -53,27 +53,6 @@ internal static class QuotationRouteResolver
         return null;
     }
 
-    /// Returns an error message, or null when POL and POD are both valid.
-    public static string? ValidateTerminals(
-        Guid? polId,
-        Guid? podId,
-        Dictionary<Guid, Terminal> terminals)
-    {
-        if (!polId.HasValue || !podId.HasValue)
-            return "Port of Loading and Port of Discharge are required.";
-
-        if (polId == podId)
-            return "Port of Loading and Port of Discharge must be different.";
-
-        foreach (var id in new[] { polId.Value, podId.Value })
-        {
-            if (!terminals.TryGetValue(id, out var terminal) || !terminal.IsActive || terminal.DeletedAt.HasValue)
-                return $"Terminal '{id}' is invalid, inactive, or soft-deleted.";
-        }
-
-        return null;
-    }
-
     /// <summary>
     /// Computes cumulative road distance across all consecutive legs (Stop 1 -> Stop 2 -> ... -> Stop N).
     /// </summary>

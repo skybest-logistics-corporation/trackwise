@@ -30,7 +30,7 @@ internal sealed class GetBookingByIdHandler(ITenantUnitOfWork tenantUow)
             .Select(c => c.Name)
             .FirstOrDefaultAsync(ct) ?? "Unknown";
 
-        var locationIds = (booking.Lane?.Stops ?? []).Select(s => s.LocationId).Distinct().ToList();
+        var locationIds = booking.Lane.Stops.Select(s => s.LocationId).Distinct().ToList();
         var locationNames = await tenantUow.Repository<Location>().Query().AsNoTracking()
             .Where(l => locationIds.Contains(l.Id))
             .ToDictionaryAsync(l => l.Id, l => l.Name, ct);

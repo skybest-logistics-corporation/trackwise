@@ -71,14 +71,14 @@ public sealed class BookingInvoiceLifecycleTests
             "QT-TEST-BILL-001",
             "USD",
             TransportMode.Road,
-            FreightMode.Trucking,
+            FreightMode.Domestic,
             ShipmentType.FTL,
             Incoterm.DAP,
             lane,
             cargo);
 
         var chargeCode = ChargeCode.Create(
-            "FRT", "Freight", ChargeCategory.Base, [FreightMode.Trucking], "km");
+            "FRT", "Freight", ChargeCategory.Base, [FreightMode.Domestic], "km");
         chargeCode.Currency = "USD";
         var tariffRate = new TariffRate
         {

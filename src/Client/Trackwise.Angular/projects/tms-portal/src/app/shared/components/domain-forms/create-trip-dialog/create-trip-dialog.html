@@ -25,7 +25,6 @@
         [(value)]="truck"
         [truckType]="truckType()"
         [tonnageClass]="sizeFilter()"
-        [requireMainDriver]="true"
       />
       @if (bookedSizeLabel() && !showAllSizes()) {
         <ui-button appearance="text" label="Show other sizes" (click)="showAllSizes.set(true)" />

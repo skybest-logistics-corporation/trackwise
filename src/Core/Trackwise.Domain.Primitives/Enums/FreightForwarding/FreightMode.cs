@@ -5,7 +5,5 @@ public enum FreightMode
     Domestic = 0,
     Import = 1,
     Export = 2,
-    Triangular = 3,
-    Reefer = 4,
-    Trucking
+    Triangular = 3
 }
