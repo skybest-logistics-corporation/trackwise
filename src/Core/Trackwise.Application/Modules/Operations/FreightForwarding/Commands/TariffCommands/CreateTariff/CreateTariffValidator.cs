@@ -11,6 +11,7 @@ internal sealed class CreateTariffValidator : AbstractValidator<CreateTariffComm
         RuleFor(i => i.ServiceLevel).IsInEnum();
         RuleFor(i => i.Name).NotEmpty().MaximumLength(200);
         RuleFor(i => i.Currency).NotEmpty().MaximumLength(3);
+        RuleFor(i => i.TruckType).NotEmpty();
         RuleFor(i => i.EffectiveFrom).NotEmpty();
     }
 }

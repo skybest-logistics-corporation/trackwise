@@ -49,7 +49,7 @@ const EMPTY: TenantFormModel = {
   ownerEmail: "",
   ownerFirstName: "",
   ownerLastName: "",
-  region: "us",
+  region: "ph",
   operatingMode: "fleet",
 };
 

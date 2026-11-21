@@ -3,6 +3,7 @@ import { Component, effect, inject, signal } from "@angular/core";
 import { Router } from "@angular/router";
 import { Api, deleteCustomer, Permission, PermissionGuard } from "@trackwise/shared";
 import type { CustomerDto } from "@trackwise/shared/api";
+import { PermissionService } from "@trackwise/shared/services";
 import {
   Card,
   Stack,
@@ -45,6 +46,9 @@ export class CustomersList {
   private readonly toastService = inject(ToastService);
   protected readonly store = inject(CustomersListStore);
   protected readonly Permission = Permission;
+  protected readonly canManage = inject(PermissionService).hasPermission(
+    Permission.Customer.Manage,
+  );
 
   protected readonly inviteDialogVisible = signal(false);
   protected readonly selectedCustomerId = signal<string | undefined>(undefined);

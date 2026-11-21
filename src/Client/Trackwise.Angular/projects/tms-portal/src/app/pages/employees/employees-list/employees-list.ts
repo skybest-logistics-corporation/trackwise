@@ -7,7 +7,7 @@ import {
   restoreEmployee,
   type EmployeeDto as EmployeeMasterDataDto,
 } from "@trackwise/shared/api";
-import { ToastService } from "@trackwise/shared/services";
+import { PermissionService, ToastService } from "@trackwise/shared/services";
 import {
   Badge,
   Card,
@@ -58,8 +58,10 @@ export class EmployeeList {
   private readonly router = inject(Router);
   private readonly api = inject(Api);
   private readonly toastService = inject(ToastService);
+  private readonly permissionService = inject(PermissionService);
   protected readonly store = inject(EmployeesListStore);
   protected readonly Permission = Permission;
+  protected readonly canManage = this.permissionService.hasPermission(Permission.MasterData.Manage);
 
   protected readonly inviteDialogVisible = signal(false);
   protected readonly selectedRow = signal<EmployeeMasterDataDto | null>(null);
@@ -73,13 +75,15 @@ export class EmployeeList {
   protected readonly actionMenuItems = computed<UiMenuItem[]>(() => {
     const row = this.selectedRow();
     if (row?.deletedAt) {
-      return [
-        {
-          label: "Restore",
-          icon: "history",
-          command: () => this.restore(row),
-        },
-      ];
+      return this.canManage
+        ? [
+            {
+              label: "Restore",
+              icon: "history",
+              command: () => this.restore(row),
+            },
+          ]
+        : [];
     }
 
     return [

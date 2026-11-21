@@ -1,7 +1,7 @@
 <div class="animate-in fade-in space-y-4">
   <ui-page-header
     title="Helpers"
-    addRoute="/master-data/helpers/add"
+    [addRoute]="canManage ? '/master-data/helpers/add' : null"
     addTooltip="Add a new helper"
   />
 

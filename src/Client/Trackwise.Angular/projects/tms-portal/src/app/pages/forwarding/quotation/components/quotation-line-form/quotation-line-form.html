@@ -1,232 +1,373 @@
 <ui-stack gap="4">
   <!-- Header -->
   <ui-stack gap="1">
-    <ui-typography variant="h5" class="font-semibold">Configure Tariff Charges</ui-typography>
+    <ui-typography variant="h5" class="font-semibold">Add tariff charges</ui-typography>
     <ui-typography variant="body" class="text-slate-500 dark:text-slate-400">
-      Select a tariff and configure the operational charges to add to your cost sheet.
+      @if (isDraft()) {
+        Pick one or more tariffs. Their charges are added below with sensible defaults, so you only
+        need to review what's different for this quotation.
+      } @else {
+        Pick a tariff. Its charges are added below with sensible defaults.
+      }
     </ui-typography>
   </ui-stack>
 
-  <!-- 1. Tariff Source -->
+  @if (showNotDraftWarning()) {
+    <ui-alert severity="warning">
+      Charges can only be added while the quotation is a draft. You can review a tariff here, but it
+      can't be added.
+    </ui-alert>
+  }
+
+  <!-- Tariffs + bulk markup -->
   <ui-surface
     class="w-full min-w-0 rounded-xl border border-slate-200 bg-white p-3 sm:p-4 dark:border-slate-700 dark:bg-slate-900"
   >
-    <ui-stack gap="3">
-      <ui-stack gap="1">
-        <ui-typography variant="body" class="font-semibold">1. Tariff Source</ui-typography>
-        <ui-typography variant="caption" class="text-slate-500 dark:text-slate-400">
-          Choose a tariff to populate its configured rates.
-        </ui-typography>
-      </ui-stack>
-
-      <ui-grid container spacing="3">
-        <ui-grid
-          [size]="{ xs: 12, md: selectedTariffId() && selectedTariffRates().length > 0 ? 7 : 12 }"
-        >
-          <div class="w-full min-w-0">
-            <ui-form-field label="Tariff" for="tariffSelect" [required]="true">
+    <ui-stack gap="4">
+      <ui-grid container spacing="3" class="items-end">
+        <ui-grid [size]="{ xs: 12, md: availableRateOptions().length > 0 ? 7 : 12 }">
+          @if (isDraft()) {
+            <ui-form-field
+              [label]="selectedTariffIds().length > 0 ? 'Add another tariff' : 'Tariffs'"
+              for="tariffSelect"
+              [required]="selectedTariffIds().length === 0"
+              [hint]="isLoadingTariff() ? 'Loading charges…' : ''"
+            >
+              <div class="flex w-full min-w-0 flex-col gap-2 sm:flex-row">
+                <div class="w-full min-w-0 flex-1">
+                  <ui-select-field
+                    id="tariffSelect"
+                    [value]="pendingTariffId()"
+                    (valueChange)="pendingTariffId.set($event)"
+                    [options]="tariffOptions()"
+                    optionLabel="label"
+                    optionValue="value"
+                    placeholder="Select a tariff"
+                    filter
+                    filterPlaceholder="Search tariff.."
+                  />
+                </div>
+                <ui-button
+                  appearance="solid"
+                  icon="plus"
+                  label="Add tariff"
+                  [disabled]="!pendingTariffId()"
+                  (click)="addPendingTariff()"
+                />
+              </div>
+            </ui-form-field>
+          } @else {
+            <ui-form-field
+              label="Tariff"
+              for="tariffSelect"
+              [required]="true"
+              [hint]="isLoadingTariff() ? 'Loading charges…' : ''"
+            >
               <ui-select-field
                 id="tariffSelect"
-                [value]="selectedTariffId()"
-                (valueChange)="onTariffChange($event)"
+                [value]="singleTariffValue()"
+                (valueChange)="replaceTariff($event)"
                 [options]="tariffOptions()"
                 optionLabel="label"
                 optionValue="value"
                 placeholder="Select a tariff"
               />
             </ui-form-field>
-          </div>
+          }
         </ui-grid>
 
-        @if (selectedTariffId() && selectedTariffRates().length > 0) {
+        @if (availableRateOptions().length > 0) {
           <ui-grid [size]="{ xs: 12, md: 5 }">
-            <div class="w-full min-w-0">
-              <ui-form-field label="Add Extra Charge" for="extraRateSelect">
-                <div class="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:items-start">
-                  <div class="w-full min-w-0 flex-1">
-                    <ui-select-field
-                      id="extraRateSelect"
-                      [value]="selectedAdditionalRateId()"
-                      (valueChange)="selectedAdditionalRateId.set($event)"
-                      [options]="availableRateOptions()"
-                      optionLabel="label"
-                      optionValue="value"
-                      placeholder="Select charge"
-                    />
-                  </div>
-                  <div class="w-full sm:w-auto sm:shrink-0">
-                    <ui-button
-                      appearance="solid"
-                      icon="plus"
-                      label="Add"
-                      [disabled]="!selectedAdditionalRateId()"
-                      (click)="addRateLine(selectedAdditionalRateId())"
-                    />
-                  </div>
+            <ui-form-field label="Re-add a removed charge" for="extraRateSelect">
+              <div class="flex w-full min-w-0 flex-col gap-2 sm:flex-row">
+                <div class="w-full min-w-0 flex-1">
+                  <ui-select-field
+                    id="extraRateSelect"
+                    [value]="selectedAdditionalRateId()"
+                    (valueChange)="selectedAdditionalRateId.set($event)"
+                    [options]="availableRateOptions()"
+                    optionLabel="label"
+                    optionValue="value"
+                    placeholder="Select charge"
+                  />
                 </div>
-              </ui-form-field>
-            </div>
+                <ui-button
+                  appearance="solid"
+                  icon="plus"
+                  label="Add"
+                  [disabled]="!selectedAdditionalRateId()"
+                  (click)="addRateLine(selectedAdditionalRateId())"
+                />
+              </div>
+            </ui-form-field>
           </ui-grid>
         }
       </ui-grid>
+
+      <!-- Selected tariffs (draft only: with one tariff the select already shows it) -->
+      @if (isDraft() && groups().length > 0) {
+        <ul class="m-0 flex list-none flex-wrap gap-2 p-0" aria-label="Selected tariffs">
+          @for (group of groups(); track group.id) {
+            <li
+              class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 py-1 pr-1 pl-3 text-sm dark:border-slate-700 dark:bg-slate-800"
+            >
+              <span class="font-medium">{{ group.name }}</span>
+              <span class="text-xs text-slate-500 dark:text-slate-400">
+                {{ group.loading ? "loading…" : group.items.length + " charges" }}
+              </span>
+              <button
+                type="button"
+                class="flex h-6 w-6 items-center justify-center rounded-full text-slate-500 hover:bg-slate-200 focus-visible:outline-2 dark:hover:bg-slate-700"
+                [attr.aria-label]="'Remove tariff ' + group.name + ' and its charges'"
+                (click)="removeTariff(group.id)"
+              >
+                ×
+              </button>
+            </li>
+          }
+        </ul>
+      }
+
+      @if (lines().length > 0) {
+        <div class="border-t border-slate-200 pt-4 dark:border-slate-700">
+          <ui-grid container spacing="3" class="items-end">
+            <ui-grid [size]="{ xs: 12, md: 3 }">
+              <ui-stack gap="1">
+                <ui-typography variant="body" class="font-semibold">
+                  Set markup for all
+                </ui-typography>
+                <ui-typography variant="caption" class="text-slate-500 dark:text-slate-400">
+                  Overwrites each line's markup. Each tariff also has its own apply button.
+                </ui-typography>
+              </ui-stack>
+            </ui-grid>
+            <ui-grid [size]="{ xs: 6, md: 3 }">
+              <ui-form-field label="Type" for="bulkMarkupType">
+                <ui-select-field
+                  id="bulkMarkupType"
+                  [value]="bulkMarkupType()"
+                  (valueChange)="bulkMarkupType.set($event)"
+                  [options]="markupTypes"
+                  optionLabel="label"
+                  optionValue="value"
+                />
+              </ui-form-field>
+            </ui-grid>
+            <ui-grid [size]="{ xs: 6, md: 3 }">
+              <ui-form-field label="Value" for="bulkMarkupValue">
+                <ui-number-field
+                  id="bulkMarkupValue"
+                  [value]="bulkMarkupValue()"
+                  (valueChange)="bulkMarkupValue.set($event)"
+                  [suffix]="bulkMarkupType() === 'percentage' ? '%' : ''"
+                />
+              </ui-form-field>
+            </ui-grid>
+            <ui-grid [size]="{ xs: 12, md: 3 }">
+              <ui-button
+                appearance="outlined"
+                icon="check"
+                label="Apply to all lines"
+                (click)="applyBulkMarkup()"
+              />
+            </ui-grid>
+          </ui-grid>
+        </div>
+      }
     </ui-stack>
   </ui-surface>
 
-  <!-- 2. Bulk Markup -->
+  <!-- Charges, grouped by tariff -->
   @if (lines().length > 0) {
-    <ui-surface
-      class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900"
-    >
-      <ui-stack gap="3">
-        <ui-stack direction="row" justify="between" class="items-center">
-          <ui-stack gap="1">
-            <ui-typography variant="body" class="font-semibold">2. Bulk Markup</ui-typography>
-            <ui-typography variant="caption" class="text-slate-500 dark:text-slate-400">
-              Apply uniform margin settings across all charges.
-            </ui-typography>
-          </ui-stack>
-          <ui-icon name="list" size="lg" class="text-warning" />
-        </ui-stack>
-
-        <ui-grid container spacing="3" class="items-end">
-          <ui-grid [size]="{ xs: 12, sm: 4 }">
-            <ui-form-field label="Markup Type" for="bulkMarkupType">
-              <ui-select-field
-                id="bulkMarkupType"
-                [value]="bulkMarkupType()"
-                (valueChange)="bulkMarkupType.set($event)"
-                [options]="markupTypes"
-                optionLabel="label"
-                optionValue="value"
-              />
-            </ui-form-field>
-          </ui-grid>
-
-          <ui-grid [size]="{ xs: 12, sm: 4 }">
-            <ui-form-field label="Markup Value" for="bulkMarkupValue">
-              <ui-number-field
-                id="bulkMarkupValue"
-                [value]="bulkMarkupValue()"
-                (valueChange)="bulkMarkupValue.set($event)"
-              />
-            </ui-form-field>
-          </ui-grid>
-
-          <ui-grid [size]="{ xs: 12, sm: 4 }">
-            <ui-button
-              appearance="solid"
-              icon="check"
-              label="Apply to All"
-              (click)="applyBulkMarkup()"
-            />
-          </ui-grid>
-        </ui-grid>
+    <ui-stack direction="row" justify="between" class="flex-wrap items-center gap-2">
+      <ui-stack direction="row" gap="2" class="items-center">
+        <ui-typography variant="body" class="font-semibold">Charges</ui-typography>
+        <span
+          class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200"
+        >
+          {{ lines().length }}
+        </span>
+        @if (invalidCount() > 0) {
+          <span
+            class="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-700 dark:bg-red-950/40 dark:text-red-300"
+          >
+            {{ invalidCount() }} need{{ invalidCount() === 1 ? "s" : "" }} attention
+          </span>
+        }
       </ui-stack>
-    </ui-surface>
+
+      <ui-stack direction="row" gap="1">
+        <ui-button appearance="text" label="Expand all" (click)="expandAll()" />
+        <ui-button appearance="text" label="Collapse all" (click)="collapseAll()" />
+      </ui-stack>
+    </ui-stack>
   }
 
-  <!-- Empty State -->
-  @if (lines().length === 0 && selectedTariffId() && !isLoadingTariff()) {
-    <ui-alert severity="info">
-      This tariff has no configured rates. Select another tariff or configure rates in the tariff
-      module.
-    </ui-alert>
-  }
-
-  <!-- 3. Charge Lines -->
-  @if (lines().length > 0) {
+  @for (group of groups(); track group.id) {
     <ui-stack gap="3">
-      <ui-stack direction="row" justify="between" class="items-center">
-        <ui-stack gap="1">
-          <ui-typography variant="body" class="font-semibold">3. Rate Configuration</ui-typography>
+      <!-- Tariff heading -->
+      <ui-stack direction="row" justify="between" class="flex-wrap items-center gap-2">
+        <ui-stack gap="0">
+          <ui-typography variant="body" class="font-semibold">{{ group.name }}</ui-typography>
           <ui-typography variant="caption" class="text-slate-500 dark:text-slate-400">
-            Set operational service mapping, quantities, base valuation, and markup.
+            {{ group.items.length }} charge{{ group.items.length === 1 ? "" : "s" }}
+            @if (group.invalidCount > 0) {
+              <span class="font-medium text-red-600 dark:text-red-400">
+                · {{ group.invalidCount }} need{{ group.invalidCount === 1 ? "s" : "" }} attention
+              </span>
+            }
           </ui-typography>
         </ui-stack>
-        <span
-          class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200"
-        >
-          {{ lines().length }} lines
-        </span>
-      </ui-stack>
 
-      @for (line of lines(); track line.id; let idx = $index) {
-        <ui-surface
-          class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900"
-        >
-          <ui-stack gap="4">
-            <!-- Charge Header -->
-            <ui-stack
-              direction="row"
-              justify="between"
-              class="items-start border-b border-slate-200 pb-3 dark:border-slate-700"
-            >
-              <ui-stack direction="row" gap="3" class="items-start">
-                <span
-                  class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 font-semibold text-slate-800 dark:bg-slate-800 dark:text-slate-100"
-                >
-                  {{ idx + 1 }}
-                </span>
-
-                <ui-stack gap="1">
-                  <ui-stack direction="row" align="center" gap="2" class="flex-wrap">
-                    <ui-typography variant="body" class="font-semibold">
-                      {{ line.chargeCode ? line.chargeCode + " — " : "" }}{{ line.chargeName }}
-                    </ui-typography>
-                  </ui-stack>
-
-                  <ui-stack direction="row" gap="2" class="flex-wrap items-center pt-0.5">
-                    <span
-                      class="rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200"
-                    >
-                      {{ line.category | uppercase }}
-                    </span>
-                    <span
-                      class="bg-primary-50 text-primary-700 dark:bg-primary-950/40 dark:text-primary-300 rounded px-2 py-0.5 text-xs font-medium"
-                    >
-                      {{ line.pricingModel | uppercase }}
-                    </span>
-
-                    <!-- Tariff Rate Definition Pill -->
-                    @if (line.pricingModel.toLowerCase() === "percentage") {
-                      <span
-                        class="rounded bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700 dark:bg-sky-950/40 dark:text-sky-300"
-                      >
-                        {{ line.percentage }}% of {{ line.percentageBase || "BAS" }}
-                      </span>
-                    } @else {
-                      <span
-                        class="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300"
-                      >
-                        Rate: {{ line.tariffBaseAmount ?? 0 }}
-                        {{ line.unit ? "/ " + line.unit : "" }}
-                      </span>
-                    }
-                  </ui-stack>
-                </ui-stack>
-              </ui-stack>
-
+        @if (isDraft()) {
+          <ui-stack direction="row" gap="1">
+            @if (group.items.length > 0) {
+              <ui-button
+                appearance="text"
+                label="Apply markup to this tariff"
+                (click)="applyBulkMarkup(group.id)"
+              />
+            }
+            @if (groups().length > 1) {
               <ui-button
                 appearance="text"
                 icon="trash"
-                ariaLabel="Remove charge"
-                (click)="removeLine(line.id)"
+                intent="danger"
+                label="Remove tariff"
+                (click)="removeTariff(group.id)"
               />
-            </ui-stack>
+            }
+          </ui-stack>
+        }
+      </ui-stack>
 
-            <!-- Charge & Rate Base Details -->
-            <ui-stack gap="2">
-              <ui-typography
-                variant="caption"
-                class="font-semibold text-slate-500 dark:text-slate-400"
+      @if (group.items.length === 0 && !group.loading) {
+        <ui-alert severity="info">
+          @if (group.hasRates) {
+            You removed all charges from this tariff. Re-add them from the list above, or remove the
+            tariff.
+          } @else {
+            This tariff has no charges to add. Remove it, or add rates in the tariff module.
+          }
+        </ui-alert>
+      }
+
+      @for (item of group.items; track item.line.id) {
+        @let line = item.line;
+        @let issues = lineIssues().get(line.id) ?? [];
+        @let estimate = lineEstimates().get(line.id);
+        @let open = isExpanded(line.id);
+        @let duplicateNote = crossTariffNotes().get(line.id);
+
+        <ui-surface
+          class="rounded-xl border bg-white dark:bg-slate-900"
+          [class.border-slate-200]="issues.length === 0"
+          [class.dark:border-slate-700]="issues.length === 0"
+          [class.border-red-300]="issues.length > 0"
+          [class.dark:border-red-800]="issues.length > 0"
+        >
+          <!-- Row header -->
+          <div class="flex items-center gap-2 p-3 sm:p-4">
+            <button
+              type="button"
+              class="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-2"
+              [attr.aria-expanded]="open"
+              [attr.aria-controls]="'line_body_' + line.id"
+              (click)="toggleLine(line.id)"
+            >
+              <span
+                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-sm font-semibold text-slate-800 dark:bg-slate-800 dark:text-slate-100"
               >
-                CHARGE & VALUATION BASE
-              </ui-typography>
+                {{ item.number }}
+              </span>
 
+              <span class="flex min-w-0 flex-1 flex-col gap-1">
+                <span class="truncate font-semibold">
+                  {{ line.chargeCode ? line.chargeCode + " — " : "" }}{{ line.chargeName }}
+                </span>
+
+                <span class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                  <span
+                    class="rounded bg-slate-100 px-2 py-0.5 font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                  >
+                    {{ line.category | uppercase }}
+                  </span>
+                  <span class="text-slate-600 dark:text-slate-300">
+                    @if (isPercentageLine(line)) {
+                      {{ line.percentage }}% of {{ line.percentageBase || "BAS" }}
+                    } @else {
+                      {{ line.tariffBaseAmount ?? 0 }}{{ line.unit ? " / " + line.unit : "" }}
+                    }
+                  </span>
+                  <span class="text-slate-400">|</span>
+                  <span class="text-slate-500 dark:text-slate-400">
+                    {{ serviceTypeLabel(line.serviceType) }}, qty {{ line.quantity ?? "–" }}, markup
+                    @if (line.markupValue !== null) {
+                      {{
+                        line.markupType === "percentage"
+                          ? line.markupValue + "%"
+                          : "+" + line.markupValue
+                      }}
+                    } @else {
+                      –
+                    }
+                  </span>
+                </span>
+
+                @if (issues.length > 0) {
+                  <span class="text-xs font-medium text-red-600 dark:text-red-400">
+                    {{ issues[0]
+                    }}{{ issues.length > 1 ? " (+" + (issues.length - 1) + " more)" : "" }}
+                  </span>
+                }
+                @if (duplicateNote) {
+                  <span class="text-xs text-amber-700 dark:text-amber-400">
+                    {{ duplicateNote }}. Check it isn't charged twice.
+                  </span>
+                }
+              </span>
+
+              <span class="hidden shrink-0 flex-col items-end sm:flex">
+                @if (estimate?.sell !== null) {
+                  <span class="font-semibold tabular-nums">
+                    {{ estimate!.sell | number: "1.2-2" }}
+                  </span>
+                  <span class="text-xs text-slate-500 dark:text-slate-400">est. sell</span>
+                } @else {
+                  <span class="text-xs text-slate-500 dark:text-slate-400">Priced from quote</span>
+                }
+              </span>
+
+              <ui-icon
+                [name]="open ? 'chevron-up' : 'chevron-down'"
+                class="shrink-0 text-slate-500"
+              />
+            </button>
+
+            <ui-button
+              appearance="text"
+              icon="copy"
+              ariaLabel="Duplicate charge"
+              (click)="duplicateLine(line.id)"
+            />
+            <ui-button
+              appearance="text"
+              icon="trash"
+              ariaLabel="Remove charge"
+              (click)="removeLine(line.id)"
+            />
+          </div>
+
+          <!-- Row body -->
+          @if (open) {
+            <div
+              [id]="'line_body_' + line.id"
+              class="border-t border-slate-200 p-3 sm:p-4 dark:border-slate-700"
+            >
               <ui-grid container spacing="3">
                 <ui-grid [size]="{ xs: 12, md: 5 }">
                   <ui-form-field
-                    label="Service Type"
+                    label="Service type"
                     [for]="'serviceType_' + line.id"
                     [required]="true"
                   >
@@ -251,49 +392,48 @@
                   </ui-form-field>
                 </ui-grid>
 
-                <!-- Dynamic Base Amount Field -->
                 <ui-grid [size]="{ xs: 12, sm: 8, md: 4 }">
-                  @if (line.pricingModel.toLowerCase() === "percentage") {
-                    @if (line.percentageBase === "BAS" || line.percentageBase === "CIF") {
+                  @if (isPercentageLine(line)) {
+                    @if (isCustomPercentage(line)) {
                       <ui-form-field
-                        label="Valuation Base"
+                        [label]="'Valuation base (' + (line.percentageBase || 'custom') + ')'"
+                        [for]="'baseAmount_' + line.id"
+                        [required]="true"
+                        hint="Required. This base can't be taken from the quotation."
+                      >
+                        <ui-number-field
+                          [id]="'baseAmount_' + line.id"
+                          [value]="line.baseAmount"
+                          (valueChange)="updateLine(line.id, 'baseAmount', $event)"
+                          placeholder="Enter amount"
+                        />
+                      </ui-form-field>
+                    } @else {
+                      <ui-form-field
+                        label="Valuation base"
                         [for]="'baseAmount_' + line.id"
                         [hint]="
-                          'Auto-derived from quotation ' +
+                          'Taken from the quotation ' +
                           line.percentageBase +
-                          '. Enter only to override.'
+                          '. Enter a value to override.'
                         "
                       >
                         <ui-number-field
                           [id]="'baseAmount_' + line.id"
                           [value]="line.baseAmount"
                           (valueChange)="updateLine(line.id, 'baseAmount', $event)"
-                          placeholder="Derived from quote"
-                        />
-                      </ui-form-field>
-                    } @else {
-                      <ui-form-field
-                        [label]="'Valuation Base (' + (line.percentageBase || 'Custom') + ')'"
-                        [for]="'baseAmount_' + line.id"
-                        [required]="true"
-                        hint="Explicit base needed (not derived from quote)"
-                      >
-                        <ui-number-field
-                          [id]="'baseAmount_' + line.id"
-                          [value]="line.baseAmount"
-                          (valueChange)="updateLine(line.id, 'baseAmount', $event)"
-                          placeholder="Enter valuation amount"
+                          placeholder="From quotation"
                         />
                       </ui-form-field>
                     }
                   } @else {
                     <ui-form-field
-                      label="Rate Base Amount"
+                      label="Rate"
                       [for]="'baseAmount_' + line.id"
                       [hint]="
-                        'Default: ' +
+                        'Tariff rate: ' +
                         (line.tariffBaseAmount ?? 0) +
-                        (line.unit ? ' ' + line.unit : '')
+                        (line.unit ? ' / ' + line.unit : '')
                       "
                     >
                       <ui-number-field
@@ -305,22 +445,10 @@
                     </ui-form-field>
                   }
                 </ui-grid>
-              </ui-grid>
-            </ui-stack>
 
-            <!-- Markup Settings -->
-            <ui-stack gap="2">
-              <ui-typography
-                variant="caption"
-                class="font-semibold text-slate-500 dark:text-slate-400"
-              >
-                MARKUP & PRICING
-              </ui-typography>
-
-              <ui-grid container spacing="3">
-                <ui-grid [size]="{ xs: 12, sm: 6 }">
+                <ui-grid [size]="{ xs: 12, sm: 6, md: 4 }">
                   <ui-form-field
-                    label="Markup Type"
+                    label="Markup type"
                     [for]="'markupType_' + line.id"
                     [required]="true"
                   >
@@ -335,12 +463,12 @@
                   </ui-form-field>
                 </ui-grid>
 
-                <ui-grid [size]="{ xs: 12, sm: 6 }">
+                <ui-grid [size]="{ xs: 12, sm: 6, md: 4 }">
                   <ui-form-field
-                    label="Markup Value"
+                    label="Markup value"
                     [for]="'markupValue_' + line.id"
                     [required]="true"
-                    [hint]="line.markupType === 'percentage' ? 'Margin in %' : 'Flat margin added'"
+                    [hint]="line.markupType === 'percentage' ? 'Margin in %' : 'Flat amount added'"
                   >
                     <ui-number-field
                       [id]="'markupValue_' + line.id"
@@ -350,24 +478,12 @@
                     />
                   </ui-form-field>
                 </ui-grid>
-              </ui-grid>
-            </ui-stack>
 
-            <!-- Additional Settings -->
-            <ui-stack gap="2">
-              <ui-typography
-                variant="caption"
-                class="font-semibold text-slate-500 dark:text-slate-400"
-              >
-                ADDITIONAL SETTINGS
-              </ui-typography>
-
-              <ui-grid container spacing="3">
                 <ui-grid [size]="{ xs: 12, md: 4 }">
                   <ui-form-field
-                    label="FX Rate Override"
+                    label="FX rate"
                     [for]="'fxRate_' + line.id"
-                    hint="Optional exchange rate override"
+                    hint="Optional. Overrides the default exchange rate."
                   >
                     <ui-number-field
                       [id]="'fxRate_' + line.id"
@@ -377,7 +493,7 @@
                   </ui-form-field>
                 </ui-grid>
 
-                <ui-grid [size]="{ xs: 12, md: 8 }">
+                <ui-grid [size]="{ xs: 12 }">
                   <ui-form-field label="Notes" [for]="'notes_' + line.id" hint="Optional">
                     <ui-text-field
                       [id]="'notes_' + line.id"
@@ -388,30 +504,49 @@
                   </ui-form-field>
                 </ui-grid>
               </ui-grid>
-            </ui-stack>
-          </ui-stack>
+            </div>
+          }
         </ui-surface>
       }
     </ui-stack>
   }
 
-  <!-- Footer Actions -->
+  <!-- Footer -->
   <ui-stack
     direction="row"
     justify="between"
-    class="sticky bottom-0 z-10 items-center justify-center rounded-xl border-t border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900"
+    class="sticky bottom-0 z-10 flex-wrap items-center gap-3 rounded-xl border-t border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900"
   >
-    <ui-typography variant="caption" class="text-slate-500 dark:text-slate-400">
-      {{ lines().length }} charge line{{ lines().length === 1 ? "" : "s" }} ready
-    </ui-typography>
+    <ui-stack gap="0">
+      @if (invalidCount() > 0) {
+        <ui-typography variant="caption" class="font-medium text-red-600 dark:text-red-400">
+          Fix {{ invalidCount() }} charge{{ invalidCount() === 1 ? "" : "s" }} to continue
+        </ui-typography>
+      } @else {
+        <ui-typography variant="caption" class="text-slate-500 dark:text-slate-400">
+          {{ lines().length }} charge{{ lines().length === 1 ? "" : "s" }}
+          @if (groups().length > 1) {
+            from {{ groups().length }} tariffs
+          }
+          @if (totals().priced > 0) {
+            · est. sell {{ totals().sell | number: "1.2-2" }}
+          }
+        </ui-typography>
+      }
+      @if (totals().unpriced > 0 && invalidCount() === 0) {
+        <ui-typography variant="caption" class="text-slate-500 dark:text-slate-400">
+          {{ totals().unpriced }} priced from the quotation, not in the estimate. Excludes FX.
+        </ui-typography>
+      }
+    </ui-stack>
 
     <ui-stack direction="row" gap="2">
       <ui-button appearance="text" label="Cancel" (click)="dismiss.emit()" />
       <ui-button
         appearance="solid"
         icon="plus"
-        [label]="'Add ' + lines().length + ' Lines'"
-        [disabled]="!isValid()"
+        [label]="'Add ' + lines().length + (lines().length === 1 ? ' charge' : ' charges')"
+        [disabled]="!canSubmit()"
         (click)="onSubmit()"
       />
     </ui-stack>

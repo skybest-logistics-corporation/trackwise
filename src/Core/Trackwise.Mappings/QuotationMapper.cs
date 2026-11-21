@@ -1,7 +1,9 @@
 using Riok.Mapperly.Abstractions;
 using Trackwise.Domain.Entities;
+using Trackwise.Domain.Entities.FreightForwarding; // QuotationEvent (drop if it lives in Trackwise.Domain.Entities)
 using Trackwise.Domain.Primitives.ValueObjects;
 using Trackwise.Shared.Models;
+using Trackwise.Shared.Models.QuotationEvents;
 using Trackwise.Shared.Models.Quotations;
 
 namespace Trackwise.Mappings;
@@ -20,12 +22,16 @@ public static partial class QuotationMapper
     [MapperIgnoreSource(nameof(Quotation.CargoSpec))]
     // Target fields resolved asynchronously or computed via overloads
     [MapperIgnoreTarget(nameof(QuotationDto.CustomerName))]
+    [MapperIgnoreTarget(nameof(QuotationDto.CustomerEmail))]
     [MapperIgnoreTarget(nameof(QuotationDto.BranchName))]
     [MapperIgnoreTarget(nameof(QuotationDto.Stops))]
     [MapperIgnoreTarget(nameof(QuotationDto.Lines))]
     [MapperIgnoreTarget(nameof(QuotationDto.TotalBuyingAmount))]
     [MapperIgnoreTarget(nameof(QuotationDto.TotalSellingAmount))]
     [MapperIgnoreTarget(nameof(QuotationDto.Revisions))]
+    // UpdatedBy holds a user id on the entity. The overload below sets the display name,
+    // so the id is never exposed by accident.
+    [MapperIgnoreTarget(nameof(QuotationDto.UpdatedBy))]
     // Flatten Lane properties
     [MapProperty("Lane.TotalDistanceKm", nameof(QuotationDto.TotalDistanceKm))]
     // Flatten CargoSpec properties
@@ -33,6 +39,9 @@ public static partial class QuotationMapper
     [MapProperty("CargoSpec.TotalWeightKg", nameof(QuotationDto.TotalWeightKg))]
     [MapProperty("CargoSpec.PalletCount", nameof(QuotationDto.PalletCount))]
     [MapProperty("CargoSpec.DeclaredCargoValue.Amount", nameof(QuotationDto.DeclaredCargoValueAmount))]
+    // Lifecycle history: names differ (Events -> Timeline) and we force chronological order.
+    // UpdatedAt maps by name and goes through ToUtcOffset below.
+    [MapProperty(nameof(Quotation.Events), nameof(QuotationDto.Timeline), Use = nameof(MapTimeline))]
     public static partial QuotationDto ToDto(this Quotation entity);
 
     /// <summary>
@@ -47,6 +56,7 @@ public static partial class QuotationMapper
 
     [MapperIgnoreSource(nameof(Quotation.DomainEvents))]
     [MapperIgnoreSource(nameof(Quotation.Lines))]
+    [MapperIgnoreSource(nameof(Quotation.Events))]
     [MapperIgnoreSource(nameof(Quotation.Lane))]
     [MapperIgnoreSource(nameof(Quotation.CargoSpec))]
     [MapperIgnoreSource(nameof(Quotation.TemperatureSpec))]
@@ -58,6 +68,7 @@ public static partial class QuotationMapper
     [MapperIgnoreSource(nameof(Quotation.RejectionReason))]
     [MapperIgnoreSource(nameof(Quotation.ApprovalEscalationReason))]
     [MapperIgnoreTarget(nameof(QuotationSummaryDto.CustomerName))]
+    [MapperIgnoreTarget(nameof(QuotationSummaryDto.CustomerEmail))]
     [MapperIgnoreTarget(nameof(QuotationSummaryDto.BranchName))]
     [MapperIgnoreTarget(nameof(QuotationSummaryDto.ReferenceNumber))]
     [MapperIgnoreTarget(nameof(QuotationSummaryDto.LineCount))]
@@ -74,6 +85,10 @@ public static partial class QuotationMapper
     [MapperIgnoreSource(nameof(QuotationLine.SnapshotBuyingAmount))]
     [MapperIgnoreSource(nameof(QuotationLine.SnapshotSellingAmount))]
     // Target fields populated via TariffRate or pricing computation
+    [MapperIgnoreTarget(nameof(QuotationLineDto.TariffId))]
+    [MapperIgnoreTarget(nameof(QuotationLineDto.TariffName))]
+    [MapperIgnoreTarget(nameof(QuotationLineDto.TariffTruckType))]
+    [MapperIgnoreTarget(nameof(QuotationLineDto.TariffTonnageClass))]
     [MapperIgnoreTarget(nameof(QuotationLineDto.ChargeCode))]
     [MapperIgnoreTarget(nameof(QuotationLineDto.ChargeName))]
     [MapperIgnoreTarget(nameof(QuotationLineDto.Unit))]
@@ -90,12 +105,16 @@ public static partial class QuotationMapper
     /// Full Quotation overload: Injects customer name, resolved route stops, 
     /// and aggregated buying/selling line amounts.
     /// </summary>
+    /// <param name="updatedByName">
+    /// Display name for entity.UpdatedBy (a user id). Resolve it in the handler; null shows no name.
+    /// </param>
     public static QuotationDto ToDto(
         this Quotation entity,
         string customerName,
         string branchName,
         List<QuotationLineDto> lines,
-        List<RouteStopSummaryDto>? stops = null)
+        List<RouteStopSummaryDto>? stops = null,
+        string? updatedByName = null)
     {
         var dto = entity.ToDto();
         dto.CustomerName = customerName;
@@ -105,6 +124,7 @@ public static partial class QuotationMapper
         dto.Stops = stops ?? [];
         dto.TotalBuyingAmount = lines.Sum(l => l.BuyingAmount);
         dto.TotalSellingAmount = lines.Sum(l => l.SellingAmount);
+        dto.UpdatedBy = updatedByName;
         return dto;
     }
 
@@ -151,4 +171,24 @@ public static partial class QuotationMapper
 
         return dto;
     }
+
+    // =========================================================================
+    // 5. Custom conversions used by the generated mappings
+    // =========================================================================
+
+    /// <summary>Oldest first, so the frontend can render the list as-is.</summary>
+    private static List<QuotationEventDto> MapTimeline(IReadOnlyCollection<QuotationEvent> events) =>
+        events
+            .OrderBy(e => e.OccurredAt)
+            .Select(e => new QuotationEventDto(e.Id, e.Type, e.Actor, e.OccurredAt, e.Details, e.RelatedId))
+            .ToList();
+
+    // Entities store UTC DateTime, but EF returns Kind = Unspecified, and a plain
+    // (DateTimeOffset) cast would apply the server's local offset. Mapperly uses these for every
+    // DateTime -> DateTimeOffset property (CreatedAt, UpdatedAt).
+    private static DateTimeOffset ToUtcOffset(DateTime value) =>
+        new(DateTime.SpecifyKind(value, DateTimeKind.Utc));
+
+    private static DateTimeOffset? ToUtcOffset(DateTime? value) =>
+        value.HasValue ? ToUtcOffset(value.Value) : null;
 }

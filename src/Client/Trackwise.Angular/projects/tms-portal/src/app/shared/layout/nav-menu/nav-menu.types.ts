@@ -17,7 +17,7 @@ export interface NavItem {
   /** One flag, or several of which **any** enabled one shows the item. */
   feature?: TenantFeature | TenantFeature[];
   /** Mirrors the route's `data.permission`, so the menu never renders a link that denies on click. */
-  permission?: string;
+  permission?: string | string[];
   children?: NavItem[];
   badge?: () => number | null;
   /**

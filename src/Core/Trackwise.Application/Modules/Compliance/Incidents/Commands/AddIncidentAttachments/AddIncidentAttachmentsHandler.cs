@@ -1,8 +1,6 @@
 using Trackwise.Application.Abstractions;
 using Trackwise.Application.Abstractions.CurrentUser;
 using Trackwise.Application.Abstractions.Storage;
-using Trackwise.Application.Modules.Common.Constants;
-using Trackwise.Application.Utilities;
 using Trackwise.Domain.Entities;
 using Trackwise.Domain.Entities.Safety;
 using Trackwise.Domain.Persistence;
@@ -38,27 +36,7 @@ internal sealed class AddIncidentAttachmentsHandler(
             return Result<IncidentDto>.Fail("Only staff with an employee record can attach files.");
         }
 
-        var index = 0;
-        foreach (var file in req.Files)
-        {
-            var fileName = BlobPathHelper.GenerateUniqueFileName(file.FileName, index++);
-            var blobPath = BlobPathHelper.GetOwnerDocumentBlobPath("incidents", incident.Id, fileName);
-            await blobStorage.UploadAsync(
-                BlobConstants.DocumentsContainerName, blobPath, file.Content, file.ContentType, ct);
-
-            var document = IncidentDocument.Create(
-                fileName,
-                file.FileName,
-                file.ContentType,
-                file.FileSizeBytes,
-                blobPath,
-                BlobConstants.DocumentsContainerName,
-                req.Type,
-                incident.Id,
-                employee.Id);
-            await tenantUow.Repository<IncidentDocument>().AddAsync(document, ct);
-        }
-
+        await IncidentAttachmentWriter.AddAsync(tenantUow, blobStorage, incident, employee, req.Type, req.Files, ct);
         await tenantUow.SaveChangesAsync(ct);
         return Result<IncidentDto>.Ok(await IncidentReader.ToDetailsDtoAsync(tenantUow, incident, ct));
     }

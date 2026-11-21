@@ -19,6 +19,7 @@ import com.trackwise.driver.ui.screens.MessagesScreen
 import com.trackwise.driver.ui.screens.MyLicensesScreen
 import com.trackwise.driver.ui.screens.PastLoadsScreen
 import com.trackwise.driver.ui.screens.PodCaptureScreen
+import com.trackwise.driver.ui.screens.ReportProblemScreen
 import com.trackwise.driver.ui.screens.PrivacyScreen
 import com.trackwise.driver.ui.screens.SettingsScreen
 import com.trackwise.driver.ui.screens.StatsScreen
@@ -29,6 +30,7 @@ import com.trackwise.driver.viewmodel.DocumentCaptureType
 import com.trackwise.driver.viewmodel.DvirFormViewModel
 import com.trackwise.driver.viewmodel.LoadDetailViewModel
 import com.trackwise.driver.viewmodel.PodCaptureViewModel
+import com.trackwise.driver.viewmodel.ReportProblemViewModel
 import com.trackwise.driver.viewmodel.TripDetailViewModel
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
@@ -78,7 +80,17 @@ fun createEntryProvider(
                 val type = if (block.isDrop) DocumentCaptureType.POD else DocumentCaptureType.BOL
                 navigator.navigate(PodCaptureRoute(block.loadId, type, block.stopId))
             },
+            onReportProblem = { tripId -> navigator.navigate(ReportProblemRoute(tripId)) },
             onOpenUrl = onOpenUrl
+        )
+    }
+
+    entry<ReportProblemRoute> { key ->
+        val viewModel: ReportProblemViewModel = koinViewModel { parametersOf(key.tripId) }
+        ReportProblemScreen(
+            onNavigateBack = { navigator.goBack() },
+            onOpenUrl = onOpenUrl,
+            viewModel = viewModel
         )
     }
 

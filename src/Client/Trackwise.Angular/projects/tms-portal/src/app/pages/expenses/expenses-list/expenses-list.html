@@ -1,4 +1,8 @@
-<ui-page-header title="Expenses" addRoute="/expenses/add" addTooltip="Add a new expense">
+<ui-page-header
+  title="Expenses"
+  [addRoute]="canManage ? '/expenses/add' : null"
+  addTooltip="Add a new expense"
+>
   <ui-button
     appearance="outlined"
     icon="chart-column"

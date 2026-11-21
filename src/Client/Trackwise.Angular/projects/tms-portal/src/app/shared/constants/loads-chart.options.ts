@@ -39,7 +39,7 @@ export function getLoadsPieOptions(isDark = true) {
   };
 }
 
-export function getLoadsTrendChartOptions(isDark = true) {
+export function getLoadsTrendChartOptions(currencySymbol: string, isDark = true) {
   const p = getChartPalette(isDark);
   return {
     responsive: true,
@@ -78,7 +78,7 @@ export function getLoadsTrendChartOptions(isDark = true) {
         position: "right" as const,
         title: {
           display: true,
-          text: "Revenue ($)",
+          text: `Revenue (${currencySymbol})`,
           color: p.textColor,
         },
         grid: { drawOnChartArea: false },

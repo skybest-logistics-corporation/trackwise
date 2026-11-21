@@ -2,6 +2,7 @@ using Trackwise.API.Extensions;
 using Trackwise.Application.Modules.Compliance.Inspections.Commands;
 using Trackwise.Application.Modules.Compliance.Inspections.Queries;
 using Trackwise.Domain.Primitives.Enums;
+using Trackwise.Shared.Identity.Policies;
 using Trackwise.Shared.Models;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -14,10 +15,16 @@ namespace Trackwise.API.Controllers;
 [Produces("application/json")]
 public class InspectionsController(IMediator mediator) : ControllerBase
 {
+    private const string ReadPolicy =
+        $"{Permission.Safety.View}|{Permission.Load.View}|{Permission.Driver.View}";
+
+    private const string WritePolicy =
+        $"{Permission.Safety.Manage}|{Permission.Load.Manage}|{Permission.Driver.Manage}";
+
     [HttpGet(Name = "GetInspections")]
     [ProducesResponseType(typeof(List<ConditionReportDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-    [Authorize]
+    [Authorize(Policy = ReadPolicy)]
     public async Task<IActionResult> GetInspections([FromQuery] Guid? loadId)
     {
         var result = await mediator.Send(new GetConditionReportsQuery { LoadId = loadId });
@@ -27,7 +34,7 @@ public class InspectionsController(IMediator mediator) : ControllerBase
     [HttpGet("parts", Name = "GetInspectionParts")]
     [ProducesResponseType(typeof(InspectionPartCatalogDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-    [Authorize]
+    [Authorize(Policy = ReadPolicy)]
     public async Task<IActionResult> GetInspectionParts([FromQuery] LoadType loadType)
     {
         var result = await mediator.Send(new GetInspectionPartCatalogQuery { LoadType = loadType });
@@ -37,7 +44,7 @@ public class InspectionsController(IMediator mediator) : ControllerBase
     [HttpGet("{id:guid}", Name = "GetInspection")]
     [ProducesResponseType(typeof(ConditionReportDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-    [Authorize]
+    [Authorize(Policy = ReadPolicy)]
     public async Task<IActionResult> GetInspection(Guid id)
     {
         var result = await mediator.Send(new GetConditionReportsQuery { ConditionReportId = id });
@@ -53,7 +60,7 @@ public class InspectionsController(IMediator mediator) : ControllerBase
     [HttpPost(Name = "CreateInspection")]
     [ProducesResponseType(typeof(Guid), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-    [Authorize]
+    [Authorize(Policy = WritePolicy)]
     [RequestSizeLimit(100 * 1024 * 1024)]
     public async Task<IActionResult> CreateInspection([FromForm] CreateInspectionRequest request)
     {

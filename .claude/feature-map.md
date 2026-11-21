@@ -138,7 +138,9 @@ This file answers _where_. For _how it works_, follow the deep dive: **AI dispat
   `utils/rescue.ts`) and a "Rescue · truck" badge on each rescued drop. The rescue truck's own garage
   times: `Trip.RecordRescueGarageTimes` (left before the transfer, back after its last rescued drop),
   `PUT trips/{id}/rescues/{rescueId}/garage-times`, `rescue-garage-dialog`. Not yet: the crew plan
-  doesn't show the rescue truck as used that day
+  doesn't show the rescue truck as used that day. The rescue crew's Driver App: `GET trips?driverId=&includeRescues=true`
+  also returns trips they rescue, with `Rescues` filled; the app cuts each down to their drops
+  (`model/RescueRun.kt` - starts at the transfer, ends when the last one is left, no garage steps)
 - **Price out of date** is also stamped (only on a priced trip) when a drop is added or removed or
   the truck's tonnage class changes - pricing reads both; a same-size truck swap leaves the price
 
@@ -425,6 +427,14 @@ incidents/{id}/attachments/{attachmentId}`; viewed through the generic document 
   `monday-export/scripts/monday_incidents.py`; it sets the series past the highest case. Severity is
   judged from the text (Monday has none); dates are noon Manila. Fake `IncidentSeeder` (US accidents)
   only where there is no Monday data
+- From the Driver App (2026-11-11): the "Problem" card on Today -> `ReportProblemScreen`
+  (accident / breakdown / other, can the truck go on, anyone hurt, note, photos) ->
+  `POST drivers/trips/{tripId}/incidents` (`ReportDriverIncident`, `Driver.Manage`) opens a case
+  naming the reporter's crew and truck - the trip's own, or their rescue's (`DriverIncidentReport`) -
+  repeats within 10 minutes return the same case, and the office gets an in-app notification.
+  `POST drivers/incidents/{id}/photos` (only the case's own driver, until resolved). "Call office"
+  dials `TenantSettings.DispatchPhoneNumber` (Settings > Company > Dispatch Phone), else the company
+  phone; the app keeps the last number for when there's no data
 
 ### Driver behavior
 
@@ -543,6 +553,15 @@ stays in nSFS e-approval - none is built here.
 - Application: `Modules/Financial/StripeConnect/Commands/`, `Modules/Financial/StripeConnect/Queries/`, `Modules/Financial/Payroll/Commands/SetupEmployeePayout/`
 - Infrastructure: `Infrastructure.Payments/Stripe/StripeConnectService.cs`, `StripeCapabilities.cs` (country-aware capability map: SEPA/iDEAL/Bacs/ACH)
 - API/UI: `StripeConnectController.cs`, `tms-portal/pages/settings/billing-settings/`
+
+### Xendit payments (PH)
+
+The company's own Xendit account takes invoice payment links (cards, GCash, Maya, bank, OTC). When one is active it wins over Stripe Connect in `CreatePublicCheckoutSessionHandler`; external_id `INV{number}-{invoiceId:N}` ties the Xendit invoice back.
+
+- Domain: `Entities/Payment/PaymentGatewayConfiguration.cs` (encrypted secret key + callback token), `Payment.Gateway` / `GatewayReference` (unique, the retry guard)
+- Application: `Modules/Financial/PaymentGateways/XenditSettings.cs`, `Modules/Integrations/Webhooks/Commands/ProcessXenditCallback/` (token check, then re-reads the invoice from Xendit)
+- Infrastructure: `Infrastructure.Payments/Xendit/XenditClient.cs` (port `Application.Abstractions/Payments/Xendit/IXenditClient.cs`)
+- API/UI: `XenditSettingsController.cs`, `WebhookController` `POST /webhooks/xendit/{tenantId}`, `tms-portal/pages/settings/components/xendit-card/`
 
 ### Stripe webhooks
 
@@ -998,6 +1017,17 @@ bills in batches per client billing period, roadmap #11).
 - **Planning board** (`GetUnassignedBookings`): one day's Cold Chain bookings still Pending or
   Confirmed, which is exactly the ones with no trip (making the trip moves a booking to
   InExecution, cancelling it moves it back). Shown on Crew Plan's Bookings tab.
+- **Reading a client's request** (`ReadBookingRequest`, `POST /bookings/read`, multipart): Customer
+  Service drops in the client's Viber screenshot, Excel table pasted as an image, or copied text;
+  one `ILlmClient` call returns one proposed truck-trip per truck asked for (date, call time, size,
+  pickup, drops), with drops matched to that client's saved locations plus shared warehouses.
+  Prompt + parser in `Modules/Operations/FreightForwarding/Services/BookingRequests/`. ⚠️ Saves
+  nothing: the model sees short keys (`S12`), never GUIDs, and the parser drops any key it was not
+  shown; a drop saved word for word is matched in code, since the model holds back on near-duplicate
+  outlet names. Built from 14 real 2026 booking screenshots (2026-11-12). UI:
+  `pages/forwarding/booking/read-booking-request` (`/bookings-executions/read`) + `components/proposed-trip-card` ("Read client
+  request" on the bookings list). Images reach every provider as image content
+  (`LlmDocumentBlock.IsImage`). Tests: `BookingRequestReplyParserTests`
 - API: `POST /bookings` (create), `PUT /bookings/{id}`, `POST /bookings/estimate`,
   `POST /bookings/{id}/trip` (needs `Booking.Manage` and `Load.Manage`),
   `POST /bookings/{id}/repeat`, `GET /bookings/unassigned?date=`

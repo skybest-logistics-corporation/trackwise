@@ -1,115 +1,61 @@
 package com.trackwise.driver.ui.theme
 
 import androidx.compose.material3.Typography
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import org.jetbrains.compose.resources.Font
+import trackwisedriver.composeapp.generated.resources.Res
+import trackwisedriver.composeapp.generated.resources.geist_bold
+import trackwisedriver.composeapp.generated.resources.geist_medium
+import trackwisedriver.composeapp.generated.resources.geist_regular
+import trackwisedriver.composeapp.generated.resources.geist_semibold
 
-val Typography = Typography(
-    displayLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Bold,
-        fontSize = 57.sp,
-        lineHeight = 64.sp,
-        letterSpacing = (-0.25).sp
-    ),
-    displayMedium = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Bold,
-        fontSize = 45.sp,
-        lineHeight = 52.sp,
-        letterSpacing = 0.sp
-    ),
-    displaySmall = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Bold,
-        fontSize = 36.sp,
-        lineHeight = 44.sp,
-        letterSpacing = 0.sp
-    ),
-    headlineLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Bold,
-        fontSize = 32.sp,
-        lineHeight = 40.sp,
-        letterSpacing = 0.sp
-    ),
-    headlineMedium = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Bold,
-        fontSize = 28.sp,
-        lineHeight = 36.sp,
-        letterSpacing = 0.sp
-    ),
-    headlineSmall = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Bold,
-        fontSize = 24.sp,
-        lineHeight = 32.sp,
-        letterSpacing = 0.sp
-    ),
-    titleLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Bold,
-        fontSize = 22.sp,
-        lineHeight = 28.sp,
-        letterSpacing = 0.sp
-    ),
-    titleMedium = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 16.sp,
-        lineHeight = 24.sp,
-        letterSpacing = 0.15.sp
-    ),
-    titleSmall = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Medium,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-        letterSpacing = 0.1.sp
-    ),
-    bodyLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 24.sp,
-        letterSpacing = 0.5.sp
-    ),
-    bodyMedium = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-        letterSpacing = 0.25.sp
-    ),
-    bodySmall = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.4.sp
-    ),
-    labelLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Medium,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-        letterSpacing = 0.1.sp
-    ),
-    labelMedium = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Medium,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.5.sp
-    ),
-    labelSmall = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Medium,
-        fontSize = 11.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.5.sp
-    )
+/** Geist, the typeface shadcn/ui's own site uses. Bundled (OFL) so it renders the same offline and on iOS. */
+@Composable
+fun geistFontFamily(): FontFamily = FontFamily(
+    Font(Res.font.geist_regular, FontWeight.Normal),
+    Font(Res.font.geist_medium, FontWeight.Medium),
+    Font(Res.font.geist_semibold, FontWeight.SemiBold),
+    Font(Res.font.geist_bold, FontWeight.Bold)
 )
+
+/**
+ * shadcn-style type: semibold headings with slightly tight tracking, untracked body text, medium labels.
+ * Sizes stay at Material's scale (body 16/14) so text reads in a truck cab; only the look changes.
+ */
+@Composable
+fun trackwiseTypography(): Typography {
+    val geist = geistFontFamily()
+    return remember(geist) {
+        fun style(size: Int, line: Int, weight: FontWeight, tracking: TextUnit = 0.sp) = TextStyle(
+            fontFamily = geist,
+            fontWeight = weight,
+            fontSize = size.sp,
+            lineHeight = line.sp,
+            letterSpacing = tracking
+        )
+        Typography(
+            displayLarge = style(57, 64, FontWeight.Bold, (-0.025).em),
+            displayMedium = style(45, 52, FontWeight.Bold, (-0.025).em),
+            displaySmall = style(36, 44, FontWeight.Bold, (-0.025).em),
+            headlineLarge = style(32, 40, FontWeight.SemiBold, (-0.025).em),
+            headlineMedium = style(28, 36, FontWeight.SemiBold, (-0.025).em),
+            headlineSmall = style(24, 32, FontWeight.SemiBold, (-0.02).em),
+            titleLarge = style(22, 28, FontWeight.SemiBold, (-0.015).em),
+            titleMedium = style(16, 24, FontWeight.SemiBold),
+            titleSmall = style(14, 20, FontWeight.Medium),
+            bodyLarge = style(16, 24, FontWeight.Normal),
+            bodyMedium = style(14, 20, FontWeight.Normal),
+            bodySmall = style(12, 16, FontWeight.Normal),
+            labelLarge = style(14, 20, FontWeight.Medium),
+            labelMedium = style(12, 16, FontWeight.Medium),
+            labelSmall = style(11, 16, FontWeight.Medium)
+        )
+    }
+}

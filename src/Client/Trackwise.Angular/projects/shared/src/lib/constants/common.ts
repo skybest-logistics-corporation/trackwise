@@ -32,10 +32,10 @@ export const DRIVING_ROLES: readonly TenantRoleValue[] = [TenantRole.Driver, Ten
  * Default tenant localization settings matches with US locales
  */
 export const DEFAULT_TENANT_SETTINGS: TenantSettings = {
-  distanceUnit: "miles",
-  currency: "usd",
+  distanceUnit: "kilometers",
+  currency: "php",
   dateFormat: "us",
-  timezone: "America/New_York",
-  weightUnit: "pounds",
+  timezone: "Asia/Manila",
+  weightUnit: "kilograms",
   operatingMode: "fleet",
 };

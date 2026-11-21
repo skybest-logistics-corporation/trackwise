@@ -4,6 +4,7 @@ import { Router } from "@angular/router";
 import { Permission } from "@trackwise/shared";
 import type { ContainerDto, ContainerStatus } from "@trackwise/shared/api";
 import { containerStatusOptions } from "@trackwise/shared/api/enums";
+import { PermissionService } from "@trackwise/shared/services";
 import {
   Card,
   Icon,
@@ -42,6 +43,9 @@ export class ContainersList {
   private readonly containerTypes = inject(ContainerTypeOptionsService);
   protected readonly store = inject(ContainersListStore);
   protected readonly Permission = Permission;
+  protected readonly canManage = inject(PermissionService).hasPermission(
+    Permission.Container.Manage,
+  );
 
   protected readonly statusOptions = containerStatusOptions;
   protected readonly containerTypeOptions = this.containerTypes.options;

@@ -64,7 +64,7 @@ internal sealed class LoadsReportHandler(ITenantUnitOfWork tenantUow) : IAppRequ
 
         var loadTrends = CalculateLoadTrends(queryable, req.StartDate, req.EndDate);
         var topCustomers = GetTopCustomersByLoads(queryable);
-        var performanceMetrics = CalculatePerformanceMetrics(queryable, totalLoads, totalRevenue, totalDistance);
+        var performanceMetrics = CalculatePerformanceMetrics(queryable, totalLoads, totalRevenue, totalDistance, tenantUow.GetCurrentTenant().Settings.Currency.ToString());
 
         var dto = new LoadsReportDto
         {
@@ -132,7 +132,7 @@ internal sealed class LoadsReportHandler(ITenantUnitOfWork tenantUow) : IAppRequ
             .ToList();
     }
 
-    private static List<LoadPerformanceDto> CalculatePerformanceMetrics(IQueryable<Load> queryable, int totalLoads, decimal totalRevenue, double totalDistance)
+    private static List<LoadPerformanceDto> CalculatePerformanceMetrics(IQueryable<Load> queryable, int totalLoads, decimal totalRevenue, double totalDistance, string currency)
     {
         var deliveredLoads = queryable.Count(l => l.Status == LoadStatus.Delivered);
 
@@ -151,7 +151,7 @@ internal sealed class LoadsReportHandler(ITenantUnitOfWork tenantUow) : IAppRequ
         [
             new() { Metric = "Delivery Rate", Value = deliveryRate, Unit = "%" },
             new() { Metric = "On-Time Delivery", Value = onTimeRate, Unit = "%" },
-            new() { Metric = "Average Load Value", Value = (double)(totalRevenue / Math.Max(totalLoads, 1)), Unit = "$" },
+            new() { Metric = "Average Load Value", Value = (double)(totalRevenue / Math.Max(totalLoads, 1)), Unit = currency },
             new() { Metric = "Distance Efficiency", Value = totalDistance / Math.Max(totalLoads, 1), Unit = "km" }
         ];
     }

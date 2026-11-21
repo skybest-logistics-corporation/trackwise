@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using Trackwise.Application.Abstractions;
+using Trackwise.Application.Abstractions.CurrentUser;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Services;
 using Trackwise.Domain.Entities;
 using Trackwise.Domain.Persistence;
@@ -15,7 +16,7 @@ namespace Trackwise.Application.Modules.Operations.FreightForwarding.Commands.Qu
 internal sealed class UpdateQuotationHandler(
     ITenantUnitOfWork tenantUow,
     IQuotationRatingEngine ratingEngine,
-    IFxRateService fxRateService)
+    IFxRateService fxRateService, ICurrentUserService currentUserService)
     : IAppRequestHandler<UpdateQuotationCommand, Result<Guid>>
 {
     public async Task<Result<Guid>> Handle(UpdateQuotationCommand request, CancellationToken ct)
@@ -137,6 +138,7 @@ internal sealed class UpdateQuotationHandler(
                 shipmentType: req.ShipmentType,
                 incoterm: req.Incoterm,
                 lane: lane,
+                currentUserService.GetUserName(),
                 cargoSpec: cargoSpec,
                 tempSpec: tempSpec,
                 isHazardous: req.IsHazardous,

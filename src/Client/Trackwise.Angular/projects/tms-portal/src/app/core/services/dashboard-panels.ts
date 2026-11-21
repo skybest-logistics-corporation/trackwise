@@ -56,7 +56,7 @@ export const DEFAULT_PANELS: DashboardPanelConfig[] = [
   {
     id: "kpi-weekly-gross",
     label: "Weekly Gross",
-    icon: "dollar-sign",
+    icon: "philippine-peso",
     x: 0,
     y: 0,
     cols: 4,
@@ -142,7 +142,7 @@ export const DEFAULT_PANELS: DashboardPanelConfig[] = [
   {
     id: "financial-health",
     label: "Financial Health",
-    icon: "dollar-sign",
+    icon: "philippine-peso",
     x: 0,
     y: 7,
     cols: 8,

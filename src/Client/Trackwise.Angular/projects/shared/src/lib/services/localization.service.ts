@@ -25,6 +25,28 @@ export const TENANT_SETTINGS_PROVIDER = new InjectionToken<TenantSettingsProvide
   "TenantSettingsProvider",
 );
 
+/** Currency used when no tenant settings are available. */
+export const DEFAULT_CURRENCY = "PHP";
+
+/** The tenant's ISO currency code, or {@link DEFAULT_CURRENCY} when there is no tenant. */
+export function tenantCurrencyCode(provider: TenantSettingsProvider | null | undefined): string {
+  return (provider?.getSettings().currency ?? DEFAULT_CURRENCY).toUpperCase();
+}
+
+/** Narrow display symbol for an ISO currency code, e.g. "PHP" → "₱", "USD" → "$". */
+export function currencySymbol(code: string): string {
+  try {
+    const parts = new Intl.NumberFormat("en", {
+      style: "currency",
+      currency: code,
+      currencyDisplay: "narrowSymbol",
+    }).formatToParts(0);
+    return parts.find((p) => p.type === "currency")?.value ?? code;
+  } catch {
+    return code;
+  }
+}
+
 /**
  * Service for accessing tenant-specific localization settings.
  * Provides methods to get distance units, currency, date formats, etc.
@@ -66,8 +88,7 @@ export class LocalizationService {
    * @returns Currency code (e.g., 'USD', 'EUR')
    */
   getCurrencyCode(): string {
-    const settings = this.settingsProvider.getSettings();
-    return (settings.currency ?? "usd").toUpperCase();
+    return tenantCurrencyCode(this.settingsProvider);
   }
 
   /**
@@ -75,16 +96,7 @@ export class LocalizationService {
    * @returns Currency symbol (e.g., '$', '€', '£')
    */
   getCurrencySymbol(): string {
-    const symbols: Record<string, string> = {
-      USD: "$",
-      EUR: "€",
-      GBP: "£",
-      CAD: "CA$",
-      MXN: "MX$",
-      AUD: "A$",
-      PHP: "₱",
-    };
-    return symbols[this.getCurrencyCode()] ?? "$";
+    return currencySymbol(this.getCurrencyCode());
   }
 
   /**

@@ -1,10 +1,12 @@
 <ui-page-header title="Truck Details">
-  <ui-button
-    appearance="outlined"
-    icon="pencil"
-    label="Edit"
-    [routerLink]="['/master-data/trucks', id(), 'edit']"
-  />
+  @if (canManage) {
+    <ui-button
+      appearance="outlined"
+      icon="pencil"
+      label="Edit"
+      [routerLink]="['/master-data/trucks', id(), 'edit']"
+    />
+  }
   <ui-button
     appearance="outlined"
     icon="arrow-left"

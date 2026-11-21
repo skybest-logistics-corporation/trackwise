@@ -8,7 +8,7 @@ import com.trackwise.driver.model.CountryCode
 
 /**
  * Visual transformation for formatting phone numbers.
- * Formats US/CA numbers as (XXX) XXX-XXXX
+ * Formats US/CA numbers as (XXX) XXX-XXXX and PH numbers as XXX XXX XXXX.
  */
 internal class PhoneVisualTransformation(
     private val countryCode: CountryCode
@@ -18,6 +18,7 @@ internal class PhoneVisualTransformation(
 
         val formatted = when (countryCode) {
             CountryCode.US, CountryCode.CA -> formatNorthAmerican(digits)
+            CountryCode.PH -> formatPhilippine(digits)
             else -> formatGeneric(digits)
         }
 
@@ -36,6 +37,15 @@ internal class PhoneVisualTransformation(
                     5 -> append("$char-")
                     else -> append(char)
                 }
+            }
+        }
+    }
+
+    private fun formatPhilippine(digits: String): String {
+        return buildString {
+            digits.forEachIndexed { index, char ->
+                if (index == 3 || index == 6) append(' ')
+                append(char)
             }
         }
     }
@@ -76,8 +86,12 @@ private class PhoneOffsetMapping(
             }
 
             else -> {
-                val spaces = (offset - 1) / 3
-                minOf(offset + spaces, formatted.length)
+                if (offset <= 0) return 0
+                var digitCount = 0
+                for (i in formatted.indices) {
+                    if (formatted[i].isDigit() && ++digitCount == offset) return i + 1
+                }
+                formatted.length
             }
         }
     }

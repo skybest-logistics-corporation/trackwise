@@ -63,6 +63,7 @@ interface CompanySettingsModel {
   timezone: string;
   operatingMode: OperatingMode;
   // Dispatch settings
+  dispatchPhoneNumber: string | null;
   minBrokerCreditScore: number | null;
   defaultRateFloorPerMile: number | null;
   // AI settings
@@ -86,6 +87,7 @@ const EMPTY: CompanySettingsModel = {
   dateFormat: "us",
   timezone: "America/New_York",
   operatingMode: "fleet",
+  dispatchPhoneNumber: null,
   minBrokerCreditScore: null,
   defaultRateFloorPerMile: null,
   blockAIOverage: false,
@@ -223,6 +225,7 @@ export class CompanySettingsComponent implements OnInit {
               dateFormat: value.dateFormat,
               timezone: value.timezone,
               operatingMode: value.operatingMode,
+              dispatchPhoneNumber: value.dispatchPhoneNumber || null,
               minBrokerCreditScore: value.minBrokerCreditScore,
               defaultRateFloorPerMile: value.defaultRateFloorPerMile,
               blockAIOverage: value.blockAIOverage,
@@ -319,6 +322,7 @@ export class CompanySettingsComponent implements OnInit {
           dateFormat: tenant.settings?.dateFormat ?? "us",
           timezone: tenant.settings?.timezone ?? "America/New_York",
           operatingMode: tenant.settings?.operatingMode ?? "fleet",
+          dispatchPhoneNumber: tenant.settings?.dispatchPhoneNumber ?? null,
           minBrokerCreditScore: tenant.settings?.minBrokerCreditScore ?? null,
           defaultRateFloorPerMile: tenant.settings?.defaultRateFloorPerMile ?? null,
           blockAIOverage: tenant.settings?.blockAIOverage ?? false,

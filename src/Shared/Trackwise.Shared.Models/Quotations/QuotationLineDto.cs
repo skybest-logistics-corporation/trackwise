@@ -10,7 +10,11 @@ public class QuotationLineDto
 {
     public Guid Id { get; set; }
     public Guid QuotationId { get; set; }
+    public Guid? TariffId { get; set; }
+    public string? TariffName { get; set; } = default!;
     public Guid TariffRateId { get; set; }
+    public TruckType? TariffTruckType { get; set; }
+    public TruckTonnageClass? TariffTonnageClass { get; set; }
 
     // Charge Code & Description
     public string ChargeCode { get; set; } = default!;

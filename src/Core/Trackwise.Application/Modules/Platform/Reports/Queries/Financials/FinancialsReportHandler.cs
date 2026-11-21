@@ -50,7 +50,7 @@ internal sealed class FinancialsReportHandler(ITenantUnitOfWork tenantUow)
         var topCustomers = GetTopCustomersByValue(invoices);
         var statusDistribution = GetStatusDistribution(invoices, fullyPaidInvoices, partiallyPaidInvoices, unpaidInvoices);
         var revenueTrends = CalculateRevenueTrends(invoices, expenseQuery, req.StartDate, req.EndDate);
-        var financialMetrics = CalculateFinancialMetrics(invoices, totalInvoiced, totalPaid, totalDue);
+        var financialMetrics = CalculateFinancialMetrics(invoices, totalInvoiced, totalPaid, totalDue, tenantUow.GetCurrentTenant().Settings.Currency.ToString());
 
         var dto = new FinancialsReportDto
         {
@@ -184,7 +184,7 @@ internal sealed class FinancialsReportHandler(ITenantUnitOfWork tenantUow)
         return trends;
     }
 
-    private static List<FinancialMetricDto> CalculateFinancialMetrics(List<LoadInvoice> invoices, decimal totalInvoiced, decimal totalPaid, decimal totalDue)
+    private static List<FinancialMetricDto> CalculateFinancialMetrics(List<LoadInvoice> invoices, decimal totalInvoiced, decimal totalPaid, decimal totalDue, string currency)
     {
         var avgInvoiceValue = invoices.Count != 0 ? totalInvoiced / invoices.Count : 0;
         var collectionRate = totalInvoiced > 0 ? (double)(totalPaid / totalInvoiced) * 100 : 0;
@@ -193,10 +193,10 @@ internal sealed class FinancialsReportHandler(ITenantUnitOfWork tenantUow)
 
         return
         [
-            new() { Metric = "Average Invoice Value", Value = avgInvoiceValue, Unit = "$", Category = "Revenue" },
+            new() { Metric = "Average Invoice Value", Value = avgInvoiceValue, Unit = currency, Category = "Revenue" },
             new() { Metric = "Collection Rate", Value = (decimal)collectionRate, Unit = "%", Category = "Performance" },
-            new() { Metric = "Outstanding Amount", Value = totalDue, Unit = "$", Category = "Risk" },
-            new() { Metric = "Overdue Amount", Value = overdueAmount, Unit = "$", Category = "Risk" },
+            new() { Metric = "Outstanding Amount", Value = totalDue, Unit = currency, Category = "Risk" },
+            new() { Metric = "Overdue Amount", Value = overdueAmount, Unit = currency, Category = "Risk" },
             new() { Metric = "Overdue Invoices", Value = overdueCount, Unit = "count", Category = "Risk" }
         ];
     }

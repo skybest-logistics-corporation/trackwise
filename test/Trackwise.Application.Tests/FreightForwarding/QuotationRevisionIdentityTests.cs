@@ -81,7 +81,7 @@ public class QuotationRevisionIdentityTests
             null);
         typeof(Quotation).GetProperty(nameof(Quotation.Status))!
             .SetValue(quotation, QuotationStatus.Accepted);
-        return quotation.CreateRevision("QT-2026-DOM-00002", 2);
+        return quotation.CreateRevision("QT-2026-DOM-00002", 2, "System");
     }
 
     private static void Update(
@@ -100,6 +100,7 @@ public class QuotationRevisionIdentityTests
             quotation.ShipmentType,
             quotation.Incoterm,
             lane ?? quotation.Lane,
+            "System",
             null,
             notes: notes);
     }

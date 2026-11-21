@@ -96,6 +96,7 @@ export class TruckDetailsComponent implements OnInit {
   private readonly localizationService = inject(LocalizationService, { optional: true });
   private readonly permissions = inject(PermissionService);
 
+  protected readonly canManage = this.permissions.hasPermission(Permission.MasterData.Manage);
   protected readonly canViewLoads = this.permissions.hasPermission(Permission.Load.View);
   protected readonly canViewPapers = this.permissions.hasPermission(Permission.Truck.View);
   protected readonly canViewMaintenance = this.permissions.hasPermission(

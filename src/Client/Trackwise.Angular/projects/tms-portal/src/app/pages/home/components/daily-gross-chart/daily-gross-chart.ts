@@ -26,7 +26,7 @@ export class DailyGrossChartComponent implements OnInit {
   protected readonly summary = computed(() => summarizeDailyGrosses(this.dailyGrosses()));
 
   protected readonly chartOptions = computed(() => {
-    const currencySymbol = this.localizationService?.getCurrencySymbol() ?? "$";
+    const currencySymbol = this.localizationService?.getCurrencySymbol() ?? "₱";
     const palette = getChartPalette(this.themeService.isDark());
     return {
       maintainAspectRatio: false,

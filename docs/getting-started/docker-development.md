@@ -55,7 +55,7 @@ Three demo tenants are seeded: `us` (Skybest Logistics Corporation) and `eu` (Be
 
 ## App configuration / secrets
 
-The .NET services read connection strings and secrets from their own `appsettings.Development.json` / user-secrets. The dev compose only provides the database; point the API and Identity Server at `Host=localhost;Port=5433` (matching the published Postgres port).
+The .NET services take local overrides (API keys, connection strings) from `dotnet user-secrets`, layered over the placeholders in `appsettings.json`. Don't create `appsettings.Development.json`; see [configuration-secrets.md](../../.claude/rules/backend/configuration-secrets.md). The dev compose only provides the database; point the API and Identity Server at `Host=localhost;Port=5433` (matching the published Postgres port).
 
 ## Re-running migrations
 

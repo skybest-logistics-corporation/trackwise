@@ -1,9 +1,11 @@
 import { DatePipe } from "@angular/common";
 import { Component, inject, signal } from "@angular/core";
 import { Router, RouterLink } from "@angular/router";
+import { Permission } from "@trackwise/shared";
 import type { MaintenanceRecordDto, MaintenanceType, VehicleSystem } from "@trackwise/shared/api";
 import { maintenanceTypeOptions, vehicleSystemOptions } from "@trackwise/shared/api/enums";
 import { CurrencyFormatPipe } from "@trackwise/shared/pipes";
+import { PermissionService } from "@trackwise/shared/services";
 import {
   Badge,
   Card,
@@ -45,6 +47,9 @@ import { ServiceRecordsStore } from "../store";
 export class ServiceRecordsPage {
   private readonly router = inject(Router);
   protected readonly store = inject(ServiceRecordsStore);
+  protected readonly canManage = inject(PermissionService).hasPermission(
+    Permission.Maintenance.Manage,
+  );
 
   protected readonly typeOptions = maintenanceTypeOptions;
   protected readonly systemOptions = vehicleSystemOptions;

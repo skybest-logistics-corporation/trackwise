@@ -1,17 +1,19 @@
+using Microsoft.EntityFrameworkCore;
 using Trackwise.Application.Abstractions;
+using Trackwise.Application.Abstractions.CurrentUser;
 using Trackwise.Domain.Entities;
 using Trackwise.Domain.Persistence;
 using Trackwise.Domain.Primitives.Enums;
 using Trackwise.Shared.Models;
-using Microsoft.EntityFrameworkCore;
 
 namespace Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.ConvertQuotationToBooking;
 
-internal sealed class ConvertQuotationToBookingHandler(ITenantUnitOfWork tenantUow)
+internal sealed class ConvertQuotationToBookingHandler(ITenantUnitOfWork tenantUow, ICurrentUserService currentUserService)
     : IAppRequestHandler<ConvertQuotationToBookingCommand, Result<Guid>>
 {
     public async Task<Result<Guid>> Handle(ConvertQuotationToBookingCommand req, CancellationToken ct)
     {
+        var currentUser = currentUserService.GetUserName();
         var quotation = await tenantUow.Repository<Quotation>().GetByIdAsync(req.QuotationId, ct);
         if (quotation is null)
         {
@@ -46,7 +48,10 @@ internal sealed class ConvertQuotationToBookingHandler(ITenantUnitOfWork tenantU
             notes: req.Notes);
 
         await tenantUow.Repository<Booking>().AddAsync(booking, ct);
+        quotation.RecordConvertedToBooking(booking.Id, booking.BookingNumber, currentUser);
+
         await tenantUow.SaveChangesAsync(ct);
+
 
         return Result<Guid>.Ok(booking.Id);
     }

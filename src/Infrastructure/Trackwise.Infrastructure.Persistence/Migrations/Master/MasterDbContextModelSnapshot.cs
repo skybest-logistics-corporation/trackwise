@@ -1160,6 +1160,15 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Master
                         .HasColumnType("text")
                         .HasColumnName("description");
 
+                    b.Property<string>("Gateway")
+                        .HasColumnType("text")
+                        .HasColumnName("gateway");
+
+                    b.Property<string>("GatewayReference")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("gateway_reference");
+
                     b.Property<Guid?>("InvoiceId")
                         .HasColumnType("uuid")
                         .HasColumnName("invoice_id");
@@ -1266,6 +1275,11 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Master
 
                     b.HasIndex("InvoiceId")
                         .HasDatabaseName("ix_payments_invoice_id");
+
+                    b.HasIndex("Gateway", "GatewayReference")
+                        .IsUnique()
+                        .HasDatabaseName("ix_payments_gateway_gateway_reference")
+                        .HasFilter("gateway_reference IS NOT NULL");
 
                     b.ToTable("payments", (string)null);
                 });
@@ -1764,6 +1778,10 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Master
                                 .HasPrecision(18, 2)
                                 .HasColumnType("numeric(18,2)")
                                 .HasColumnName("settings_default_rate_floor_per_mile");
+
+                            b1.Property<string>("DispatchPhoneNumber")
+                                .HasColumnType("text")
+                                .HasColumnName("settings_dispatch_phone_number");
 
                             b1.Property<string>("DistanceUnit")
                                 .IsRequired()

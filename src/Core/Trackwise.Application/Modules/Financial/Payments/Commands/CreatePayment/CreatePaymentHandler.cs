@@ -1,7 +1,6 @@
 using Trackwise.Application.Abstractions;
 using Trackwise.Domain.Entities;
 using Trackwise.Domain.Persistence;
-using Trackwise.Domain.Primitives.Enums;
 using Trackwise.Shared.Models;
 
 namespace Trackwise.Application.Modules.Financial.Payments.Commands;
@@ -13,7 +12,7 @@ internal sealed class CreatePaymentHandler(ITenantUnitOfWork tenantUow)
         CreatePaymentCommand req, CancellationToken ct)
     {
         var tenant = tenantUow.GetCurrentTenant();
-        var currency = (tenant.Settings?.Currency ?? CurrencyCode.USD).ToString();
+        var currency = tenant.Settings.Currency.ToString();
 
         var payment = new Payment
         {

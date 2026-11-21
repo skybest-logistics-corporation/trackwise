@@ -65,7 +65,7 @@ fun PhoneNumberInput(
         // Country Code Selector
         Box(
             modifier = Modifier
-                .width(120.dp)
+                .width(136.dp)
                 .padding(end = 8.dp)
         ) {
             OutlinedTextField(
@@ -98,8 +98,7 @@ fun PhoneNumberInput(
         OutlinedTextField(
             value = phoneDigits,
             onValueChange = { newValue ->
-                val digitsOnly = newValue.filter { it.isDigit() }
-                val limited = digitsOnly.take(selectedCountry.phoneLength)
+                val limited = CountryCode.toLocalDigits(selectedCountry, newValue.filter { it.isDigit() })
                 phoneDigits = limited
                 updateFullNumber(selectedCountry, limited)
             },

@@ -82,7 +82,7 @@ export class TenantEdit implements OnInit {
       billingEmail: tenant.billingEmail ?? "",
       dotNumber: tenant.dotNumber ?? "",
       companyAddress: tenant.companyAddress,
-      region: tenant.settings?.region ?? "us",
+      region: tenant.settings?.region ?? "ph",
       operatingMode: tenant.settings?.operatingMode ?? "fleet",
     };
   });

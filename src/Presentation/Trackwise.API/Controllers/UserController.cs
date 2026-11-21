@@ -69,9 +69,21 @@ public class UserController(IMediator mediator, IUserPermissionService userPermi
     [HttpPut("{id:guid}", Name = "UpdateUser")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [Authorize(Policy = Permission.User.View)]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateUserCommand request)
     {
+        var callerId = User.GetUserId();
+        if (callerId != id)
+        {
+            var tenantClaim = User.FindFirst(CustomClaimTypes.Tenant)?.Value;
+            var tenantId = Guid.TryParse(tenantClaim, out var tid) ? tid : (Guid?)null;
+            if (callerId is null || !await userPermissions.HasPermissionAsync(callerId.Value, tenantId, Permission.User.Manage))
+            {
+                return Forbid();
+            }
+        }
+
         request.Id = id;
         var result = await mediator.Send(request);
         return result.IsSuccess ? NoContent() : BadRequest(ErrorResponse.FromResult(result));

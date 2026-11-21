@@ -41,6 +41,7 @@ import {
 } from "@trackwise/shared/ui";
 import { SearchCustomer } from "@/shared/components/search";
 import { dateToTimeOfDay, timeOfDayToDate } from "@/shared/utils";
+import { isShortMapsLink, parseMapsCoordinates } from "@/shared/utils/maps-link";
 
 /** What the parent receives on submit: blanks collapse to null for the API. */
 export interface LocationFormValue {
@@ -160,6 +161,54 @@ export class LocationForm {
   protected readonly zoneOptions = signal<{ label: string; value: string | null }[]>([
     { label: "No zone", value: null },
   ]);
+
+  protected readonly mapsLink = signal("");
+  protected readonly mapsLinkError = signal<string | null>(null);
+
+  protected applyMapsLink(): void {
+    const link = this.mapsLink().trim();
+    if (!link) {
+      this.mapsLinkError.set(null);
+      return;
+    }
+
+    const coords = parseMapsCoordinates(link);
+    if (!coords) {
+      this.mapsLinkError.set(
+        isShortMapsLink(link)
+          ? "Short links can't be read. Open it, then paste the full URL from the address bar."
+          : "No coordinates found. Paste a Google Maps link that points at a place.",
+      );
+      return;
+    }
+
+    this.form.latitude().value.set(coords.latitude);
+    this.form.longitude().value.set(coords.longitude);
+    this.form.latitude().markAsDirty();
+    this.form.longitude().markAsDirty();
+    this.mapsLinkError.set(null);
+    this.mapsLink.set("");
+  }
+
+  protected readonly mapsSearchUrl = computed<string | null>(() => {
+    const lat = this.form.latitude().value();
+    const lng = this.form.longitude().value();
+
+    const query =
+      lat != null && lng != null
+        ? `${lat},${lng}`
+        : Object.values(this.form.address().value() ?? {})
+            .filter((part): part is string => typeof part === "string" && !!part.trim())
+            .join(", ");
+
+    return query
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
+      : null;
+  });
+
+  protected onMapsLinkPaste(): void {
+    setTimeout(() => this.applyMapsLink());
+  }
 
   protected readonly model = signal<LocationFormModel>({ ...EMPTY });
 

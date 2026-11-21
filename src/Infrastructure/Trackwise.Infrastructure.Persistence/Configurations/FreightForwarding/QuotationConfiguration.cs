@@ -189,6 +189,12 @@ internal sealed class QuotationConfiguration : IEntityTypeConfiguration<Quotatio
         builder.Navigation(x => x.Lines)
             .UsePropertyAccessMode(PropertyAccessMode.Field);
 
+        builder.HasMany(q => q.Events)
+            .WithOne()
+            .HasForeignKey(e => e.QuotationId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(q => q.Events).UsePropertyAccessMode(PropertyAccessMode.Field);
+
         // =========================================================================
         // Indexes
         // =========================================================================

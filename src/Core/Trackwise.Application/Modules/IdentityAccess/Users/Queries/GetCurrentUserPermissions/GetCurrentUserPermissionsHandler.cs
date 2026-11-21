@@ -74,12 +74,7 @@ internal sealed class GetCurrentUserPermissionsHandler(
         // someone a steward removed.
         var employee = await tenantUow.Repository<Employee>().GetByIdAsync(userId);
 
-        if (employee is null)
-        {
-            return;
-        }
-
-        if (employee.Role is null)
+        if (employee?.Role is null)
         {
             return;
         }

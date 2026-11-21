@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using Trackwise.Application.Abstractions;
+using Trackwise.Application.Abstractions.CurrentUser;
 using Trackwise.Domain.Entities;
 using Trackwise.Domain.Persistence;
 using Trackwise.Domain.Primitives.Enums;
@@ -9,7 +10,7 @@ using Trackwise.Shared.Models;
 
 namespace Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.AcceptQuotation;
 
-internal sealed class AcceptQuotationHandler(ITenantUnitOfWork tenantUow)
+internal sealed class AcceptQuotationHandler(ITenantUnitOfWork tenantUow, ICurrentUserService currentUserService)
     : IAppRequestHandler<AcceptQuotationCommand, Result>
 {
     public async Task<Result> Handle(AcceptQuotationCommand req, CancellationToken ct)
@@ -26,7 +27,7 @@ internal sealed class AcceptQuotationHandler(ITenantUnitOfWork tenantUow)
         try
         {
             // Validates against ValidUntil TTL; raises QuotationAccepted domain event
-            quotation.Accept();
+            quotation.Accept(currentUserService.GetUserName());
         }
         catch (InvalidOperationException ex)
         {

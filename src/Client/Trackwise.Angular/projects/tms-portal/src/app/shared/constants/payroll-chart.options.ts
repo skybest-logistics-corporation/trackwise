@@ -50,7 +50,7 @@ export function getPayrollStatusChartOptions(isDark = true) {
   };
 }
 
-export function getPayrollTrendChartOptions(isDark = true) {
+export function getPayrollTrendChartOptions(currencySymbol: string, isDark = true) {
   const p = getChartPalette(isDark);
   return {
     responsive: true,
@@ -77,7 +77,7 @@ export function getPayrollTrendChartOptions(isDark = true) {
         position: "left" as const,
         title: {
           display: true,
-          text: "Amount ($)",
+          text: `Amount (${currencySymbol})`,
           color: p.textColor,
         },
         grid: { color: p.gridColor },
@@ -91,7 +91,7 @@ export function getPayrollTrendChartOptions(isDark = true) {
   };
 }
 
-export function getSalaryTypeChartOptions(isDark = true) {
+export function getSalaryTypeChartOptions(currencySymbol: string, isDark = true) {
   const p = getChartPalette(isDark);
   return {
     responsive: true,
@@ -119,7 +119,7 @@ export function getSalaryTypeChartOptions(isDark = true) {
         ticks: { color: p.textColor },
         title: {
           display: true,
-          text: "Amount ($)",
+          text: `Amount (${currencySymbol})`,
           color: p.textColor,
         },
       },

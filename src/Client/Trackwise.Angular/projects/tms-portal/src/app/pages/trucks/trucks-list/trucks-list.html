@@ -1,5 +1,9 @@
 <div class="animate-in fade-in">
-  <ui-page-header title="List Trucks" addRoute="/master-data/trucks/add" addTooltip="Add a new truck">
+  <ui-page-header
+    title="List Trucks"
+    [addRoute]="canManage ? '/master-data/trucks/add' : null"
+    addTooltip="Add a new truck"
+  >
     <ui-stack direction="row" gap="1" class="border-default bg-elevated rounded-lg border p-1">
       <!-- A segmented toggle: the SELECTED half is a solid primary button, the other a muted text
            one. p-button expressed that as two independent bound flags ([severity] + [text]);
@@ -150,6 +154,6 @@
     <ui-menu #menu [items]="actionMenuItems()" />
   } @else {
     <!-- Map View -->
-    <app-trucks-map-view [trucks]="store.data()" [isLoading]="store.isLoading()" />
+    <app-trucks-map-view />
   }
 </div>

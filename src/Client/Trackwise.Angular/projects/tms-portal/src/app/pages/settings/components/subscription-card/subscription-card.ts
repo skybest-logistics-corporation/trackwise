@@ -1,12 +1,14 @@
 import { CommonModule } from "@angular/common";
 import { Component, computed, effect, inject, signal } from "@angular/core";
 import { RouterModule } from "@angular/router";
+import { Permission } from "@trackwise/shared";
 import {
   Api,
   cancelSubscription,
   getBillingPortalUrl,
   type SubscriptionDto,
 } from "@trackwise/shared/api";
+import { PermissionService } from "@trackwise/shared/services";
 import {
   Badge,
   Card,
@@ -50,6 +52,10 @@ export class SubscriptionCard {
   protected readonly truckCount = signal(0);
   protected readonly isLoading = signal(false);
   protected readonly Labels = Labels;
+  protected readonly canManageSubscription = inject(PermissionService).hasAnyPermission(
+    Permission.Tenant.Manage,
+    Permission.Payment.Manage,
+  );
 
   protected readonly hasSubscription = computed(() => this.subscription() != null);
   protected readonly isCancelledOrPending = computed(() => {

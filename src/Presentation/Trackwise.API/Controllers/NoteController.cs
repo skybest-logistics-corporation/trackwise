@@ -18,6 +18,7 @@ namespace Trackwise.API.Controllers;
 [ApiController]
 [Route("notes")]
 [Produces("application/json")]
+[Authorize]
 public class NoteController(IMediator mediator) : ControllerBase
 {
     private string UserId => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
@@ -27,7 +28,6 @@ public class NoteController(IMediator mediator) : ControllerBase
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    //[Authorize(Policy = Permission.Note.View)]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
         var result = await mediator.Send(new GetNoteByIdQuery(id), ct);
@@ -41,7 +41,6 @@ public class NoteController(IMediator mediator) : ControllerBase
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    //[Authorize(Policy = Permission.Note.View)]
     public async Task<IActionResult> GetList([FromQuery] GetNotesQuery query, CancellationToken ct)
     {
         var result = await mediator.Send(query, ct);
@@ -55,7 +54,6 @@ public class NoteController(IMediator mediator) : ControllerBase
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    //[Authorize(Policy = Permission.Note.Manage)]
     public async Task<IActionResult> Create([FromBody] CreateNoteRequest request, CancellationToken ct)
     {
         var command = new CreateNoteCommand(request.Title, request.Content, UserId);
@@ -72,7 +70,6 @@ public class NoteController(IMediator mediator) : ControllerBase
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    //[Authorize(Policy = Permission.Note.Manage)]
     public async Task<IActionResult> Update(
         [FromRoute] Guid id,
         [FromBody] UpdateNoteRequest request,
@@ -95,7 +92,6 @@ public class NoteController(IMediator mediator) : ControllerBase
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    //[Authorize(Policy = Permission.Note.Manage)]
     public async Task<IActionResult> TogglePin(Guid id, CancellationToken ct)
     {
         var result = await mediator.Send(new ToggleNotePinCommand(id, UserId), ct);
@@ -113,7 +109,6 @@ public class NoteController(IMediator mediator) : ControllerBase
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    //[Authorize(Policy = Permission.Note.Manage)]
     public async Task<IActionResult> Reorder([FromBody] ReorderNotesRequest request, CancellationToken ct)
     {
         var command = new ReorderNotesCommand(request.Items, UserId);
@@ -130,7 +125,6 @@ public class NoteController(IMediator mediator) : ControllerBase
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    //[Authorize(Policy = Permission.Note.Manage)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
         var result = await mediator.Send(new DeleteNoteCommand(id), ct);

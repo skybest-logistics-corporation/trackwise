@@ -48,6 +48,7 @@ internal static class TruckLegLoads
         ResolvedLegEnd to,
         Customer customer,
         Employee? dispatcher,
+        string currency,
         TruckLegFields fields)
     {
         var load = Load.Create(
@@ -61,6 +62,7 @@ internal static class TruckLegLoads
             customer,
             assignedTruck: null,
             dispatcher,
+            currency,
             withInvoice: false);
 
         load.WorkfileId = leg.Id;

@@ -1,7 +1,7 @@
 <div class="animate-in fade-in">
   <ui-page-header
     title="Payroll Invoices"
-    addRoute="/payroll/invoices/add"
+    [addRoute]="canManagePayroll ? '/payroll/invoices/add' : null"
     addTooltip="Add a new payroll invoice"
   >
     @if (selectedInvoices().length > 0) {
