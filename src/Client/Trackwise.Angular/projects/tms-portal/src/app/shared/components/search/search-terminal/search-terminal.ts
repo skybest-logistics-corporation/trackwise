@@ -10,12 +10,7 @@ import {
 } from "@angular/core";
 import type { FormValueControl } from "@angular/forms/signals";
 import { focusFirstControl } from "@trackwise/shared";
-import {
-  Api,
-  getTerminals,
-  type TerminalDto,
-  type TerminalSummaryDto,
-} from "@trackwise/shared/api";
+import { Api, getTerminals, type TerminalSummaryDto } from "@trackwise/shared/api";
 import { UiSelectField } from "@trackwise/shared/ui";
 
 const MIN_QUERY_LENGTH = 2;
