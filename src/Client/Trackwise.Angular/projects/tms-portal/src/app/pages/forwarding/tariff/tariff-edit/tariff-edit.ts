@@ -40,7 +40,7 @@ export class TariffEditComponent implements OnInit {
           currency: tariff.currency ?? "PHP",
           effectiveFrom: tariff.effectiveFrom ?? "",
           carrierId: tariff.carrierId ?? null,
-          contractId: tariff.contractId ?? null,
+          contractRef: tariff.contractRef ?? null,
           customerId: tariff.customerId ?? null,
           customerName: tariff.customerName ?? null,
         }
@@ -70,7 +70,7 @@ export class TariffEditComponent implements OnInit {
       tonnageClass: formValue.tonnageClass ?? undefined,
       containerTypeId: formValue.containerTypeId ?? undefined,
       carrierId: formValue.carrierId ?? undefined,
-      contractId: formValue.contractId ?? undefined,
+      contractRef: formValue.contractRef ?? undefined,
     };
 
     try {

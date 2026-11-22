@@ -19,6 +19,7 @@ internal sealed class QuotationRatingEngine(
     public async Task AutoPriceAsync(Quotation quotation, Guid? customerContractId, CancellationToken ct = default)
     {
         var freightMode = quotation.FreightMode;
+        var lane = quotation.Lane; // null for non-lane (POL/POD) modes
 
         // 1. Base Line-Haul / Freight Charge
         var baseRate = await rateResolver.ResolveRateAsync(
@@ -26,8 +27,8 @@ internal sealed class QuotationRatingEngine(
             contractId: customerContractId,
             chargeCode: CodeLineHaul,
             mode: freightMode,
-            originLane: quotation.Lane.FirstPickup.LocationId.ToString(),
-            destinationLane: quotation.Lane.FinalDrop.LocationId.ToString(),
+            originLane: lane?.FirstPickup.LocationId.ToString() ?? string.Empty,
+            destinationLane: lane?.FinalDrop.LocationId.ToString() ?? string.Empty,
             ct: ct);
 
         if (baseRate is not null)
@@ -38,7 +39,7 @@ internal sealed class QuotationRatingEngine(
                 tariffRateId: baseRate.Id,
                 category: baseRate.ChargeCode?.Category ?? ChargeCategory.Base,
                 serviceType: OperationalServiceType.LineHaul,
-                quantity: quotation.Lane.TotalDistanceKm,
+                quantity: lane?.TotalDistanceKm ?? 0m,
                 markupType: MarkupType.Percentage,
                 markupValue: 12.0m,
                 fxRate: null,
@@ -46,7 +47,7 @@ internal sealed class QuotationRatingEngine(
         }
 
         // 2. Multi-Drop Intermediate Stop-Off Charges
-        if (quotation.Lane.IntermediateDropCount > 0)
+        if (lane?.IntermediateDropCount > 0)
         {
             var stopOffRate = await rateResolver.ResolveRateAsync(
                 customerId: quotation.CustomerId,
@@ -63,11 +64,11 @@ internal sealed class QuotationRatingEngine(
                     tariffRateId: stopOffRate.Id,
                     category: stopOffRate.ChargeCode?.Category ?? ChargeCategory.Accessorial,
                     serviceType: OperationalServiceType.Standard,
-                    quantity: quotation.Lane.IntermediateDropCount,
+                    quantity: lane.IntermediateDropCount,
                     markupType: MarkupType.Percentage,
                     markupValue: 15.0m,
                     fxRate: null,
-                    notes: $"Stop-off charges for {quotation.Lane.IntermediateDropCount} intermediate drop(s).");
+                    notes: $"Stop-off charges for {lane.IntermediateDropCount} intermediate drop(s).");
             }
         }
 

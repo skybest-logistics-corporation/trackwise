@@ -202,7 +202,7 @@ public partial class Booking : AuditableEntity, ITenantEntity
         DateTime? requestedPickupDate,
         DateTime? requestedDeliveryDate)
     {
-        if (requestedPickupDate is null && requestedDeliveryDate is null)
+        if (lane is null || (requestedPickupDate is null && requestedDeliveryDate is null))
             return lane;
 
         var pickupStart = requestedPickupDate.HasValue
@@ -241,7 +241,7 @@ public partial class Booking : AuditableEntity, ITenantEntity
     }
 
     /// <summary>Operational dates/stops can be refined on the booking (e.g. confirmed pickup window).</summary>
-    public void UpdateLane(LaneTransit lane)
+    public void UpdateLane(LaneTransit? lane)
     {
         EnsureDraft();
         ArgumentNullException.ThrowIfNull(lane);
@@ -282,8 +282,12 @@ public partial class Booking : AuditableEntity, ITenantEntity
             Id, oldPickup, RequestedPickupStart, oldDelivery, RequestedDeliveryEnd, reason, requestedBy));
     }
 
-    private static void EnsureSameRoute(LaneTransit current, LaneTransit proposed)
+    private static void EnsureSameRoute(LaneTransit? current, LaneTransit? proposed)
     {
+        if (current is null || proposed is null)
+            throw new InvalidOperationException(
+                "Reschedule requires both the booking and the proposed lane to be set. Stops, order, and locations must remain the same.");
+
         var a = current.Stops.OrderBy(s => s.Sequence).ToList();
         var b = proposed.Stops.OrderBy(s => s.Sequence).ToList();
 

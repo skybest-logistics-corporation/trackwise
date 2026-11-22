@@ -13,7 +13,7 @@ public class Tariff : AuditableEntity, ITenantEntity
     public FreightMode Mode { get; private set; }
     public ServiceLevel ServiceLevel { get; private set; }
     public Guid? CarrierId { get; private set; }
-    public Guid? ContractId { get; private set; }                // optional customer contract
+    public string? ContractRef { get; private set; }                // optional customer contract
     public Guid? CustomerId { get; private set; }
     public virtual Customer? Customer { get; private set; }
     public string? OriginLane { get; private set; }              // ZIP / port UN/LOCODE
@@ -51,7 +51,7 @@ public class Tariff : AuditableEntity, ITenantEntity
         Guid? containerTypeId,
         Guid? carrierId,
         DateOnly effectiveFrom,
-        Guid? contractId,
+        string? contractRef,
         Guid? customerId = null)
     {
         var t = new Tariff
@@ -66,7 +66,7 @@ public class Tariff : AuditableEntity, ITenantEntity
             TonnageClass = tonnageClass,
             ContainerTypeId = containerTypeId,
             CarrierId = carrierId,
-            ContractId = contractId,
+            ContractRef = contractRef,
             CustomerId = customerId,
             EffectiveFrom = effectiveFrom,
             Version = 1,
@@ -84,7 +84,7 @@ public class Tariff : AuditableEntity, ITenantEntity
             Mode = source.Mode,
             ServiceLevel = source.ServiceLevel,
             CarrierId = source.CarrierId,
-            ContractId = source.ContractId,
+            ContractRef = source.ContractRef,
             CustomerId = source.CustomerId,
             OriginLane = source.OriginLane,
             DestinationLane = source.DestinationLane,
@@ -159,7 +159,7 @@ public class Tariff : AuditableEntity, ITenantEntity
         TruckTonnageClass? tonnageClass,
         Guid? containerTypeId,
         Guid? carrierId,
-        Guid? contractId)
+        string contractRef)
     {
         if (mode.HasValue) Mode = mode.Value;
         if (serviceLevel.HasValue) ServiceLevel = serviceLevel.Value;
@@ -172,7 +172,7 @@ public class Tariff : AuditableEntity, ITenantEntity
         if (!string.IsNullOrWhiteSpace(destinationLane)) DestinationLane = destinationLane;
         if (containerTypeId.HasValue) ContainerTypeId = containerTypeId.Value;
         if (carrierId.HasValue) CarrierId = carrierId.Value;
-        if (contractId.HasValue) ContractId = contractId.Value;
+        if (!string.IsNullOrWhiteSpace(contractRef)) ContractRef = contractRef;
         if (truckType != default) TruckType = truckType;
         if (tonnageClass.HasValue) TonnageClass = tonnageClass.Value;
         DomainEvents.Add(new TariffUpdated(Id, Name));

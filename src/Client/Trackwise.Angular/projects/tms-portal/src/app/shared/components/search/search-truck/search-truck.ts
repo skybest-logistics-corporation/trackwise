@@ -28,6 +28,7 @@ import { EnumLabelPipe } from "@/shared/pipes";
 interface TruckOption {
   truck: TruckDto;
   label: string;
+  disabled: boolean;
 }
 
 /** Large enough to hold the whole fleet, since filtering happens client-side. */
@@ -84,21 +85,30 @@ export class SearchTruck implements FormValueControl<TruckDto | null> {
   /** Raised on blur so the form can mark the field touched. */
   public readonly touch = output<void>();
 
+  /** Only offer trucks that have a main driver assigned. */
+  public readonly requireMainDriver = input<boolean>(false);
+
+  private isUnselectable(truck: TruckDto): boolean {
+    return this.requireMainDriver() && (!truck.mainDriver || isEmptyGuid(truck.mainDriver.id));
+  }
+
   protected readonly options = computed<TruckOption[]>(() => {
     const tonnage = this.tonnageClass();
     const selected = this.value();
 
     let list = this.trucks().filter((t) => !tonnage || t.tonnageClass === tonnage);
 
-    // The select compares values by reference. Make sure the current value is in the list, and
-    // that it is the very same object, so the trigger can render it. This also keeps a seeded
-    // truck visible when it falls outside the active type/tonnage filters.
+    // unchanged below
     if (selected) {
       const index = list.findIndex((t) => t.id === selected.id);
       list = index >= 0 ? list.map((t, i) => (i === index ? selected : t)) : [selected, ...list];
     }
 
-    return list.map((truck) => ({ truck, label: this.buildLabel(truck) }));
+    return list.map((truck) => ({
+      truck,
+      label: this.buildLabel(truck),
+      disabled: this.isUnselectable(truck),
+    }));
   });
 
   /** Signal Forms calls this via `FieldState.focusBoundControl()`. */
@@ -168,5 +178,12 @@ export class SearchTruck implements FormValueControl<TruckDto | null> {
     if (result) {
       this.value.set(result);
     }
+  }
+
+  protected onSelect(truck: TruckDto | null): void {
+    if (truck && this.isUnselectable(truck)) {
+      return; // keep the current value
+    }
+    this.value.set(truck);
   }
 }

@@ -55,6 +55,14 @@ public class QuotationDto
     // Route & Stops
     public decimal TotalDistanceKm { get; set; }
     public List<RouteStopSummaryDto> Stops { get; set; } = [];
+    /// <summary>Port of Loading - only applicable to the non-lane (Domestic / Import / Export / Triangular) modes.</summary>
+    // Ports - only applicable to the non-lane (Domestic / Import / Export / Triangular) modes.
+    /// <summary>Port of Loading id.</summary>
+    public Guid? PolId { get; set; }
+    public TerminalSummaryDto? Pol { get; set; }
+    /// <summary>Port of Discharge id.</summary>
+    public Guid? PodId { get; set; }
+    public TerminalSummaryDto? Pod { get; set; }
 
     // Cargo & Cold Chain Profile
     public string? Commodity { get; set; } = default!;

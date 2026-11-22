@@ -4,6 +4,7 @@ import {
   Component,
   computed,
   contentChild,
+  effect,
   ElementRef,
   inject,
   input,
@@ -21,6 +22,12 @@ import { focusFirstControl } from "../focus-control";
 /** Context handed to the `#item` / `#selectedItem` templates: the raw option object. */
 export interface UiSelectOptionContext<T = unknown> {
   $implicit: T;
+}
+
+/** One section of the panel. A null label renders as a separator-only section. */
+export interface UiSelectGroup {
+  label: string | null;
+  options: readonly unknown[];
 }
 
 /**
@@ -48,6 +55,21 @@ export interface UiSelectOptionContext<T = unknown> {
   imports: [HlmSelectImports, DetachedControl, Icon, NgTemplateOutlet],
 })
 export class UiSelectField<T = unknown> implements FormValueControl<T | null> {
+  /** Label for a "create new" action at the bottom of the panel. Leave undefined to hide it. */
+  public readonly createLabel = input<string | undefined>(undefined);
+
+  /** Raised when the user clicks the "create new" action. Carries the current search text. */
+  public readonly createNew = output<string>();
+
+  public readonly filterChange = output<string>();
+
+  constructor() {
+    effect(() => this.filterChange.emit(this.filterText()));
+  }
+
+  protected onCreateNew(): void {
+    this.createNew.emit(this.filterText().trim());
+  }
   /**
    * Optional per-option renderer, projected as `<ng-template #item let-option>`; `$implicit` is the
    * raw option object, not the resolved `optionValue`. `descendants: false` is load-bearing: without
@@ -70,6 +92,7 @@ export class UiSelectField<T = unknown> implements FormValueControl<T | null> {
   public readonly value = model<T | null>(null);
 
   public readonly disabled = input(false, { transform: booleanAttribute });
+  public readonly optionDisabled = input<string | undefined>(undefined);
   public readonly readonly = input(false, { transform: booleanAttribute });
   public readonly required = input(false, { transform: booleanAttribute });
   public readonly invalid = input(false, { transform: booleanAttribute });
@@ -77,6 +100,11 @@ export class UiSelectField<T = unknown> implements FormValueControl<T | null> {
   public readonly dirty = input(false, { transform: booleanAttribute });
   public readonly errors = input<readonly ValidationError[]>([]);
   public readonly name = input<string>("");
+
+  protected isOptionDisabled(option: unknown): boolean {
+    const path = this.optionDisabled();
+    return !!path && !!(option as Record<string, unknown>)[path];
+  }
 
   /** Raised when the field is blurred (the panel closes) so the form can mark it touched. */
   public readonly touch = output<void>();
@@ -112,6 +140,26 @@ export class UiSelectField<T = unknown> implements FormValueControl<T | null> {
     if (!this.filter() || !query) return opts;
     return opts.filter((opt) => this.resolveLabel(opt).toLowerCase().includes(query));
   });
+
+  /** Visible options split into groups, in order of first appearance. */
+  protected readonly groups = computed<UiSelectGroup[]>(() => {
+    const opts = this.displayOptions();
+    const path = this.optionGroup();
+    if (!path) return [{ label: null, options: opts }];
+
+    const byLabel = new Map<string | null, unknown[]>();
+    for (const opt of opts) {
+      const raw = (opt as Record<string, unknown>)[path];
+      const key = raw == null || raw === "" ? null : String(raw);
+      const bucket = byLabel.get(key);
+      if (bucket) bucket.push(opt);
+      else byLabel.set(key, [opt]);
+    }
+    return [...byLabel].map(([label, options]) => ({ label, options }));
+  });
+
+  /** Field path for an option's group label. Undefined means a flat, ungrouped list. */
+  public readonly optionGroup = input<string | undefined>(undefined);
 
   protected readonly showInvalid = computed(
     () => this.invalid() && (this.touched() || this.dirty()),
@@ -154,6 +202,14 @@ export class UiSelectField<T = unknown> implements FormValueControl<T | null> {
 
   protected onValueChange(next: T | null | undefined): void {
     const value = next ?? null;
+
+    if (value !== null) {
+      const option = this.options().find((opt) => this.resolveValue(opt) === value);
+      if (option !== undefined && this.isOptionDisabled(option)) {
+        return;
+      }
+    }
+
     this.value.set(value);
     this.selectionChange.emit(value);
   }
