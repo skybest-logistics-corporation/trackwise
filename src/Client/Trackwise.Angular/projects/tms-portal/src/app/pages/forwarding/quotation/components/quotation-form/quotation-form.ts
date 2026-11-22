@@ -38,7 +38,6 @@ import type {
   RouteStopSummaryDto,
   ShipmentType,
   TemperatureZone,
-  TerminalDto,
   TerminalSummaryDto,
   TransportMode,
 } from "@trackwise/shared/api";
