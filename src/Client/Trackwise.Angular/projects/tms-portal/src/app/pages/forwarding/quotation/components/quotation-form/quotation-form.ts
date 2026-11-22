@@ -39,6 +39,7 @@ import type {
   ShipmentType,
   TemperatureZone,
   TerminalDto,
+  TerminalSummaryDto,
   TransportMode,
 } from "@trackwise/shared/api";
 import {
@@ -86,8 +87,8 @@ export interface QuotationFormModel {
   totalDistanceKm: string;
 
   // Ports (everything else)
-  pol: TerminalDto | null;
-  pod: TerminalDto | null;
+  pol: TerminalSummaryDto | null;
+  pod: TerminalSummaryDto | null;
 
   // Cargo Specs
   commodity: string;
@@ -502,8 +503,8 @@ export class QuotationForm {
       requestedPickupWindowStart: laneBased ? (first?.windowStart ?? "") : "",
       requestedDeliveryWindowEnd: laneBased ? (last?.windowEnd ?? "") : "",
       totalDistanceKm: q.totalDistanceKm?.toString() ?? "",
-      pol: q.pol ? ({ id: q.pol } as TerminalDto) : null,
-      pod: q.pod ? ({ id: q.pod } as TerminalDto) : null,
+      pol: q.pol ?? null,
+      pod: q.pod ?? null,
 
       commodity: q.commodity ?? "",
       palletCount: q.palletCount?.toString() ?? "",

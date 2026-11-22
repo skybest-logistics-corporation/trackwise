@@ -10,7 +10,12 @@ import {
 } from "@angular/core";
 import type { FormValueControl } from "@angular/forms/signals";
 import { focusFirstControl } from "@trackwise/shared";
-import { Api, getTerminals, type TerminalDto } from "@trackwise/shared/api";
+import {
+  Api,
+  getTerminals,
+  type TerminalDto,
+  type TerminalSummaryDto,
+} from "@trackwise/shared/api";
 import { UiSelectField } from "@trackwise/shared/ui";
 
 const MIN_QUERY_LENGTH = 2;
@@ -19,7 +24,7 @@ const DEBOUNCE_MS = 300;
 interface TerminalOption {
   id: string | undefined;
   label: string;
-  terminal: TerminalDto;
+  terminal: TerminalSummaryDto;
 }
 
 /**
@@ -32,18 +37,18 @@ interface TerminalOption {
   templateUrl: "./search-terminal.html",
   imports: [UiSelectField],
 })
-export class SearchTerminal implements FormValueControl<TerminalDto | null> {
+export class SearchTerminal implements FormValueControl<TerminalSummaryDto | null> {
   private readonly api = inject(Api);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   /** The control's value. Required by `FormValueControl`. */
-  public readonly value = model<TerminalDto | null>(null);
+  public readonly value = model<TerminalSummaryDto | null>(null);
   public readonly disabled = input<boolean>(false);
   public readonly touch = output<void>();
   public readonly placeholder = model<string>("Select a terminal");
 
   protected readonly loading = signal(false);
-  private readonly terminals = signal<TerminalDto[]>([]);
+  private readonly terminals = signal<TerminalSummaryDto[]>([]);
 
   private debounceHandle: ReturnType<typeof setTimeout> | undefined;
   private requestSeq = 0;

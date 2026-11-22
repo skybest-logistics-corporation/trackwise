@@ -9,6 +9,7 @@ using Trackwise.Domain.Entities;
 using Trackwise.Domain.Persistence;
 using Trackwise.Domain.Primitives.Enums;
 using Trackwise.Domain.Primitives.ValueObjects;
+using Trackwise.Mappings;
 using Trackwise.Shared.Models;
 
 namespace Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.UpdateQuotation;
@@ -26,6 +27,7 @@ internal sealed class UpdateQuotationHandler(
         var customerRepo = tenantUow.Repository<Customer>();
         var locationRepo = tenantUow.Repository<Location>();
         var quotationRepo = tenantUow.Repository<Quotation>();
+        var terminalRepo = tenantUow.Repository<Terminal>();
 
         // 1. Load the existing quotation (with lines, since we reprice)
         var quotation = await quotationRepo.Query()
@@ -93,12 +95,12 @@ internal sealed class UpdateQuotationHandler(
             pol = req.PolId;
             pod = req.PodId;
 
-            var portIds = new List<Guid> { pol.Value, pod.Value };
-            var ports = await locationRepo.Query()
-                .Where(l => portIds.Contains(l.Id))
-                .ToDictionaryAsync(l => l.Id, ct);
+            var terminalIds = new[] { pol.Value, pod.Value }.Distinct().ToList();
+            var terminals = await terminalRepo.Query()
+                .Where(t => terminalIds.Contains(t.Id))
+                .ToDictionaryAsync(t => t.Id, ct);
 
-            var portError = QuotationRouteResolver.ValidateLocations(portIds, ports, req.CustomerId);
+            var portError = QuotationRouteResolver.ValidateTerminals(pol, pod, terminals);
             if (portError is not null)
                 return Result<Guid>.Fail(portError);
         }
