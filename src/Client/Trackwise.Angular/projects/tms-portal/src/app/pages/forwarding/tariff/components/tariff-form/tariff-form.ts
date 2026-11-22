@@ -1,4 +1,13 @@
-import { Component, computed, effect, inject, input, output, signal } from "@angular/core";
+import {
+  Component,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+  untracked,
+} from "@angular/core";
 import { form, FormField, FormRoot, hidden, maxLength, required } from "@angular/forms/signals";
 import { RouterLink } from "@angular/router";
 import {
@@ -32,6 +41,13 @@ import {
 import { ContainerTypeOptionsService, ToastService } from "@/core/services";
 import { SearchCustomer } from "@/shared/components/search";
 
+const TRUCK_TYPE_MODES: readonly FreightMode[] = ["reefer", "trucking"];
+
+const hasTruckType = (mode: FreightMode | null): boolean =>
+  mode !== null && TRUCK_TYPE_MODES.includes(mode);
+
+const hasTonnageClass = (mode: FreightMode | null): boolean => mode === "reefer";
+
 export interface TariffFormValue {
   name: string;
   mode: FreightMode;
@@ -45,7 +61,7 @@ export interface TariffFormValue {
   effectiveFrom: string;
   carrierId?: string | null;
   carrier?: unknown | null;
-  contractId?: string | null;
+  contractRef?: string | null;
   customerId?: string | null;
   customerName?: string | null;
 }
@@ -62,7 +78,7 @@ interface TariffFormModel {
   currency: string;
   effectiveFrom: Date | null;
   carrier: unknown | null;
-  contractId: string;
+  contractRef: string;
   customer: CustomerDto | null;
 }
 
@@ -78,7 +94,7 @@ const EMPTY: TariffFormModel = {
   currency: "PHP",
   effectiveFrom: null,
   carrier: null,
-  contractId: "",
+  contractRef: "",
   customer: null,
 };
 
@@ -127,7 +143,9 @@ export class TariffForm {
     ...EMPTY,
   });
 
-  protected readonly isDomestic = computed(() => this.model().mode === "domestic");
+  protected readonly showTruckType = computed(() => hasTruckType(this.model().mode));
+  protected readonly showTonnageClass = computed(() => hasTonnageClass(this.model().mode));
+  private previousMode: FreightMode | null = null;
 
   protected readonly form = form(
     this.model,
@@ -160,11 +178,11 @@ export class TariffForm {
         message: "Effective date is required.",
       });
 
-      hidden(p.truckType, ({ valueOf }) => valueOf(p.mode) !== "domestic");
-      hidden(p.tonnageClass, ({ valueOf }) => valueOf(p.mode) !== "domestic");
+      hidden(p.truckType, ({ valueOf }) => !hasTruckType(valueOf(p.mode)));
+      hidden(p.tonnageClass, ({ valueOf }) => !hasTonnageClass(valueOf(p.mode)));
 
-      required(p.truckType, { message: "Truck type is required for domestic freight." });
-      required(p.tonnageClass, { message: "Tonnage class is required for domestic freight." });
+      required(p.truckType, { message: "Truck type is required." });
+      required(p.tonnageClass, { message: "Tonnage class is required for Reefer." });
     },
     {
       submission: {
@@ -193,6 +211,22 @@ export class TariffForm {
       void this.containerTypes.include(initialData.containerTypeId);
       this.patch(initialData);
     });
+
+    effect(() => {
+      const mode = this.model().mode;
+      if (mode === this.previousMode) return;
+      this.previousMode = mode;
+      untracked(() => this.applyFreightModePreset(mode));
+    });
+  }
+
+  private applyFreightModePreset(mode: FreightMode | null): void {
+    this.model.update((curr) => ({
+      ...curr,
+      // Reefer preselects the Reefer truck type; Trucking and all others start empty.
+      truckType: mode === "reefer" ? ("reefer" as TruckType) : null,
+      tonnageClass: null,
+    }));
   }
 
   protected askRemove(): void {
@@ -214,12 +248,12 @@ export class TariffForm {
       effectiveFrom: this.formatLocalDate(value.effectiveFrom),
       originLane: value.originLane.trim() || null,
       destinationLane: value.destinationLane.trim() || null,
-      truckType: this.isDomestic() ? value.truckType : null,
-      tonnageClass: this.isDomestic() ? value.tonnageClass : null,
+      truckType: this.showTruckType() ? value.truckType : null,
+      tonnageClass: this.showTonnageClass() ? value.tonnageClass : null,
       containerTypeId: value.containerTypeId,
       carrierId: this.getCarrierId(value.carrier),
       carrier: value.carrier,
-      contractId: value.contractId.trim() || null,
+      contractRef: value.contractRef.trim() || null,
       customerId: value.customer?.id ?? null,
       customerName: value.customer?.name ?? null,
     };
@@ -246,6 +280,11 @@ export class TariffForm {
   }
 
   private patch(src: Partial<TariffFormValue>): void {
+    // Sync first, otherwise the freight mode watcher resets hydrated truck fields.
+    if (src.mode !== undefined) {
+      this.previousMode = src.mode;
+    }
+
     this.model.update((value) => ({
       ...value,
 
@@ -272,7 +311,7 @@ export class TariffForm {
 
       carrier: src.carrier !== undefined ? src.carrier : value.carrier,
 
-      contractId: src.contractId ?? value.contractId,
+      contractId: src.contractRef ?? value.contractRef,
 
       customer: src.customerId
         ? ({ id: src.customerId, name: src.customerName ?? "" } as CustomerDto)

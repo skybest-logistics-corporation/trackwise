@@ -28988,11 +28988,10 @@
             }
           },
           {
-            "name": "ContractId",
+            "name": "ContractRef",
             "in": "query",
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             }
           },
           {
@@ -33763,6 +33762,16 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -38428,6 +38437,22 @@
           "incoterm": {
             "$ref": "#/components/schemas/Incoterm"
           },
+          "polId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "pol": {
+            "$ref": "#/components/schemas/TerminalSummaryDto"
+          },
+          "podId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "pod": {
+            "$ref": "#/components/schemas/TerminalSummaryDto"
+          },
           "requestedPickupStart": {
             "type": "string",
             "format": "date-time",
@@ -38842,6 +38867,16 @@
           },
           "shipmentType": {
             "$ref": "#/components/schemas/ShipmentType"
+          },
+          "polId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "podId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           },
           "requestedPickupStart": {
             "type": "string",
@@ -42547,6 +42582,16 @@
           "lane": {
             "$ref": "#/components/schemas/LaneTransitDto"
           },
+          "polId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "podId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
           "cargo": {
             "$ref": "#/components/schemas/CargoSpecificationDto"
           },
@@ -42755,9 +42800,8 @@
             "type": "string",
             "format": "date"
           },
-          "contractId": {
+          "contractRef": {
             "type": "string",
-            "format": "uuid",
             "nullable": true
           },
           "customerId": {
@@ -46225,7 +46269,9 @@
           "domestic",
           "import",
           "export",
-          "triangular"
+          "triangular",
+          "reefer",
+          "trucking"
         ],
         "type": "string"
       },
@@ -52528,6 +52574,22 @@
             },
             "nullable": true
           },
+          "polId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "pol": {
+            "$ref": "#/components/schemas/TerminalSummaryDto"
+          },
+          "podId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "pod": {
+            "$ref": "#/components/schemas/TerminalSummaryDto"
+          },
           "commodity": {
             "type": "string",
             "nullable": true
@@ -55313,9 +55375,8 @@
             "format": "uuid",
             "nullable": true
           },
-          "contractId": {
+          "contractRef": {
             "type": "string",
-            "format": "uuid",
             "nullable": true
           },
           "customerId": {
@@ -56127,6 +56188,28 @@
           },
           "pagination": {
             "$ref": "#/components/schemas/PaginationMeta"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerminalSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "countryCode": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -59905,9 +59988,8 @@
             "format": "uuid",
             "nullable": true
           },
-          "contractId": {
+          "contractRef": {
             "type": "string",
-            "format": "uuid",
             "nullable": true
           }
         },

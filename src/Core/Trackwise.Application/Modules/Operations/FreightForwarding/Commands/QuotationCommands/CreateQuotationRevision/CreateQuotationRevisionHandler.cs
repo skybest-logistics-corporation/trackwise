@@ -42,7 +42,6 @@ internal sealed class CreateQuotationRevisionHandler(
         var referenceNumber = await referenceGenerator.NextAsync(
             source.FreightMode,
             source.Branch.Code,
-            source.IsTemperatureControlled,
             ct);
 
         Quotation revision;

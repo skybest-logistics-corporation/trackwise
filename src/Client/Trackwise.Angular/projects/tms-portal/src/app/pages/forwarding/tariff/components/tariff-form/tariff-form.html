@@ -99,33 +99,37 @@
                 </ui-grid>
               </ui-grid>
 
-              @if (isDomestic()) {
+              @if (showTruckType() || showTonnageClass()) {
                 <ui-grid container spacing="3">
-                  <ui-grid [size]="{ xs: 12, md: 6 }">
-                    <ui-form-field label="Truck Type" for="truckType" [required]="true">
-                      <ui-select-field
-                        id="truckType"
-                        [formField]="form.truckType"
-                        [options]="truckTypes"
-                        optionLabel="label"
-                        optionValue="value"
-                        placeholder="Select truck type"
-                      />
-                    </ui-form-field>
-                  </ui-grid>
+                  @if (showTruckType()) {
+                    <ui-grid [size]="{ xs: 12, md: 6 }">
+                      <ui-form-field label="Truck Type" for="truckType" [required]="true">
+                        <ui-select-field
+                          id="truckType"
+                          [formField]="form.truckType"
+                          [options]="truckTypes"
+                          optionLabel="label"
+                          optionValue="value"
+                          placeholder="Select truck type"
+                        />
+                      </ui-form-field>
+                    </ui-grid>
+                  }
 
-                  <ui-grid [size]="{ xs: 12, md: 6 }">
-                    <ui-form-field label="Tonnage Class" for="tonnageClass" [required]="true">
-                      <ui-select-field
-                        id="tonnageClass"
-                        [formField]="form.tonnageClass"
-                        [options]="tonnageClasses"
-                        optionLabel="label"
-                        optionValue="value"
-                        placeholder="Select tonnage class"
-                      />
-                    </ui-form-field>
-                  </ui-grid>
+                  @if (showTonnageClass()) {
+                    <ui-grid [size]="{ xs: 12, md: 6 }">
+                      <ui-form-field label="Tonnage Class" for="tonnageClass" [required]="true">
+                        <ui-select-field
+                          id="tonnageClass"
+                          [formField]="form.tonnageClass"
+                          [options]="tonnageClasses"
+                          optionLabel="label"
+                          optionValue="value"
+                          placeholder="Select tonnage class"
+                        />
+                      </ui-form-field>
+                    </ui-grid>
+                  }
                 </ui-grid>
               }
 
@@ -228,7 +232,7 @@
               >
                 <ui-text-field
                   id="contractId"
-                  [formField]="form.contractId"
+                  [formField]="form.contractRef"
                   type="text"
                   placeholder="e.g. CNT-2026-00125"
                 />

@@ -46,3 +46,9 @@ public class TerminalDto
     public DateTime? UpdatedAt { get; set; }
     public string? UpdatedBy { get; set; }
 }
+
+public record TerminalSummaryDto(
+    Guid Id,
+    string Code,
+    string Name,
+    string? CountryCode);

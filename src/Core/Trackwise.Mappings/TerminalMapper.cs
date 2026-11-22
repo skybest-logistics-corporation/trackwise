@@ -32,4 +32,9 @@ public static partial class TerminalMapper
 
         return dto;
     }
+
+    public static TerminalSummaryDto? ToTerminalSummary(this Terminal? terminal) =>
+        terminal is null
+            ? null
+            : new TerminalSummaryDto(terminal.Id, terminal.Code, terminal.Name, terminal.CountryCode);
 }

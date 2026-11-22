@@ -24,7 +24,7 @@ internal sealed class CopyTariffHandler(ITenantUnitOfWork tenantUow)
             .AnyAsync(i => i.Name == req.Name &&
                            i.Mode == source.Mode &&
                            i.ServiceLevel == source.ServiceLevel &&
-                           i.ContractId == source.ContractId &&
+                           i.ContractRef == source.ContractRef &&
                            i.CustomerId == source.CustomerId &&
                            i.IsActive, ct);
 
@@ -45,7 +45,7 @@ internal sealed class CopyTariffHandler(ITenantUnitOfWork tenantUow)
             containerTypeId: source.ContainerTypeId,
             carrierId: source.CarrierId,
             effectiveFrom: DateOnly.FromDateTime(DateTime.UtcNow.Date),
-            contractId: source.ContractId,
+            contractRef: source.ContractRef,
             customerId: source.CustomerId);
 
         foreach (var sourceRate in source.Rates)

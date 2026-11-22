@@ -11,6 +11,7 @@ namespace Trackwise.Mappings;
 /// (ToDtoCore); the small mappings are hand-written so a mismatch shows up as a plain compiler error.
 /// </summary>
 [Mapper]
+[UseStaticMapper(typeof(TerminalMapper))]
 public static partial class BookingMapper
 {
     // ── Detail ───────────────────────────────────────────────────────────────
@@ -62,8 +63,8 @@ public static partial class BookingMapper
         dto.Documents = entity.Documents.Select(d => d.ToDocumentDto()).ToList();
 
         // Logistics
-        dto.TotalDistanceKm = entity.Lane.TotalDistanceKm;
-        dto.Stops = entity.Lane.Stops
+        dto.TotalDistanceKm = entity.Lane?.TotalDistanceKm ?? 0m;
+        dto.Stops = (entity.Lane?.Stops ?? [])
             .OrderBy(s => s.Sequence)
             .Select(s => s.ToStopDto(locationNames?.GetValueOrDefault(s.LocationId)))
             .ToList();
@@ -193,7 +194,7 @@ public static partial class BookingMapper
     {
         string NameOf(Guid locationId) => locationNames.GetValueOrDefault(locationId, "Unknown location");
 
-        var stops = entity.Lane.Stops.OrderBy(s => s.Sequence).ToList();
+        var stops = (entity.Lane?.Stops ?? []).OrderBy(s => s.Sequence).ToList();
 
         return new UnAssignedBookingDto
         {
@@ -210,8 +211,12 @@ public static partial class BookingMapper
             RequestedPickupStart = entity.RequestedPickupStart,
             RequestedDeliveryEnd = entity.RequestedDeliveryEnd,
 
-            OriginName = NameOf(entity.Lane.FirstPickup.LocationId),
-            DestinationName = NameOf(entity.Lane.FinalDrop.LocationId),
+            OriginName = entity.Lane?.FirstPickup is { } firstPickup
+                ? NameOf(firstPickup.LocationId)
+                : string.Empty,
+            DestinationName = entity.Lane?.FinalDrop is { } finalDrop
+                ? NameOf(finalDrop.LocationId)
+                : string.Empty,
             StopCount = stops.Count,
             DropNames = stops.Where(s => s.Type == StopType.Dropoff).Select(s => NameOf(s.LocationId)).ToList(),
 

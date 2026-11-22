@@ -16,7 +16,13 @@ public class CreateQuotationCommand : ICommand<Result<Guid>>
     public ShipmentType ShipmentType { get; set; }
     public Incoterm Incoterm { get; set; }
 
-    public LaneTransitDto Lane { get; set; } = default!;
+    /// <summary>Route lane - required for Reefer/Trucking, ignored for every other freight mode.</summary>
+    public LaneTransitDto? Lane { get; set; }
+
+    /// <summary>Port of Loading - required for Domestic/Import/Export/Triangular freight modes.</summary>
+    public Guid? PolId { get; init; }
+    public Guid? PodId { get; init; }
+
     public CargoSpecificationDto? Cargo { get; set; } = default!;
 
     public TemperatureControlDto? TemperatureSpec { get; set; }

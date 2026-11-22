@@ -26,7 +26,7 @@ public class TariffTests
             containerTypeId: HighCube40,
             carrierId: null,
             effectiveFrom: new DateOnly(2026, 1, 1),
-            contractId: null);
+            contractRef: null);
 
         Assert.Equal("Asia-US Tariff", tariff.Name);
         Assert.Equal(FreightMode.Import, tariff.Mode);
@@ -59,7 +59,7 @@ public class TariffTests
             tonnageClass: null,
             containerTypeId: Reefer40,
             carrierId: null,
-            contractId: null);
+            contractRef: null);
 
         Assert.Equal("Updated Tariff", tariff.Name);
         Assert.Equal(FreightMode.Export, tariff.Mode);
@@ -134,6 +134,6 @@ public class TariffTests
             containerTypeId: null,
             carrierId: null,
             effectiveFrom: new DateOnly(2026, 1, 1),
-            contractId: null);
+            contractRef: null);
     }
 }

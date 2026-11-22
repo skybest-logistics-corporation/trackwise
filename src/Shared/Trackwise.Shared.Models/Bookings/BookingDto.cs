@@ -35,6 +35,10 @@ public class BookingDto
     public FreightMode FreightMode { get; set; }
     public ShipmentType ShipmentType { get; set; }
     public Incoterm Incoterm { get; set; }
+    public Guid? PolId { get; set; }
+    public TerminalSummaryDto? Pol { get; set; }
+    public Guid? PodId { get; set; }
+    public TerminalSummaryDto? Pod { get; set; }
     public DateTimeOffset? RequestedPickupStart { get; set; }
     public DateTimeOffset? RequestedDeliveryEnd { get; set; }
     public decimal TotalDistanceKm { get; set; }
@@ -110,6 +114,8 @@ public class BookingSummaryDto
     public TransportMode Mode { get; set; }
     public FreightMode FreightMode { get; set; }
     public ShipmentType ShipmentType { get; set; }
+    public Guid? PolId { get; set; }
+    public Guid? PodId { get; set; }
     public DateTimeOffset? RequestedPickupStart { get; set; }
     public DateTimeOffset? RequestedDeliveryEnd { get; set; }
 

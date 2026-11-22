@@ -3,6 +3,7 @@ import { form, FormField } from "@angular/forms/signals";
 import { Router } from "@angular/router";
 import { createListStore, getBranches, Permission } from "@trackwise/shared";
 import type { BranchDto, CustomerDto, FreightMode, QuotationStatus } from "@trackwise/shared/api";
+import { freightModeOptions } from "@trackwise/shared/api/enums";
 import { PermissionService } from "@trackwise/shared/services";
 import {
   Card,
@@ -109,10 +110,7 @@ export class QuotationsListComponent {
 
   protected readonly freightModeOptions: { label: string; value: FreightMode | typeof ALL }[] = [
     { label: "All freight modes", value: ALL },
-    { label: "Domestic", value: "domestic" },
-    { label: "Import", value: "import" },
-    { label: "Export", value: "export" },
-    { label: "Triangular", value: "triangular" },
+    ...freightModeOptions,
   ];
 
   protected readonly statusOptions: { label: string; value: QuotationStatus | typeof ALL }[] = [

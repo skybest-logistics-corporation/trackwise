@@ -82,9 +82,19 @@ public partial class Booking : AuditableEntity, ITenantEntity
     public FreightMode FreightMode { get; private set; }
     public ShipmentType ShipmentType { get; private set; }
     public Incoterm Incoterm { get; private set; }
-    public LaneTransit Lane { get; private set; } = default!;
-    public DateTimeOffset? RequestedPickupStart => Lane.FirstPickup.WindowStart;
-    public DateTimeOffset? RequestedDeliveryEnd => Lane.FinalDrop.WindowEnd;
+    /// <summary>Route lane - populated for Reefer/Trucking bookings; null for POL/POD-based shipments.</summary>
+    public LaneTransit? Lane { get; private set; }
+    /// <summary>Port of Loading - only applicable to the non-lane (Domestic / Import / Export / Triangular) modes.</summary>
+    public Guid? PolId { get; private set; }
+    public virtual Terminal? Pol { get; private set; }
+    /// <summary>Port of Discharge - only for the non-lane modes.</summary>
+    public Guid? PodId { get; private set; }
+    public virtual Terminal? Pod { get; private set; }
+    public DateTimeOffset? RequestedPickupStart =>
+        Lane?.Stops?.FirstOrDefault(s => s.Type == StopType.Pickup)?.WindowStart;
+
+    public DateTimeOffset? RequestedDeliveryEnd =>
+        Lane?.Stops?.LastOrDefault(s => s.Type == StopType.Dropoff)?.WindowEnd;
     public CargoSpecification? CargoSpec { get; private set; }
     public decimal? DeclaredCargoValuePhp { get; private set; }
 
@@ -158,7 +168,11 @@ public partial class Booking : AuditableEntity, ITenantEntity
             FreightMode = quotation.FreightMode,
             ShipmentType = quotation.ShipmentType,
             Incoterm = quotation.Incoterm,
-            Lane = ApplyRequestedDates(quotation.Lane, requestedPickupDate, requestedDeliveryDate),
+            Lane = IsLaneMode(quotation.FreightMode)
+                ? ApplyRequestedDates(quotation.Lane, requestedPickupDate, requestedDeliveryDate)
+                : null,
+            PolId = quotation.PolId,
+            PodId = quotation.PodId,
             CargoSpec = quotation.CargoSpec,
             DeclaredCargoValuePhp = quotation.DeclaredCargoValuePhp,
             TemperatureSpec = quotation.TemperatureSpec,
@@ -178,12 +192,17 @@ public partial class Booking : AuditableEntity, ITenantEntity
         return booking;
     }
 
-    private static LaneTransit ApplyRequestedDates(
-        LaneTransit lane,
+    // Lane is only applicable to Reefer and Trucking freight modes; everything else quotes by
+    // POL/POD and carries no stop-by-stop route.
+    private static bool IsLaneMode(FreightMode freightMode) =>
+        freightMode == FreightMode.Reefer || freightMode == FreightMode.Trucking;
+
+    private static LaneTransit? ApplyRequestedDates(
+        LaneTransit? lane,
         DateTime? requestedPickupDate,
         DateTime? requestedDeliveryDate)
     {
-        if (requestedPickupDate is null && requestedDeliveryDate is null)
+        if (lane is null || (requestedPickupDate is null && requestedDeliveryDate is null))
             return lane;
 
         var pickupStart = requestedPickupDate.HasValue
@@ -222,7 +241,7 @@ public partial class Booking : AuditableEntity, ITenantEntity
     }
 
     /// <summary>Operational dates/stops can be refined on the booking (e.g. confirmed pickup window).</summary>
-    public void UpdateLane(LaneTransit lane)
+    public void UpdateLane(LaneTransit? lane)
     {
         EnsureDraft();
         ArgumentNullException.ThrowIfNull(lane);
@@ -263,8 +282,12 @@ public partial class Booking : AuditableEntity, ITenantEntity
             Id, oldPickup, RequestedPickupStart, oldDelivery, RequestedDeliveryEnd, reason, requestedBy));
     }
 
-    private static void EnsureSameRoute(LaneTransit current, LaneTransit proposed)
+    private static void EnsureSameRoute(LaneTransit? current, LaneTransit? proposed)
     {
+        if (current is null || proposed is null)
+            throw new InvalidOperationException(
+                "Reschedule requires both the booking and the proposed lane to be set. Stops, order, and locations must remain the same.");
+
         var a = current.Stops.OrderBy(s => s.Sequence).ToList();
         var b = proposed.Stops.OrderBy(s => s.Sequence).ToList();
 

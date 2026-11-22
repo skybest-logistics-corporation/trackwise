@@ -126,6 +126,11 @@ export class LocationForm {
   public readonly isLoading = input(false);
   public readonly location = input<LocationDto | null>(null);
   public readonly submitLabel = input("Create Location");
+  public readonly initialName = input("");
+
+  /** Rendered inside a dialog: full width, and Cancel closes it instead of navigating. */
+  public readonly embedded = input(false);
+  public readonly dismiss = output<void>();
 
   /** Pre-selects the owning customer on a new record, e.g. from the customer's own page. */
   public readonly initialCustomer = input<CustomerDto | null>(null);
@@ -303,6 +308,13 @@ export class LocationForm {
         zoneRadiusMeters: location.zoneRadiusMeters ?? null,
         isActive: location.isActive ?? true,
       });
+    });
+
+    effect(() => {
+      const name = this.initialName();
+      if (name && !this.location()) {
+        this.model.update((v) => ({ ...v, name }));
+      }
     });
   }
 

@@ -59,7 +59,7 @@ public class QuotationTemperatureRequirementTests
             "QT-TEMP-001",
             "PHP",
             TransportMode.Road,
-            FreightMode.Domestic,
+            FreightMode.Trucking,
             ShipmentType.FTL,
             Incoterm.DAP,
             lane,
