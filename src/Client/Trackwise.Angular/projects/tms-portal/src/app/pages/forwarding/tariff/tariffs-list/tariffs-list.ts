@@ -97,7 +97,7 @@ export class TariffsListComponent {
       tariff.currency ?? "",
       tariff.effectiveFrom ?? "",
       tariff.isActive ? "Active" : "Inactive",
-      tariff.contractRef ?? "",
+      tariff.contractId ?? "",
     ]);
 
     const csvContent = [headers, ...rows]

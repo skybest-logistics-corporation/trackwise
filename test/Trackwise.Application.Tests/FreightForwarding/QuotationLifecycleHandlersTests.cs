@@ -103,7 +103,7 @@ public class QuotationLifecycleHandlersTests
     [Fact]
     public async Task AddQuotationLines_TariffModeDiffersFromQuotation_Fails()
     {
-        var quotation = CreateTestQuotation(); // Trucking
+        var quotation = CreateTestQuotation(); // Domestic
         _quotationRepo.GetByIdAsync(quotation.Id, Arg.Any<CancellationToken>()).Returns(quotation);
 
         var tariff = CreateTariff("Import Tariff", mode: FreightMode.Import);
@@ -440,7 +440,7 @@ public class QuotationLifecycleHandlersTests
             referenceNumber: "QT-TEST-2026",
             currency: "USD",
             mode: TransportMode.Road,
-            freightMode: FreightMode.Trucking,
+            freightMode: FreightMode.Domestic,
             shipmentType: ShipmentType.FTL,
             incoterm: Incoterm.DAP,
             lane: lane,
@@ -450,7 +450,7 @@ public class QuotationLifecycleHandlersTests
 
     private static void AddPricedLine(Quotation quotation)
     {
-        var chargeCode = ChargeCode.Create("FRT", "Freight", ChargeCategory.Base, [FreightMode.Trucking], "km");
+        var chargeCode = ChargeCode.Create("FRT", "Freight", ChargeCategory.Base, [FreightMode.Domestic], "km");
         chargeCode.Currency = "USD";
 
         var tariffRate = new TariffRate
@@ -483,7 +483,7 @@ public class QuotationLifecycleHandlersTests
     /// </summary>
     private static Tariff CreateTariff(
         string name,
-        FreightMode mode = FreightMode.Trucking,
+        FreightMode mode = FreightMode.Domestic,
         bool isActive = true)
     {
         var tariff = Tariff.Create(
@@ -498,7 +498,7 @@ public class QuotationLifecycleHandlersTests
             containerTypeId: null,
             carrierId: null,
             effectiveFrom: DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-30)),
-            contractRef: null);
+            contractId: null);
 
         if (!isActive)
             tariff.Deactivate();

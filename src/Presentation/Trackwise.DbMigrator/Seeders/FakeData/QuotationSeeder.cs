@@ -30,7 +30,7 @@ internal class QuotationSeeder(ILogger<QuotationSeeder> logger) : SeederBase(log
     public override int Order => 225;
 
     public override IReadOnlyList<string> DependsOn =>
-        [nameof(CustomerSeeder), nameof(BranchSeeder), nameof(TariffSeeder), nameof(LocationSeeder), nameof(TerminalSeeder)];
+        [nameof(CustomerSeeder), nameof(BranchSeeder), nameof(TariffSeeder), nameof(LocationSeeder)];
 
     protected override async Task<bool> HasExistingDataAsync(SeederContext context, CancellationToken cancellationToken)
     {
@@ -74,25 +74,12 @@ internal class QuotationSeeder(ILogger<QuotationSeeder> logger) : SeederBase(log
             return;
         }
 
-        // 2. Resolve seed terminals for POL/POD (non-lane modes)
-        var terminals = context.CreatedTerminals;
+        LogStarting();
 
-        if (terminals is null || terminals.Count < 2)
-        {
-            terminals = await context.TenantUnitOfWork.Repository<Terminal>().Query()
-                .Where(t => t.IsActive && t.DeletedAt == null)
-                .Take(10)
-                .ToListAsync(cancellationToken);
-        }
+        var branches = context.CreatedBranches ?? [];
+        Guid Branch(int index) => branches[index % branches.Count].Id;
 
-        if (terminals.Count < 2)
-        {
-            logger.LogWarning("Insufficient Terminal master data found to generate POL/POD for Quotations.");
-            LogUpstreamSkipped();
-            return;
-        }
-
-        // Non-lane modes quote by POL/POD (Port of Loading / Discharge); Reefer/Trucking quote a lane.
+        var now = DateTimeOffset.UtcNow;
         var origin = locations[0];
         var dest = locations[1];
         var intermediateStop = locations.Count > 2 ? locations[2] : locations[1];
@@ -103,17 +90,6 @@ internal class QuotationSeeder(ILogger<QuotationSeeder> logger) : SeederBase(log
         // Spread quotations over the available customers instead of hard-failing on small customer lists.
         Guid Customer(int index) => customers[index % customers.Count].Id;
 
-        var branches = context.CreatedBranches ?? [];
-        Guid Branch(int index) => branches[index % branches.Count].Id;
-
-        // Prefer a terminal matching the quoted route's UN/LOCODE; otherwise fall back to the seeded list.
-        // Fallback indexes must differ per pair so POL never equals POD.
-        Guid Port(string code, int fallbackIndex) =>
-            (terminals.FirstOrDefault(t => string.Equals(t.Code, code, StringComparison.OrdinalIgnoreCase))
-             ?? terminals[fallbackIndex % terminals.Count]).Id;
-
-        var now = DateTimeOffset.UtcNow;
-
         var repo = context.TenantUnitOfWork.Repository<Quotation>();
         var created = new List<Quotation>();
 
@@ -123,12 +99,12 @@ internal class QuotationSeeder(ILogger<QuotationSeeder> logger) : SeederBase(log
             created.Add(quotation);
         }
 
-        LogStarting();
-
         // =========================================================================
         // 1. Ocean Import FCL (Shanghai -> Manila, 2x40'HC) -> Approved
         //    (Consumed by BookingSeeder for AccountingReview workfile flow)
         // =========================================================================
+        var importLane = LaneTransit.PointToPoint(origin.Id, dest.Id, now.AddDays(2), now.AddDays(16), 2850m);
+
         var importQuotation = Quotation.Create(
             customerId: Customer(0),
             branchId: Branch(0),
@@ -138,14 +114,12 @@ internal class QuotationSeeder(ILogger<QuotationSeeder> logger) : SeederBase(log
             freightMode: FreightMode.Import,
             shipmentType: ShipmentType.FCL,
             incoterm: Incoterm.FOB,
-            lane: null,
+            lane: importLane,
             cargoSpec: CargoSpecification.Create(
                 "Consumer Electronics & Components", 18500m, 40,
                 new Money { Amount = 145000m, Currency = "USD" }),
             requiresCustomsBrokerage: true,
-            notes: "China import, 2x40'HC",
-            polId: Port("CNSHA", 0),
-            podId: Port("PHMNL", 1));
+            notes: "China import, 2x40'HC");
 
         AddLines(importQuotation, tariffs.ImportSeaFcl,
             Line(SeedCodes.OceanFreight40, OperationalServiceType.LineHaul, 2, MarkupType.Percentage, 15m),
@@ -172,14 +146,12 @@ internal class QuotationSeeder(ILogger<QuotationSeeder> logger) : SeederBase(log
             freightMode: FreightMode.Import,
             shipmentType: ShipmentType.FCL,
             incoterm: Incoterm.CIF,
-            lane: null,
+            lane: importLane,
             cargoSpec: CargoSpecification.Create(
                 "Textiles & Garments", 9200m, 20,
                 new Money { Amount = 65000m, Currency = "USD" }),
             requiresCustomsBrokerage: true,
-            notes: "China import, 1x40'HC - second shipment",
-            polId: Port("CNSHA", 0),
-            podId: Port("PHMNL", 1));
+            notes: "China import, 1x40'HC - second shipment");
 
         AddLines(secondImportQuotation, tariffs.ImportSeaFcl,
             Line(SeedCodes.OceanFreight40, OperationalServiceType.LineHaul, 1, MarkupType.Percentage, 15m),
@@ -196,6 +168,8 @@ internal class QuotationSeeder(ILogger<QuotationSeeder> logger) : SeederBase(log
         // 3. Air Export (Manila NAIA -> Los Angeles LAX) -> Issued (prices snapshotted)
         //    Breakpoint (all-units) air freight + CIF-based insurance percentage.
         // =========================================================================
+        var exportLane = LaneTransit.PointToPoint(origin.Id, dest.Id, now.AddDays(5), now.AddDays(7), 11700m);
+
         var exportQuotation = Quotation.Create(
             customerId: Customer(1),
             branchId: Branch(1),
@@ -205,14 +179,12 @@ internal class QuotationSeeder(ILogger<QuotationSeeder> logger) : SeederBase(log
             freightMode: FreightMode.Export,
             shipmentType: ShipmentType.AirExpress,
             incoterm: Incoterm.CIF,
-            lane: null,
+            lane: exportLane,
             cargoSpec: CargoSpecification.Create(
                 "Semiconductor Components", 1250m, 6,
                 new Money { Amount = 45000m, Currency = "USD" }),
             requiresCustomsBrokerage: true,
-            notes: "Air export, chargeable weight 1,250 kg",
-            polId: Port("PHMNL", 1),
-            podId: Port("USLAX", 0));
+            notes: "Air export, chargeable weight 1,250 kg");
 
         const decimal chargeableKg = 1250m;
         AddLines(exportQuotation, tariffs.ExportAir,
@@ -232,6 +204,8 @@ internal class QuotationSeeder(ILogger<QuotationSeeder> logger) : SeederBase(log
         // 4. Triangular Sea (Shenzhen -> Long Beach, handled via Manila) -> Accepted
         //    Full lifecycle: Approve -> Issue -> Accept. Includes a Discount line.
         // =========================================================================
+        var triangularLane = LaneTransit.PointToPoint(origin.Id, dest.Id, now.AddDays(6), now.AddDays(24), 11300m);
+
         var triangularQuotation = Quotation.Create(
             customerId: Customer(1),
             branchId: Branch(1),
@@ -241,13 +215,11 @@ internal class QuotationSeeder(ILogger<QuotationSeeder> logger) : SeederBase(log
             freightMode: FreightMode.Triangular,
             shipmentType: ShipmentType.FCL,
             incoterm: Incoterm.CIF,
-            lane: null,
+            lane: triangularLane,
             cargoSpec: CargoSpecification.Create(
                 "Furniture", 16500m, 0,
                 new Money { Amount = 62000m, Currency = "USD" }),
-            notes: "Shenzhen -> Long Beach, switch B/L issued in Manila",
-            polId: Port("CNSZX", 0),
-            podId: Port("USLGB", 1));
+            notes: "Shenzhen -> Long Beach, switch B/L issued in Manila");
 
         AddLines(triangularQuotation, tariffs.TriangularSea,
             Line(SeedCodes.TriFreight, OperationalServiceType.LineHaul, 1, MarkupType.Flat, 120m),
@@ -282,7 +254,7 @@ internal class QuotationSeeder(ILogger<QuotationSeeder> logger) : SeederBase(log
             referenceNumber: "QT-2026-COLD-001",
             currency: "PHP",
             mode: TransportMode.Road,
-            freightMode: FreightMode.Reefer,
+            freightMode: FreightMode.Domestic,
             shipmentType: ShipmentType.FTL,
             incoterm: Incoterm.DAP,
             lane: new LaneTransit(multiDropStops, 250m),
@@ -310,7 +282,7 @@ internal class QuotationSeeder(ILogger<QuotationSeeder> logger) : SeederBase(log
             referenceNumber: "QT-2026-COLD-002",
             currency: "PHP",
             mode: TransportMode.Road,
-            freightMode: FreightMode.Reefer,
+            freightMode: FreightMode.Domestic,
             shipmentType: ShipmentType.FTL,
             incoterm: Incoterm.DAP,
             lane: LaneTransit.PointToPoint(origin.Id, dest.Id, now.AddDays(2).AddHours(5), now.AddDays(2).AddHours(12), 250m),
@@ -338,7 +310,7 @@ internal class QuotationSeeder(ILogger<QuotationSeeder> logger) : SeederBase(log
             referenceNumber: "QT-2026-DOM-REJ",
             currency: "PHP",
             mode: TransportMode.Road,
-            freightMode: FreightMode.Trucking,
+            freightMode: FreightMode.Domestic,
             shipmentType: ShipmentType.FTL,
             incoterm: Incoterm.DAP,
             lane: LaneTransit.PointToPoint(origin.Id, dest.Id, now.AddDays(1), now.AddDays(2), 120m),
@@ -367,7 +339,7 @@ internal class QuotationSeeder(ILogger<QuotationSeeder> logger) : SeederBase(log
             referenceNumber: "QT-2026-DOM-DFT",
             currency: "PHP",
             mode: TransportMode.Road,
-            freightMode: FreightMode.Trucking,
+            freightMode: FreightMode.Domestic,
             shipmentType: ShipmentType.FTL,
             incoterm: Incoterm.DAP,
             lane: LaneTransit.PointToPoint(origin.Id, dest.Id, now.AddDays(3), now.AddDays(3).AddHours(9), 115m),
@@ -399,7 +371,7 @@ internal class QuotationSeeder(ILogger<QuotationSeeder> logger) : SeederBase(log
             referenceNumber: "QT-2026-DOM-CANC",
             currency: "PHP",
             mode: TransportMode.Road,
-            freightMode: FreightMode.Trucking,
+            freightMode: FreightMode.Domestic,
             shipmentType: ShipmentType.FTL,
             incoterm: Incoterm.DAP,
             lane: LaneTransit.PointToPoint(origin.Id, dest.Id, now.AddDays(4), now.AddDays(5), 110m),

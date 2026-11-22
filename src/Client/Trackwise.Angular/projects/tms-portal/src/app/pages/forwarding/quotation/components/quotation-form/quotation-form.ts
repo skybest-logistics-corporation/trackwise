@@ -18,15 +18,7 @@ import {
   validate,
 } from "@angular/forms/signals";
 import { RouterLink } from "@angular/router";
-import {
-  Api,
-  createListStore,
-  createLocation,
-  EmptyState,
-  getApiErrorMessage,
-  getLocations,
-  ToastService,
-} from "@trackwise/shared";
+import { createListStore, EmptyState, getLocations } from "@trackwise/shared";
 import type {
   ComplianceRegime,
   CreateQuotationCommand,
@@ -50,22 +42,15 @@ import {
   Typography,
   UiButton,
   UiCheckboxField,
-  UiDialog,
   UiFormField,
   UiSelectField,
   UiTextareaField,
   UiTextField,
+  ValidatedForm,
 } from "@trackwise/shared/ui";
-import {
-  LocationForm,
-  type LocationFormValue,
-} from "@/pages/master-data/location/components/location-form/location-form";
-import { SearchCustomer, SearchTerminal } from "@/shared/components/search";
+import { SearchCustomer } from "@/shared/components/search";
 import { BranchesStore } from "../../store/branches-list.store";
 import { RouteStopDialog, type FormModel } from "../add-stop-dialog/add-stop-dialog";
-
-const LANE_FREIGHT_MODES: readonly FreightMode[] = ["reefer", "trucking"];
-const DOMESTIC_FREIGHT_MODES: readonly FreightMode[] = ["domestic", ...LANE_FREIGHT_MODES];
 
 export interface QuotationFormModel {
   customer: CustomerDto | null;
@@ -78,10 +63,10 @@ export interface QuotationFormModel {
   requiresCustomsBrokerage: boolean;
   isHazardous: boolean;
 
-  // Route & Lane (reefer / trucking)
+  // Route & Lane
   stops: RouteStopSummaryDto[] | null;
-  originLocationId: string;
-  destinationLocationId: string;
+  originLocationId?: string | null;
+  destinationLocationId?: string | null;
   requestedPickupWindowStart: string;
   requestedDeliveryWindowEnd: string;
   totalDistanceKm: string;
@@ -96,6 +81,7 @@ export interface QuotationFormModel {
   totalWeightKg: string;
   declaredCargoValueAmount: string;
   declaredCargoValueCurrency: string;
+  requiresActiveRefrigeration: boolean;
 
   // Temperature Control
   temperatureZone: TemperatureZone;
@@ -125,14 +111,12 @@ const EMPTY_FORM: QuotationFormModel = {
   requestedDeliveryWindowEnd: "",
   totalDistanceKm: "",
 
-  pol: null,
-  pod: null,
-
   commodity: "",
   palletCount: "",
   totalWeightKg: "",
   declaredCargoValueAmount: "",
   declaredCargoValueCurrency: "PHP",
+  requiresActiveRefrigeration: false,
 
   temperatureZone: "ambient",
   setpointCelsius: "",
@@ -195,11 +179,9 @@ const SHIPMENT_TYPES_BY_MODE: Record<TransportMode, { label: string; value: Ship
     UiSelectField,
     UiTextareaField,
     UiTextField,
+    ValidatedForm,
     RouteStopDialog,
     EmptyState,
-    UiDialog,
-    LocationForm,
-    SearchTerminal,
   ],
 })
 export class QuotationForm {
@@ -223,27 +205,8 @@ export class QuotationForm {
   // Reactive state derived from form signals
   protected readonly currentFreightMode = computed(() => this.model().freightMode);
   protected readonly currentTransportMode = computed(() => this.model().mode);
-  protected readonly isReefer = computed(() => this.model().freightMode === "reefer");
-
-  private readonly api = inject(Api);
-  private readonly toast = inject(ToastService);
-
-  /** Which select asked for the new location, so the result lands in the right field. */
-  private readonly createLocationTarget = signal<"origin" | "destination">("origin");
-
-  /** Locations created here this session; merged with the store's list until it reloads. */
-  private readonly createdLocations = signal<LocationDto[]>([]);
-
-  /** Store data plus locally created locations, deduped by id. */
-  protected readonly customerLocations = computed(() => {
-    const loaded = this.selectedCustomerLocationsStore.data();
-    const loadedIds = new Set(loaded.map((l) => l.id));
-    return [...loaded, ...this.createdLocations().filter((l) => !loadedIds.has(l.id))];
-  });
-
-  protected readonly createLocationOpen = signal(false);
-  protected readonly newLocationName = signal("");
-  protected readonly isCreatingLocation = signal(false);
+  protected readonly isDomestic = computed(() => this.currentFreightMode() === "domestic");
+  protected readonly isColdChainRequired = computed(() => this.model().requiresActiveRefrigeration);
 
   protected readonly branchOptions = computed(() =>
     this.branchesStore.data().map((b) => ({
@@ -258,34 +221,35 @@ export class QuotationForm {
     return SHIPMENT_TYPES_BY_MODE[mode] ?? SHIPMENT_TYPES_BY_MODE.road;
   });
 
+  // Adaptive Origin / Destination labels
+  protected readonly originLocationLabel = computed(() => {
+    switch (this.currentTransportMode()) {
+      case "ocean":
+        return "Port of Loading (POL)";
+      case "air":
+        return "Airport of Departure (Origin)";
+      default:
+        return "Origin Pickup Location";
+    }
+  });
+
+  protected readonly destinationLocationLabel = computed(() => {
+    switch (this.currentTransportMode()) {
+      case "ocean":
+        return "Port of Discharge (POD)";
+      case "air":
+        return "Airport of Destination (POD)";
+      default:
+        return "Final Delivery Destination";
+    }
+  });
+
   readonly routingModeOptions = [
     { label: "Point-to-Point", value: "point-to-point" },
     { label: "Multi-Route Stops", value: "multi-stop" },
   ];
 
   readonly routingMode = signal<"point-to-point" | "multi-stop">("point-to-point");
-
-  protected readonly isLaneBased = computed(() =>
-    LANE_FREIGHT_MODES.includes(this.model().freightMode),
-  );
-  protected readonly isDomestic = computed(() =>
-    DOMESTIC_FREIGHT_MODES.includes(this.model().freightMode),
-  );
-  protected readonly isMultiStop = computed(
-    () => this.isLaneBased() && this.routingMode() === "multi-stop",
-  );
-  protected readonly isPointToPoint = computed(
-    () => this.isLaneBased() && this.routingMode() === "point-to-point",
-  );
-
-  protected readonly polLabel = computed(() =>
-    this.currentTransportMode() === "air" ? "Airport of Departure (POL)" : "Port of Loading (POL)",
-  );
-  protected readonly podLabel = computed(() =>
-    this.currentTransportMode() === "air"
-      ? "Airport of Destination (POD)"
-      : "Port of Discharge (POD)",
-  );
 
   protected readonly incotermOptions: { label: string; value: Incoterm }[] = [
     { label: "EXW – Ex Works", value: "exw" },
@@ -297,13 +261,11 @@ export class QuotationForm {
     { label: "DDP – Delivered Duty Paid", value: "ddp" },
   ];
 
-  protected readonly freightModeOptions: { label: string; value: FreightMode; group: string }[] = [
-    { label: "Domestic", value: "domestic", group: "Forwarding" },
-    { label: "Import", value: "import", group: "Forwarding" },
-    { label: "Export", value: "export", group: "Forwarding" },
-    { label: "Triangular", value: "triangular", group: "Forwarding" },
-    { label: "Reefer", value: "reefer", group: "Trucking & Reefer" },
-    { label: "Trucking", value: "trucking", group: "Trucking & Reefer" },
+  protected readonly freightModeOptions: { label: string; value: FreightMode }[] = [
+    { label: "Domestic", value: "domestic" },
+    { label: "Import", value: "import" },
+    { label: "Export", value: "export" },
+    { label: "Triangular", value: "triangular" },
   ];
 
   protected readonly transportModeOptions: { label: string; value: TransportMode }[] = [
@@ -330,7 +292,7 @@ export class QuotationForm {
   ];
 
   protected readonly selectedCustomerLocationOptions = computed(() =>
-    this.customerLocations().map((loc) => ({
+    this.selectedCustomerLocationsStore.data().map((loc) => ({
       value: loc.id ?? "",
       label: loc.code ? `${loc.code} — ${loc.name}` : (loc.name ?? ""),
     })),
@@ -341,10 +303,6 @@ export class QuotationForm {
     !this.model().customer
       ? [{ label: "Select a customer first", value: "" }]
       : this.selectedCustomerLocationOptions(),
-  );
-
-  protected readonly reeferZoneOptions = this.temperatureZoneOptions.filter(
-    (o) => o.value !== "ambient",
   );
 
   protected readonly form = form(
@@ -358,37 +316,20 @@ export class QuotationForm {
       required(p.mode, { message: "Transport mode is required." });
       required(p.shipmentType, { message: "Shipment type is required." });
       required(p.incoterm, { message: "Incoterm is required." });
-
-      // Ports: required unless the lane is in use
-      required(p.pol, { when: () => !this.isLaneBased(), message: "Port of Loading is required." });
-      required(p.pod, {
-        when: () => !this.isLaneBased(),
-        message: "Port of Discharge is required.",
-      });
-
-      // Lane: required for reefer / trucking
-      required(p.originLocationId, {
-        when: () => this.isPointToPoint(),
-        message: "Origin location is required.",
-      });
-      required(p.destinationLocationId, {
-        when: () => this.isPointToPoint(),
-        message: "Destination location is required.",
-      });
-      validate(p.stops, ({ value }) =>
-        this.isMultiStop() && (value()?.length ?? 0) < 2
-          ? { kind: "minStops", message: "Add at least a pickup and a drop-off stop." }
-          : undefined,
-      );
-
       required(p.setpointCelsius, {
-        when: () => this.isReefer(),
-        message: "Temperature setpoint is required for Reefer.",
+        when: ({ valueOf }) => valueOf(p.requiresActiveRefrigeration),
+        message: "Temperature setpoint is required when Cold Chain is selected.",
       });
       pattern(p.setpointCelsius, /^-?(?:\d+\.?\d*|\.\d+)$/, {
-        when: () => this.isReefer(),
+        when: ({ valueOf }) => valueOf(p.requiresActiveRefrigeration),
         message: "Enter a valid temperature setpoint.",
       });
+      // Cold chain on, but the zone was switched back to Ambient.
+      validate(p.temperatureZone, ({ value, valueOf }) =>
+        valueOf(p.requiresActiveRefrigeration) && value() === "ambient"
+          ? { kind: "ambientColdChain", message: "Choose a temperature zone other than Ambient." }
+          : undefined,
+      );
     },
     {
       submission: {
@@ -413,7 +354,6 @@ export class QuotationForm {
     effect(() => {
       const customerId = this.model().customer?.id;
       untracked(() => {
-        this.createdLocations.set([]);
         this.selectedCustomerLocationsStore.setFilters(
           { CustomerId: customerId },
           { reload: true },
@@ -456,7 +396,6 @@ export class QuotationForm {
    */
   private patchFromQuotation(q: QuotationDto): void {
     const freightMode = q.freightMode ?? EMPTY_FORM.freightMode;
-    const laneBased = LANE_FREIGHT_MODES.includes(freightMode);
     const mode = q.mode ?? EMPTY_FORM.mode;
     const currency = q.currency ?? EMPTY_FORM.currency;
 
@@ -476,12 +415,7 @@ export class QuotationForm {
 
     this.routingMode.set(stops.length > 0 && !isPointToPoint ? "multi-stop" : "point-to-point");
 
-    const isMultiStop = laneBased && stops.length > 0 && !isPointToPoint;
-    this.routingMode.set(isMultiStop ? "multi-stop" : "point-to-point");
-
-    const isReefer = freightMode === "reefer";
-    const spec = isReefer ? q.temperatureSpec : undefined;
-    const zone = spec?.zone ?? (isReefer ? "chilled" : EMPTY_FORM.temperatureZone);
+    const zone = q.temperatureSpec?.zone ?? EMPTY_FORM.temperatureZone;
 
     this.model.set({
       ...EMPTY_FORM,
@@ -497,11 +431,11 @@ export class QuotationForm {
       requiresCustomsBrokerage: q.requiresCustomsBrokerage!,
       isHazardous: q.isHazardous!,
 
-      stops: isMultiStop ? stops : null,
-      originLocationId: laneBased && isPointToPoint ? (first?.locationId ?? "") : "",
-      destinationLocationId: laneBased && isPointToPoint ? (last?.locationId ?? "") : "",
-      requestedPickupWindowStart: laneBased ? (first?.windowStart ?? "") : "",
-      requestedDeliveryWindowEnd: laneBased ? (last?.windowEnd ?? "") : "",
+      stops: stops.length > 0 && !isPointToPoint ? stops : null,
+      originLocationId: isPointToPoint ? (first?.locationId ?? "") : "",
+      destinationLocationId: isPointToPoint ? (last?.locationId ?? "") : "",
+      requestedPickupWindowStart: first?.windowStart ?? "",
+      requestedDeliveryWindowEnd: last?.windowEnd ?? "",
       totalDistanceKm: q.totalDistanceKm?.toString() ?? "",
       pol: q.pol ?? null,
       pod: q.pod ?? null,
@@ -511,73 +445,23 @@ export class QuotationForm {
       totalWeightKg: q.totalWeightKg?.toString() ?? "",
       declaredCargoValueAmount: q.declaredCargoValueAmount?.toString() ?? "",
       declaredCargoValueCurrency: q.declaredCargoValueCurrency ?? "",
+      requiresActiveRefrigeration: !!q.temperatureSpec?.zone && zone !== "ambient",
 
       temperatureZone: zone,
-      setpointCelsius: spec?.setpointCelsius?.toString() ?? "",
-      allowableVarianceCelsius: spec?.allowableVarianceCelsius?.toString() ?? "",
-      compliance: spec?.compliance ?? EMPTY_FORM.compliance,
-      requiresContinuousTelematics: spec?.requiresContinuousTelematics ?? false,
+      setpointCelsius: q.temperatureSpec?.setpointCelsius?.toString() ?? "",
+      allowableVarianceCelsius: q.temperatureSpec?.allowableVarianceCelsius?.toString() ?? "",
+      compliance: q.temperatureSpec?.compliance ?? EMPTY_FORM.compliance,
+      requiresContinuousTelematics: q.temperatureSpec?.requiresContinuousTelematics ?? false,
 
       notes: q.notes ?? "",
     });
   }
 
-  protected onCreateLocation(target: "origin" | "destination", searchText: string): void {
-    if (!this.model().customer) return;
-
-    this.createLocationTarget.set(target);
-    this.newLocationName.set(searchText);
-    this.createLocationOpen.set(true);
-  }
-
-  protected async createNewLocation(value: LocationFormValue): Promise<void> {
-    if (this.isCreatingLocation()) return;
-
-    this.isCreatingLocation.set(true);
-    try {
-      const created = await this.api.invoke(createLocation, {
-        body: { ...value, address: value.address ?? undefined },
-      });
-
-      this.addCreatedLocation(created);
-      const field =
-        this.createLocationTarget() === "origin" ? "originLocationId" : "destinationLocationId";
-      this.model.update((m) => ({ ...m, [field]: created.id ?? "" }));
-
-      this.createLocationOpen.set(false);
-      this.toast.showSuccess("Location created.");
-    } catch (error) {
-      this.toast.showError(getApiErrorMessage(error, "Could not create the location."));
-    } finally {
-      this.isCreatingLocation.set(false);
-    }
-  }
-
-  /** Also used for locations created from the route-stop dialog. */
-  protected addCreatedLocation(location: LocationDto): void {
-    this.createdLocations.update((list) => [...list, location]);
-  }
-
   private handleFreightModeChange(freightMode: FreightMode): void {
     this.model.update((curr) => {
-      const temperature =
-        freightMode === "reefer"
-          ? {
-              temperatureZone:
-                curr.temperatureZone === "ambient" ? ("chilled" as const) : curr.temperatureZone,
-            }
-          : {
-              temperatureZone: EMPTY_FORM.temperatureZone,
-              setpointCelsius: "",
-              allowableVarianceCelsius: "",
-              compliance: EMPTY_FORM.compliance,
-              requiresContinuousTelematics: false,
-            };
-
-      if (DOMESTIC_FREIGHT_MODES.includes(freightMode)) {
+      if (freightMode === "domestic") {
         return {
           ...curr,
-          ...temperature,
           currency: "PHP",
           declaredCargoValueCurrency: "PHP",
           requiresCustomsBrokerage: false,
@@ -590,7 +474,6 @@ export class QuotationForm {
       // Import / Export / Triangular
       return {
         ...curr,
-        ...temperature,
         currency: curr.currency === "PHP" ? "USD" : curr.currency,
         declaredCargoValueCurrency:
           curr.declaredCargoValueCurrency === "PHP" ? "USD" : curr.declaredCargoValueCurrency,
@@ -615,6 +498,15 @@ export class QuotationForm {
     });
   }
 
+  protected toggleColdChain(enabled: boolean): void {
+    this.model.update((curr) => ({
+      ...curr,
+      requiresActiveRefrigeration: enabled,
+      temperatureZone:
+        enabled && curr.temperatureZone === "ambient" ? "chilled" : curr.temperatureZone,
+    }));
+  }
+
   private parseOptionalNumber(val: string | null | undefined): number | undefined {
     if (!val) return undefined;
     const trimmed = val.trim();
@@ -629,14 +521,9 @@ export class QuotationForm {
     const setpoint = this.parseOptionalNumber(v.setpointCelsius);
     const variance = this.parseOptionalNumber(v.allowableVarianceCelsius);
 
-    const laneBased = this.isLaneBased();
-    const p2p = this.routingMode() === "point-to-point";
-
     const hasCargoData = Boolean(
       v.commodity?.trim() || v.totalWeightKg || v.palletCount || v.declaredCargoValueAmount,
     );
-
-    const isReefer = this.isReefer();
 
     const command: CreateQuotationCommand = {
       customerId: v.customer?.id ?? "",
@@ -649,18 +536,14 @@ export class QuotationForm {
       isHazardous: v.isHazardous,
       requiresCustomsBrokerage: v.requiresCustomsBrokerage,
       notes: v.notes.trim() || null,
-      polId: laneBased ? null : (v.pol?.id ?? null),
-      podId: laneBased ? null : (v.pod?.id ?? null),
-      lane: laneBased
-        ? {
-            stops: p2p ? null : v.stops,
-            originLocationId: p2p ? v.originLocationId.trim() || null : null,
-            destinationLocationId: p2p ? v.destinationLocationId.trim() || null : null,
-            requestedPickupWindowStart: v.requestedPickupWindowStart.trim() || null,
-            requestedDeliveryWindowEnd: v.requestedDeliveryWindowEnd.trim() || null,
-            totalDistanceKm: distance ?? null,
-          }
-        : undefined,
+      lane: {
+        stops: v.stops,
+        originLocationId: v.originLocationId?.trim() || null,
+        destinationLocationId: v.destinationLocationId?.trim() || null,
+        requestedPickupWindowStart: v.requestedPickupWindowStart.trim() || null,
+        requestedDeliveryWindowEnd: v.requestedDeliveryWindowEnd.trim() || null,
+        totalDistanceKm: distance !== undefined ? distance : null,
+      },
       cargo: hasCargoData
         ? {
             commodity: v.commodity?.trim() || null,
@@ -669,14 +552,14 @@ export class QuotationForm {
             declaredCargoValueAmount: this.parseOptionalNumber(v.declaredCargoValueAmount),
             declaredCargoValueCurrency:
               v.declaredCargoValueCurrency?.trim().toUpperCase() || v.currency.trim().toUpperCase(),
-            requiresActiveRefrigeration: isReefer,
+            requiresActiveRefrigeration: Boolean(v.requiresActiveRefrigeration),
           }
         : undefined,
     };
 
     // Key off the flag only, so leftover setpoint values never leak into the
     // command when the user has switched cold chain off.
-    if (isReefer) {
+    if (this.isColdChainRequired()) {
       command.temperatureSpec = {
         zone: v.temperatureZone,
         setpointCelsius: setpoint,

@@ -318,7 +318,7 @@ public class PromoteBookingToWorkfileHandlerTests
             referenceNumber: "QT-TEST-001",
             currency: "USD",
             mode: TransportMode.Road,
-            freightMode: FreightMode.Trucking,
+            freightMode: FreightMode.Domestic,
             shipmentType: ShipmentType.FTL,
             incoterm: Incoterm.DAP,
             lane: lane,
