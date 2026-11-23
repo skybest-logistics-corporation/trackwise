@@ -194,9 +194,39 @@
                 </tbody>
               </table>
             </div>
+          } @else if (b.pol || b.pod) {
+            <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              @if (b.pol; as pol) {
+                <div class="bg-muted/40 rounded-lg p-3">
+                  <span class="text-muted-foreground block text-xs">Port of Loading (POL)</span>
+                  <span class="text-sm font-medium">
+                    {{ pol.name || pol.code || "Unknown POL" }}
+                  </span>
+                  @if (pol.code || pol.countryCode) {
+                    <span class="text-muted-foreground mt-0.5 block text-xs">
+                      {{ pol.code }} {{ pol.countryCode ? "(" + pol.countryCode + ")" : "" }}
+                    </span>
+                  }
+                </div>
+              }
+
+              @if (b.pod; as pod) {
+                <div class="bg-muted/40 rounded-lg p-3">
+                  <span class="text-muted-foreground block text-xs">Port of Discharge (POD)</span>
+                  <span class="text-sm font-medium">
+                    {{ pod.name || pod.code || "Unknown POD" }}
+                  </span>
+                  @if (pod.code || pod.countryCode) {
+                    <span class="text-muted-foreground mt-0.5 block text-xs">
+                      {{ pod.code }} {{ pod.countryCode ? "(" + pod.countryCode + ")" : "" }}
+                    </span>
+                  }
+                </div>
+              }
+            </div>
           } @else {
             <p class="text-muted-foreground py-6 text-center text-sm">
-              No stops assigned to this route.
+              No route or terminal information assigned to this booking.
             </p>
           }
         </ui-surface>
@@ -799,7 +829,7 @@
   [resizable]="false"
 >
   @if (openBookingPdfViewer()) {
-    <app-pdf-viewer
+    <ui-app-pdf-viewer
       [documentId]="booking()?.id!"
       [loader]="loadBookingPdf"
       [fileName]="booking()?.bookingNumber + '.pdf'"

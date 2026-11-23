@@ -99,7 +99,7 @@ public sealed class BookingInvoiceLifecycleTests
         typeof(QuotationLine).GetProperty(nameof(QuotationLine.TariffRate))?.SetValue(line, tariffRate);
         quotation.Approve("billing-test");
         quotation.Issue(TimeSpan.FromDays(30), "System");
-        quotation.Accept("System");
+        quotation.Accept("System", "");
         return Booking.CreateDraftFromQuotation(quotation, 1);
     }
 }

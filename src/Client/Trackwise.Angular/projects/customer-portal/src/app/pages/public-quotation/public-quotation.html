@@ -1,0 +1,147 @@
+<cp-public-layout
+  [tenantName]="quotation()?.companyName"
+  [subtitle]="quotation()?.referenceNumber || 'Quotation'"
+>
+  @if (isLoading()) {
+    <ui-loading-skeleton variant="card" height="20rem" loadingText="Loading quotation..." />
+  } @else if (error()) {
+    <ui-error-state title="Quotation Unavailable" [message]="error()!" [retryable]="false" />
+  } @else if (quotation(); as data) {
+    <!-- Header + key details in one card -->
+    <ui-surface variant="elevated" padding="md" class="mb-4 block">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <ui-typography variant="body-sm" color="muted">
+            Quotation from {{ data.companyName }}
+          </ui-typography>
+          <ui-typography variant="h3" tag="h2">{{ data.referenceNumber }}</ui-typography>
+        </div>
+        <ui-badge
+          size="lg"
+          class="self-start"
+          [value]="formatStatus(data.status)"
+          [severity]="getSeverity(data.status)"
+        />
+      </div>
+
+      <div class="border-border mt-6 grid grid-cols-2 gap-6 border-t pt-6 sm:grid-cols-4">
+        <div>
+          <ui-typography variant="caption" color="muted" weight="medium" class="mb-1 block">
+            Service
+          </ui-typography>
+          <ui-typography variant="body" weight="medium">
+            {{ data.mode | titlecase }} · {{ data.freightMode | titlecase }}
+          </ui-typography>
+        </div>
+        <div>
+          <ui-typography variant="caption" color="muted" weight="medium" class="mb-1 block">
+            Shipment
+          </ui-typography>
+          <ui-typography variant="body" weight="medium">
+            {{ data.shipmentType | uppercase }} · {{ data.incoterm | uppercase }}
+          </ui-typography>
+        </div>
+        <div>
+          <ui-typography variant="caption" color="muted" weight="medium" class="mb-1 block">
+            Issued
+          </ui-typography>
+          <ui-typography variant="body" weight="medium">
+            {{ data.issuedAt | date: "mediumDate" }}
+          </ui-typography>
+        </div>
+        <div>
+          <ui-typography variant="caption" color="muted" weight="medium" class="mb-1 block">
+            Valid until
+          </ui-typography>
+          <ui-typography variant="body" weight="medium">
+            {{ data.validUntil | date: "mediumDate" }}
+          </ui-typography>
+        </div>
+      </div>
+    </ui-surface>
+
+    <!-- Outcome banner (replaces the accept form once the quotation is no longer open) -->
+    @if (data.status === "accepted") {
+      <ui-surface variant="subtle" padding="md" class="mb-4 block">
+        <div class="flex items-center gap-3">
+          <ui-icon name="check" class="text-primary" />
+          <div>
+            <ui-typography variant="body" weight="medium">
+              You have accepted this quotation
+            </ui-typography>
+            <ui-typography variant="body-sm" color="muted">
+              {{ data.companyName }} has been notified and will be in touch.
+            </ui-typography>
+          </div>
+        </div>
+      </ui-surface>
+    } @else if (data.status === "expired") {
+      <ui-surface variant="subtle" padding="md" class="mb-4 block">
+        <ui-typography variant="body" weight="medium">This quotation has expired</ui-typography>
+        <ui-typography variant="body-sm" color="muted">
+          Please contact {{ data.companyName }} to request an updated offer.
+        </ui-typography>
+      </ui-surface>
+    }
+
+    <!-- The offer -->
+    <ui-surface variant="elevated" padding="md" class="mb-4 block">
+      <ui-app-pdf-viewer
+        [documentId]="token()"
+        [loader]="pdfLoader"
+        [fileName]="data.referenceNumber + '.pdf'"
+        [showPrint]="false"
+        height="75vh"
+      />
+    </ui-surface>
+
+    <!-- Accept -->
+    @if (canAccept()) {
+      <ui-surface variant="elevated" padding="md" class="mb-6 block">
+        <ui-typography variant="h5" tag="h3">Accept this quotation</ui-typography>
+        <ui-typography variant="body-sm" color="muted" class="mt-1 mb-4 block">
+          Review the offer above, then leave a message for {{ data.companyName }} to confirm your
+          acceptance.
+        </ui-typography>
+
+        <label for="accept-message" class="mb-1 block text-sm font-medium">
+          Message
+          <span aria-hidden="true">*</span>
+        </label>
+        <textarea
+          id="accept-message"
+          class="focus:border-primary border-input w-full rounded-lg border bg-transparent p-3 outline-none"
+          rows="4"
+          maxlength="1000"
+          placeholder="e.g. Please proceed. Pickup is on the 28th."
+          [value]="message()"
+          (input)="message.set($any($event.target).value)"
+        ></textarea>
+        <div class="mt-1 flex justify-between text-xs opacity-60">
+          <span>Required</span>
+          <span>{{ message().length }}/1000</span>
+        </div>
+
+        @if (acceptError()) {
+          <p class="text-destructive mt-3 text-sm" role="alert">{{ acceptError() }}</p>
+        }
+
+        <div class="mt-4 flex justify-end">
+          <ui-button
+            type="button"
+            [disabled]="!messageValid() || isAccepting()"
+            [label]="isAccepting() ? 'Accepting…' : 'Accept quotation'"
+            (click)="accept()"
+          />
+        </div>
+      </ui-surface>
+    }
+
+    <!-- Footer -->
+    <div class="mt-8 text-center">
+      <ui-typography variant="body-sm" color="muted">
+        Quotation provided by {{ data.companyName }}
+      </ui-typography>
+    </div>
+  }
+</cp-public-layout>

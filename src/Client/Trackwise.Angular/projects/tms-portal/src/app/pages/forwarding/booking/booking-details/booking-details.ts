@@ -1,7 +1,7 @@
 import { DatePipe, DecimalPipe } from "@angular/common";
 import { Component, computed, inject, signal, type OnInit } from "@angular/core";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
-import { Permission } from "@trackwise/shared";
+import { PdfViewerComponent, Permission, type PdfLoader } from "@trackwise/shared";
 import {
   Api,
   cancelBooking,
@@ -43,10 +43,6 @@ import {
 import { PermissionService } from "@/core/auth";
 import { ToastService } from "@/core/services";
 import { CreateTripDialog, PageHeader } from "@/shared/components";
-import {
-  PdfViewerComponent,
-  type PdfLoader,
-} from "@/shared/components/pdf-viewer/pdf-viewer.component";
 import { truckTonnageClassLabels, truckTypeLabels } from "@/shared/constants/truck-options";
 import { EnumLabelPipe } from "@/shared/pipes";
 import { AddBookingChargeDialog } from "../components/add-booking-charge-dialog/add-booking-charge-dialog";

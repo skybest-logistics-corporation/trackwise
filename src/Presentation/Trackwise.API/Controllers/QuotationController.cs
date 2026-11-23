@@ -225,9 +225,9 @@ public class QuotationController(IMediator mediator) : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [Authorize(Policy = Permission.Quotation.Manage)]
-    public async Task<IActionResult> Accept(Guid id, CancellationToken ct)
+    public async Task<IActionResult> Accept(Guid id, [FromBody] AcceptQuotationRequest? body, CancellationToken ct)
     {
-        var result = await mediator.Send(new AcceptQuotationCommand { Id = id }, ct);
+        var result = await mediator.Send(new AcceptQuotationCommand { Id = id, Message = body?.Message }, ct);
         return result.IsSuccess ? NoContent() : BadRequest(ErrorResponse.FromResult(result));
     }
 

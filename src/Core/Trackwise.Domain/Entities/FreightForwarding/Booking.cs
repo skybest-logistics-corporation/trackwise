@@ -163,7 +163,7 @@ public partial class Booking : AuditableEntity, ITenantEntity
             QuotationReference = quotation.ReferenceNumber,
             TruckType = quotation.Lines.FirstOrDefault()?.TariffRate?.Tariff?.TruckType,
             TonnageClass = quotation.Lines.FirstOrDefault()?.TariffRate?.Tariff?.TonnageClass,
-            ContainerType = quotation.Lines.FirstOrDefault()?.TariffRate?.Tariff?.ContainerType?.ToString() ?? string.Empty,
+            ContainerType = quotation.Lines.FirstOrDefault()?.TariffRate?.Tariff?.ContainerType?.Name ?? string.Empty,
             Mode = quotation.Mode,
             FreightMode = quotation.FreightMode,
             ShipmentType = quotation.ShipmentType,

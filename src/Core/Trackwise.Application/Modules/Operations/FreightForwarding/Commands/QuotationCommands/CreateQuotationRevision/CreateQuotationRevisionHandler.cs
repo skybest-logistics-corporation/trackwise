@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Diagnostics;
 using Trackwise.Application.Abstractions;
 using Trackwise.Application.Abstractions.CurrentUser;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Services;
@@ -51,6 +52,7 @@ internal sealed class CreateQuotationRevisionHandler(
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {
+            Debug.WriteLine(ex.ToString());
             return Result<Guid>.Fail(ex.Message);
         }
 
