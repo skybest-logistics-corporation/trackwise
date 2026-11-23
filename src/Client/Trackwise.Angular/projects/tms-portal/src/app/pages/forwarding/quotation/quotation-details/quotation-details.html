@@ -672,13 +672,17 @@
 
     <ui-grid container spacing="3">
       <ui-grid [size]="{ xs: 12, md: 6 }">
-        <ui-form-field label="Requested Pickup Date" for="convertPickupDate">
-          <ui-date-field id="convertPickupDate" [(value)]="convertPickupDate" />
+        <ui-form-field label="Requested Pickup Date & Time" for="convertPickupDate">
+          <ui-date-field id="convertPickupDate" [(value)]="convertPickupDate" [showTime]="true" />
         </ui-form-field>
       </ui-grid>
       <ui-grid [size]="{ xs: 12, md: 6 }">
-        <ui-form-field label="Requested Delivery Date" for="convertDeliveryDate">
-          <ui-date-field id="convertDeliveryDate" [(value)]="convertDeliveryDate" />
+        <ui-form-field label="Requested Delivery Date & Time" for="convertDeliveryDate">
+          <ui-date-field
+            id="convertDeliveryDate"
+            [(value)]="convertDeliveryDate"
+            [showTime]="true"
+          />
         </ui-form-field>
       </ui-grid>
     </ui-grid>
