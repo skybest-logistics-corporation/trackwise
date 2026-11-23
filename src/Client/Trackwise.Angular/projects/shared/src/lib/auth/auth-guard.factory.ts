@@ -58,14 +58,14 @@ export function createRoleGuard(options: RoleGuardOptions): CanActivateFn {
           return router.parseUrl(options.unauthenticatedRedirect);
         }
 
-        const userRole = auth.getUserData()?.role;
+        const userRoles = auth.getUserData()?.roles ?? [];
         if (options.allowedRoles) {
-          if (!userRole || !options.allowedRoles.includes(userRole as UserRole)) {
+          if (!userRoles.some((r) => options.allowedRoles!.includes(r as UserRole))) {
             return router.parseUrl(unauthorizedRedirect);
           }
         }
 
-        if (options.allowRole && (!userRole || !options.allowRole(userRole))) {
+        if (options.allowRole && !userRoles.some((r) => options.allowRole!(r))) {
           return router.parseUrl(unauthorizedRedirect);
         }
 

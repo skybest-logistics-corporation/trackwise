@@ -51,5 +51,5 @@ export const userRoleOptions: SelectOption<UserRole>[] = [
 
 /** Any staff role of a company - built-in or created in Settings - as opposed to platform or portal roles. */
 export function isTenantStaffRole(role: string | null | undefined): boolean {
-  return !!role && role.startsWith("tenant.") && role !== UserRole.Customer;
+  return typeof role === "string" && role.startsWith("tenant.") && role !== UserRole.Customer;
 }

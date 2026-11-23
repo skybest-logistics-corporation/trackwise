@@ -3,7 +3,7 @@ export interface UserIdentity {
   name: string;
   given_name: string;
   family_name: string;
-  role?: string;
+  role?: string | string[];
   tenant?: string;
   job_title?: string;
 }
