@@ -9,8 +9,8 @@ import {
   signal,
   untracked,
 } from "@angular/core";
-import { ToastService } from "@trackwise/shared";
 import { NgxExtendedPdfViewerModule } from "ngx-extended-pdf-viewer";
+import { ToastService } from "../../services/toast.service";
 
 /**
  * Fetches one document's PDF. The caller owns the knowledge of WHICH endpoint to call, so this
