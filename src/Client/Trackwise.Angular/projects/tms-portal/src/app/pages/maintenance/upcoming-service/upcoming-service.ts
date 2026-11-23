@@ -1,8 +1,9 @@
 import { DatePipe, DecimalPipe } from "@angular/common";
 import { Component, inject, signal, type OnInit } from "@angular/core";
 import { Router } from "@angular/router";
+import { Permission } from "@trackwise/shared";
 import type { MaintenanceScheduleDto } from "@trackwise/shared/api";
-import { LocalizationService } from "@trackwise/shared/services";
+import { LocalizationService, PermissionService } from "@trackwise/shared/services";
 import {
   Badge,
   Card,
@@ -39,6 +40,9 @@ export class UpcomingServicePage implements OnInit {
   private readonly router = inject(Router);
   protected readonly store = inject(UpcomingServiceStore);
   protected readonly distanceUnit = inject(LocalizationService).getDistanceUnitLabel();
+  protected readonly canManage = inject(PermissionService).hasPermission(
+    Permission.Maintenance.Manage,
+  );
 
   protected readonly selectedRow = signal<MaintenanceScheduleDto | null>(null);
 

@@ -12,13 +12,7 @@
 
   <form [formRoot]="form">
     <ui-form-field label="Amount" for="amount" [required]="true">
-      <ui-number-field
-        id="amount"
-        [formField]="form.amount"
-        mode="currency"
-        currency="USD"
-        locale="en-US"
-      />
+      <ui-number-field id="amount" [formField]="form.amount" mode="currency" locale="en-US" />
     </ui-form-field>
 
     <ui-form-field label="Payment Type" for="type" [required]="true">

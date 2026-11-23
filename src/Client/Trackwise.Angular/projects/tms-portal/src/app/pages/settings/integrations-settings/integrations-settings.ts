@@ -27,7 +27,11 @@ export class IntegrationsSettings {
   private readonly featureService = inject(FeatureService);
   private readonly permissionService = inject(PermissionService);
 
-  protected readonly showAccounting = computed(() => this.featureService.isEnabled("accounting"));
+  protected readonly showAccounting = computed(
+    () =>
+      this.featureService.isEnabled("accounting") &&
+      this.permissionService.hasPermission(Permission.Accounting.View),
+  );
 
   protected readonly showApiKeys = computed(
     () =>

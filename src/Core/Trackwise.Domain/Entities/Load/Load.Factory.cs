@@ -23,8 +23,8 @@ public partial class Load
         Customer customer,
         Truck? assignedTruck,
         Employee? assignedDispatcher,
+        string currency,
         Trip? trip = null,
-        string currency = "USD",
         bool withInvoice = true)
     {
         return LoadFactory.Create(
@@ -38,8 +38,8 @@ public partial class Load
             customer,
             assignedTruck,
             assignedDispatcher,
-            trip,
             currency,
+            trip,
             withInvoice);
     }
 }

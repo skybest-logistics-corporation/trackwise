@@ -50,7 +50,7 @@ public class LoadServiceBookingGateTests
             referenceNumber: "QT-TEST-001",
             currency: "USD",
             mode: TransportMode.Road,
-            freightMode: FreightMode.Domestic,
+            freightMode: FreightMode.Trucking,
             shipmentType: ShipmentType.FTL,
             incoterm: Incoterm.DAP,
             lane: lane,
@@ -59,6 +59,7 @@ public class LoadServiceBookingGateTests
         TestQuotations.Accepted(quotation);
         booking = Booking.CreateDraftFromQuotation(quotation, 1);
 
+        tenantUow.GetCurrentTenant().Returns(TestTenant.Create());
         tenantUow.Repository<Employee>().Returns(employeeRepo);
         tenantUow.Repository<Truck>().Returns(truckRepo);
         tenantUow.Repository<Customer>().Returns(customerRepo);

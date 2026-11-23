@@ -38,6 +38,10 @@ export const Permission = {
     View: "Permission.Customer.View",
     Manage: "Permission.Customer.Manage",
   },
+  Driver: {
+    View: "Permission.Driver.View",
+    Manage: "Permission.Driver.Manage",
+  },
   Payment: {
     View: "Permission.Payment.View",
     Manage: "Permission.Payment.Manage",
@@ -124,11 +128,6 @@ export const Permission = {
     View: "Permission.Maintenance.View",
     Manage: "Permission.Maintenance.Manage",
   },
-  Accident: {
-    View: "Permission.Accident.View",
-    Manage: "Permission.Accident.Manage",
-    Review: "Permission.Accident.Review",
-  },
   Container: {
     View: "Permission.Container.View",
     Manage: "Permission.Container.Manage",
@@ -150,16 +149,23 @@ export const Permission = {
   Quotation: {
     View: "Permission.Quotation.View",
     Manage: "Permission.Quotation.Manage",
+    Approve: "Permission.Quotation.Approve",
   },
   Booking: {
     View: "Permission.Booking.View",
     Manage: "Permission.Booking.Manage",
+    ViewCosts: "Permission.Booking.ViewCosts",
+    ApproveCredit: "Permission.Booking.ApproveCredit",
+  },
+  ChargeCode: {
+    View: "Permission.ChargeCode.View",
+    Manage: "Permission.ChargeCode.Manage",
   },
   Tariff: {
     View: "Permission.Tariff.View",
     Manage: "Permission.Tariff.Manage",
   },
-  Shipments: {
+  Shipment: {
     View: "Permission.Shipment.View",
     Manage: "Permission.Shipment.Manage",
   },

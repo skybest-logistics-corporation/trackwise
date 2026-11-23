@@ -3274,6 +3274,96 @@
         }
       }
     },
+    "/bookings/read": {
+      "post": {
+        "tags": [
+          "Booking"
+        ],
+        "operationId": "ReadBookingRequest",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "CustomerId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "ReceivedOn": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "File": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "MessageText": {
+                    "type": "string"
+                  }
+                }
+              },
+              "encoding": {
+                "CustomerId": {
+                  "style": "form"
+                },
+                "ReceivedOn": {
+                  "style": "form"
+                },
+                "File": {
+                  "style": "form"
+                },
+                "MessageText": {
+                  "style": "form"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingRequestReadingDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/bookings/estimate": {
       "post": {
         "tags": [
@@ -9942,6 +10032,123 @@
             "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/UndoDriverTripEventCommand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/drivers/trips/{tripId}/incidents": {
+      "post": {
+        "tags": [
+          "Driver"
+        ],
+        "operationId": "ReportDriverIncident",
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportDriverIncidentCommand"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportDriverIncidentCommand"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportDriverIncidentCommand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/drivers/incidents/{incidentId}/photos": {
+      "post": {
+        "tags": [
+          "Driver"
+        ],
+        "operationId": "AddDriverIncidentPhotos",
+        "parameters": [
+          {
+            "name": "incidentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "Photos": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "binary"
+                    }
+                  }
+                }
+              },
+              "encoding": {
+                "Photos": {
+                  "style": "form"
+                }
               }
             }
           }
@@ -24737,6 +24944,55 @@
         }
       }
     },
+    "/public/payments/{tenantId}/{token}/confirm": {
+      "post": {
+        "tags": [
+          "PublicPayment"
+        ],
+        "operationId": "ConfirmPublicPayment",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicPaymentConfirmationDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/quotations/{id}": {
       "get": {
         "tags": [
@@ -25147,7 +25403,7 @@
         "tags": [
           "Quotation"
         ],
-        "operationId": "AddQuotationLine",
+        "operationId": "AddQuotationLines",
         "parameters": [
           {
             "name": "id",
@@ -25163,17 +25419,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AddQuotationLineCommand"
+                "$ref": "#/components/schemas/AddQuotationLinesCommand"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/AddQuotationLineCommand"
+                "$ref": "#/components/schemas/AddQuotationLinesCommand"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/AddQuotationLineCommand"
+                "$ref": "#/components/schemas/AddQuotationLinesCommand"
               }
             }
           }
@@ -25184,8 +25440,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "string",
-                  "format": "uuid"
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
                 }
               }
             }
@@ -28729,11 +28988,10 @@
             }
           },
           {
-            "name": "ContractId",
+            "name": "ContractRef",
             "in": "query",
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             }
           },
           {
@@ -28846,6 +29104,76 @@
             "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/CreateTariffCommand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tariffs/copy": {
+      "post": {
+        "tags": [
+          "Tariff"
+        ],
+        "operationId": "CopyTariff",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopyTariffCommand"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopyTariffCommand"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopyTariffCommand"
               }
             }
           }
@@ -31309,6 +31637,13 @@
             }
           },
           {
+            "name": "IncludeRescues",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
             "name": "StartDate",
             "in": "query",
             "schema": {
@@ -33427,6 +33762,16 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -34404,6 +34749,30 @@
           "Webhook"
         ],
         "operationId": "ProcessStripeWebhook",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/webhooks/xendit/{tenantId}": {
+      "post": {
+        "tags": [
+          "Webhook"
+        ],
+        "operationId": "ProcessXenditCallback",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK"
@@ -35856,6 +36225,84 @@
           }
         }
       }
+    },
+    "/payment-gateways/xendit": {
+      "get": {
+        "tags": [
+          "XenditSettings"
+        ],
+        "operationId": "GetXenditSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/XenditSettingsDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "XenditSettings"
+        ],
+        "operationId": "SaveXenditSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveXenditSettingsCommand"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveXenditSettingsCommand"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveXenditSettingsCommand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/XenditSettingsDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "XenditSettings"
+        ],
+        "operationId": "DeleteXenditSettings",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -36238,13 +36685,9 @@
         },
         "additionalProperties": false
       },
-      "AddQuotationLineCommand": {
+      "AddQuotationLineItem": {
         "type": "object",
         "properties": {
-          "quotationId": {
-            "type": "string",
-            "format": "uuid"
-          },
           "tariffRateId": {
             "type": "string",
             "format": "uuid"
@@ -36275,6 +36718,23 @@
           },
           "notes": {
             "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AddQuotationLinesCommand": {
+        "type": "object",
+        "properties": {
+          "quotationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AddQuotationLineItem"
+            },
             "nullable": true
           }
         },
@@ -37955,6 +38415,16 @@
             "type": "string",
             "nullable": true
           },
+          "truckType": {
+            "$ref": "#/components/schemas/TruckType"
+          },
+          "tonnageClass": {
+            "$ref": "#/components/schemas/TruckTonnageClass"
+          },
+          "containerType": {
+            "type": "string",
+            "nullable": true
+          },
           "mode": {
             "$ref": "#/components/schemas/TransportMode"
           },
@@ -37966,6 +38436,22 @@
           },
           "incoterm": {
             "$ref": "#/components/schemas/Incoterm"
+          },
+          "polId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "pol": {
+            "$ref": "#/components/schemas/TerminalSummaryDto"
+          },
+          "podId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "pod": {
+            "$ref": "#/components/schemas/TerminalSummaryDto"
           },
           "requestedPickupStart": {
             "type": "string",
@@ -38257,6 +38743,26 @@
         },
         "additionalProperties": false
       },
+      "BookingRequestReadingDto": {
+        "type": "object",
+        "properties": {
+          "trips": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProposedColdChainTripDto"
+            },
+            "nullable": true
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "BookingStatus": {
         "enum": [
           "draft",
@@ -38339,6 +38845,16 @@
             "type": "string",
             "nullable": true
           },
+          "truckType": {
+            "$ref": "#/components/schemas/TruckType"
+          },
+          "tonnageClass": {
+            "$ref": "#/components/schemas/TruckTonnageClass"
+          },
+          "containerType": {
+            "type": "string",
+            "nullable": true
+          },
           "currency": {
             "type": "string",
             "nullable": true
@@ -38351,6 +38867,16 @@
           },
           "shipmentType": {
             "$ref": "#/components/schemas/ShipmentType"
+          },
+          "polId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "podId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           },
           "requestedPickupStart": {
             "type": "string",
@@ -40123,6 +40649,20 @@
           "toDate": {
             "type": "string",
             "format": "date"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CopyTariffCommand": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -42042,6 +42582,16 @@
           "lane": {
             "$ref": "#/components/schemas/LaneTransitDto"
           },
+          "polId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "podId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
           "cargo": {
             "$ref": "#/components/schemas/CargoSpecificationDto"
           },
@@ -42222,6 +42772,12 @@
             "type": "string",
             "nullable": true
           },
+          "truckType": {
+            "$ref": "#/components/schemas/TruckType"
+          },
+          "tonnageClass": {
+            "$ref": "#/components/schemas/TruckTonnageClass"
+          },
           "containerTypeId": {
             "type": "string",
             "format": "uuid",
@@ -42244,9 +42800,8 @@
             "type": "string",
             "format": "date"
           },
-          "contractId": {
+          "contractRef": {
             "type": "string",
-            "format": "uuid",
             "nullable": true
           },
           "customerId": {
@@ -45714,7 +46269,9 @@
           "domestic",
           "import",
           "export",
-          "triangular"
+          "triangular",
+          "reefer",
+          "trucking"
         ],
         "type": "string"
       },
@@ -47700,6 +48257,10 @@
           "validityDays": {
             "type": "integer",
             "format": "int32"
+          },
+          "customerEmail": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -50497,6 +51058,13 @@
           "description": {
             "type": "string",
             "nullable": true
+          },
+          "gateway": {
+            "$ref": "#/components/schemas/PaymentGateway"
+          },
+          "referenceNumber": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -50516,6 +51084,13 @@
           }
         },
         "additionalProperties": false
+      },
+      "PaymentGateway": {
+        "enum": [
+          "stripe",
+          "xendit"
+        ],
+        "type": "string"
       },
       "PaymentLinkDto": {
         "required": [
@@ -51625,6 +52200,113 @@
         },
         "additionalProperties": false
       },
+      "ProposedColdChainTripDto": {
+        "type": "object",
+        "properties": {
+          "serviceDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "callTime": {
+            "type": "string",
+            "format": "time",
+            "nullable": true
+          },
+          "truckSize": {
+            "$ref": "#/components/schemas/TruckTonnageClass"
+          },
+          "pickupSite": {
+            "$ref": "#/components/schemas/ProposedSiteDto"
+          },
+          "pickupText": {
+            "type": "string",
+            "nullable": true
+          },
+          "commodity": {
+            "type": "string",
+            "nullable": true
+          },
+          "temperatureMinC": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "temperatureMaxC": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          },
+          "drops": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProposedDropDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProposedDropDto": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "nullable": true
+          },
+          "site": {
+            "$ref": "#/components/schemas/ProposedSiteDto"
+          },
+          "candidates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProposedSiteDto"
+            },
+            "nullable": true
+          },
+          "plannedBoxes": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "plannedBags": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProposedSiteDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "city": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "PublicCheckoutSessionDto": {
         "required": [
           "url"
@@ -51706,6 +52388,27 @@
           }
         },
         "additionalProperties": false
+      },
+      "PublicPaymentConfirmationDto": {
+        "required": [
+          "state"
+        ],
+        "type": "object",
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/PublicPaymentState"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicPaymentState": {
+        "enum": [
+          "paid",
+          "pending",
+          "not_paid",
+          "not_checked"
+        ],
+        "type": "string"
       },
       "PublicTrackingDto": {
         "type": "object",
@@ -51800,11 +52503,23 @@
             "type": "string",
             "nullable": true
           },
+          "customerEmail": {
+            "type": "string",
+            "nullable": true
+          },
           "referenceNumber": {
             "type": "string",
             "nullable": true
           },
           "currency": {
+            "type": "string",
+            "nullable": true
+          },
+          "rejectionReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "rejectedBy": {
             "type": "string",
             "nullable": true
           },
@@ -51858,6 +52573,22 @@
               "$ref": "#/components/schemas/RouteStopSummaryDto"
             },
             "nullable": true
+          },
+          "polId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "pol": {
+            "$ref": "#/components/schemas/TerminalSummaryDto"
+          },
+          "podId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "pod": {
+            "$ref": "#/components/schemas/TerminalSummaryDto"
           },
           "commodity": {
             "type": "string",
@@ -51935,9 +52666,70 @@
           "notes": {
             "type": "string",
             "nullable": true
+          },
+          "updatedBy": {
+            "type": "string",
+            "nullable": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "timeline": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuotationEventDto"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
+      },
+      "QuotationEventDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "$ref": "#/components/schemas/QuotationEventType"
+          },
+          "actor": {
+            "type": "string",
+            "nullable": true
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "details": {
+            "type": "string",
+            "nullable": true
+          },
+          "relatedId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "QuotationEventType": {
+        "enum": [
+          "created",
+          "edited",
+          "revision_created",
+          "submitted",
+          "approved",
+          "rejected",
+          "issued",
+          "accepted",
+          "expired",
+          "converted_to_booking"
+        ],
+        "type": "string"
       },
       "QuotationLineDto": {
         "type": "object",
@@ -51950,9 +52742,24 @@
             "type": "string",
             "format": "uuid"
           },
+          "tariffId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "tariffName": {
+            "type": "string",
+            "nullable": true
+          },
           "tariffRateId": {
             "type": "string",
             "format": "uuid"
+          },
+          "tariffTruckType": {
+            "$ref": "#/components/schemas/TruckType"
+          },
+          "tariffTonnageClass": {
+            "$ref": "#/components/schemas/TruckTonnageClass"
           },
           "chargeCode": {
             "type": "string",
@@ -52084,6 +52891,10 @@
             "nullable": true
           },
           "customerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerEmail": {
             "type": "string",
             "nullable": true
           },
@@ -53044,6 +53855,39 @@
         ],
         "type": "string"
       },
+      "ReportDriverIncidentCommand": {
+        "type": "object",
+        "properties": {
+          "tripId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/IncidentKind"
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "vehicleDrivable": {
+            "type": "boolean"
+          },
+          "anyInjuries": {
+            "type": "boolean"
+          },
+          "latitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "ReportExceptionRequest": {
         "type": "object",
         "properties": {
@@ -53755,6 +54599,23 @@
           "percentage": {
             "type": "number",
             "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SaveXenditSettingsCommand": {
+        "type": "object",
+        "properties": {
+          "secretKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "callbackToken": {
+            "type": "string",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -54514,9 +55375,8 @@
             "format": "uuid",
             "nullable": true
           },
-          "contractId": {
+          "contractRef": {
             "type": "string",
-            "format": "uuid",
             "nullable": true
           },
           "customerId": {
@@ -54535,6 +55395,12 @@
           "destinationLane": {
             "type": "string",
             "nullable": true
+          },
+          "truckType": {
+            "$ref": "#/components/schemas/TruckType"
+          },
+          "tonnageClass": {
+            "$ref": "#/components/schemas/TruckTonnageClass"
           },
           "containerTypeId": {
             "type": "string",
@@ -55178,6 +56044,10 @@
           },
           "coldChainBookingNumbersTyped": {
             "type": "boolean"
+          },
+          "dispatchPhoneNumber": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -55318,6 +56188,28 @@
           },
           "pagination": {
             "$ref": "#/components/schemas/PaginationMeta"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerminalSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "countryCode": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -59080,6 +59972,12 @@
             "type": "string",
             "nullable": true
           },
+          "truckType": {
+            "$ref": "#/components/schemas/TruckType"
+          },
+          "tonnageClass": {
+            "$ref": "#/components/schemas/TruckTonnageClass"
+          },
           "containerTypeId": {
             "type": "string",
             "format": "uuid",
@@ -59090,9 +59988,8 @@
             "format": "uuid",
             "nullable": true
           },
-          "contractId": {
+          "contractRef": {
             "type": "string",
-            "format": "uuid",
             "nullable": true
           }
         },
@@ -60776,6 +61673,25 @@
           "trucking"
         ],
         "type": "string"
+      },
+      "XenditSettingsDto": {
+        "type": "object",
+        "properties": {
+          "isConfigured": {
+            "type": "boolean"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "isTestMode": {
+            "type": "boolean"
+          },
+          "secretKeyHint": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
       }
     }
   },
@@ -61034,6 +61950,9 @@
     },
     {
       "name": "Workfile"
+    },
+    {
+      "name": "XenditSettings"
     }
   ]
 }

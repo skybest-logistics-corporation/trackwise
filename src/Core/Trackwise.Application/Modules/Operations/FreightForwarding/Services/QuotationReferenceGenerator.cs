@@ -37,7 +37,12 @@ internal sealed class QuotationReferenceGenerator(ITenantUnitOfWork tenantUow, T
             throw new ArgumentException("Branch code is required to generate a quotation reference.", nameof(branchCode));
 
         var year = (clock.GetUtcNow().Year % 100).ToString("D2");
-        var mode = freightMode.ToString()[..3].ToUpperInvariant();
+        var mode = freightMode switch
+        {
+            FreightMode.Reefer => "CCL",
+            FreightMode.Trucking => "TRK",
+            _ => freightMode.ToString()[..3].ToUpperInvariant()
+        };
 
         return $"{Prefix}-{year}-{mode}{code}-";
     }

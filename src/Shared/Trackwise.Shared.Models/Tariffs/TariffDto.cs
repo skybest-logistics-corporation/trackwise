@@ -13,11 +13,13 @@ public class TariffDto
     public FreightMode Mode { get; set; }
     public ServiceLevel ServiceLevel { get; set; }
     public Guid? CarrierId { get; set; }
-    public Guid? ContractId { get; set; }
+    public string? ContractRef { get; set; }
     public Guid? CustomerId { get; set; }
     public string? CustomerName { get; set; }
     public string? OriginLane { get; set; }
     public string? DestinationLane { get; set; }
+    public TruckType? TruckType { get; set; }
+    public TruckTonnageClass? TonnageClass { get; set; }
     public Guid? ContainerTypeId { get; set; }
 
     /// <summary>Resolved by the handler in one batched lookup, never off the navigation property.</summary>
@@ -94,10 +96,12 @@ public class CreateTariffRequest
     public string Currency { get; set; } = default!;
     public string? OriginLane { get; set; }
     public string? DestinationLane { get; set; }
+    public TruckType? TruckType { get; set; }
+    public TruckTonnageClass? TonnageClass { get; set; }
     public Guid? ContainerTypeId { get; set; }
     public Guid? CarrierId { get; set; }
     public DateOnly EffectiveFrom { get; set; }
-    public Guid? ContractId { get; set; }
+    public string? ContractRef { get; set; } = default!;
     public Guid? CustomerId { get; set; }
     // CreatedById typically comes from the authenticated user context, not the request body
 }
@@ -117,9 +121,11 @@ public class UpdateTariffRequest
     public bool? IsActive { get; set; }
     public string? OriginLane { get; set; }
     public string? DestinationLane { get; set; }
+    public TruckType TruckType { get; set; }
+    public TruckTonnageClass? TonnageClass { get; set; }
     public Guid? ContainerTypeId { get; set; }
     public Guid? CarrierId { get; set; }
-    public Guid? ContractId { get; set; }
+    public string? ContractRef { get; set; } = default!;
 }
 
 /// <summary>

@@ -23,13 +23,7 @@ internal static class IncidentPartiesResolver
                 return Result<IncidentParties>.Fail("Could not find that trip.");
             }
 
-            customerId ??= trip.Stops
-                .Where(s => s.Type == TripStopType.DropOff)
-                .Select(s => s.Load.CustomerId)
-                .Distinct()
-                .ToList() is [var only]
-                ? only
-                : null;
+            customerId ??= SoleCustomerOf(trip);
         }
 
         if (await MissingAsync<Customer>(uow, customerId, ct)
@@ -44,6 +38,16 @@ internal static class IncidentPartiesResolver
         return Result<IncidentParties>.Ok(new IncidentParties(
             fields.TripId, customerId, fields.TruckId, fields.DriverId, fields.HelperId, fields.SecondHelperId));
     }
+
+    /// <summary>The client of every drop on the trip, when there is just one.</summary>
+    public static Guid? SoleCustomerOf(Trip trip) =>
+        trip.Stops
+            .Where(s => s.Type == TripStopType.DropOff)
+            .Select(s => s.Load.CustomerId)
+            .Distinct()
+            .ToList() is [var only]
+            ? only
+            : null;
 
     private static async Task<bool> MissingAsync<T>(ITenantUnitOfWork uow, Guid? id, CancellationToken ct)
         where T : Entity, ITenantEntity =>

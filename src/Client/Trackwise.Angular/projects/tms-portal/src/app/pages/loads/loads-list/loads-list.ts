@@ -1,7 +1,9 @@
 import { Component, inject, signal } from "@angular/core";
 import { Router, RouterLink } from "@angular/router";
+import { Permission } from "@trackwise/shared";
 import { Api, dispatchLoad, type LoadDto } from "@trackwise/shared/api";
 import { AddressPipe } from "@trackwise/shared/pipes";
+import { PermissionService } from "@trackwise/shared/services";
 import { Stack, UiButton, UiTooltip } from "@trackwise/shared/ui";
 import { downloadBlobFile } from "@trackwise/shared/utils";
 import { ToastService } from "@/core/services";
@@ -39,6 +41,7 @@ export class LoadsListComponent {
   private readonly toastService = inject(ToastService);
   private readonly addressPipe = inject(AddressPipe);
   protected readonly store = inject(LoadsListStore);
+  protected readonly canManage = inject(PermissionService).hasPermission(Permission.Load.Manage);
 
   // Bulk selection state
   protected readonly selectedLoads = signal<LoadDto[]>([]);

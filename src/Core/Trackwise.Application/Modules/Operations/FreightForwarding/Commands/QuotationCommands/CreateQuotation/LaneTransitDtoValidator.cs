@@ -54,10 +54,10 @@ public class LaneTransitDtoValidator : AbstractValidator<LaneTransitDto>
             .When(x => x.RequestedPickupWindowStart.HasValue && x.RequestedDeliveryWindowEnd.HasValue)
             .WithMessage("Pickup window start must precede delivery window end.");
 
-        RuleFor(x => x.TotalDistanceKm)
-            .GreaterThan(0)
-            .When(x => x.TotalDistanceKm.HasValue)
-            .WithMessage("Total distance must be greater than 0 km.");
+        //RuleFor(x => x.TotalDistanceKm)
+        //    .GreaterThan(0)
+        //    .When(x => x.TotalDistanceKm.HasValue)
+        //    .WithMessage("Total distance must be greater than 0 km.");
     }
 
     private static bool HaveUniqueAndContiguousSequences(List<RouteStopDto>? stops)

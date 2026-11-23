@@ -38,6 +38,7 @@
                       [options]="freightModeOptions"
                       optionLabel="label"
                       optionValue="value"
+                      optionGroup="group"
                     />
                   </ui-form-field>
                 </ui-grid>
@@ -86,7 +87,7 @@
                     <ui-text-field
                       id="currency"
                       [formField]="form.currency"
-                      placeholder="USD"
+                      placeholder="PHP"
                       [maxlength]="3"
                     />
                   </ui-form-field>
@@ -142,126 +143,129 @@
                   </ui-form-field>
                 </ui-grid>
 
-                <ui-grid [size]="{ xs: 12, md: 4 }">
-                  <ui-form-field label="Routing Layout" for="routingMode" [required]="true">
-                    <ui-select-field
-                      id="routingMode"
-                      [value]="routingMode()"
-                      (valueChange)="routingMode.set($event ?? 'point-to-point')"
-                      [options]="routingModeOptions"
-                      optionLabel="label"
-                      optionValue="value"
-                    />
-                  </ui-form-field>
-                </ui-grid>
-
-                <!-- Point-to-Point Mode Locations -->
-                @if (routingMode() === "point-to-point") {
-                  <ui-grid [size]="{ xs: 12, md: 6 }">
-                    <ui-form-field
-                      [label]="originLocationLabel()"
-                      for="originLocation"
-                      [required]="true"
-                    >
+                @if (isLaneBased()) {
+                  <!-- Lane (Reefer / Trucking) -->
+                  <ui-grid [size]="{ xs: 12, md: 4 }">
+                    <ui-form-field label="Routing Layout" for="routingMode" [required]="true">
                       <ui-select-field
-                        id="originLocation"
-                        [formField]="form.originLocationId!"
-                        [options]="
-                          !model().customer
-                            ? [{ label: 'Select a customer first', value: '' }]
-                            : selectedCustomerLocationOptions()
-                        "
+                        id="routingMode"
+                        [value]="routingMode()"
+                        (valueChange)="routingMode.set($event ?? 'point-to-point')"
+                        [options]="routingModeOptions"
                         optionLabel="label"
                         optionValue="value"
                       />
                     </ui-form-field>
                   </ui-grid>
 
-                  <ui-grid [size]="{ xs: 12, md: 6 }">
+                  @if (isPointToPoint()) {
+                    <ui-grid [size]="{ xs: 12, md: 6 }">
+                      <ui-form-field
+                        label="Origin Pickup Location"
+                        for="originLocationId"
+                        [required]="true"
+                      >
+                        <ui-select-field
+                          id="originLocationId"
+                          [formField]="form.originLocationId"
+                          [options]="locationOptions()"
+                          optionLabel="label"
+                          optionValue="value"
+                          [filter]="!!model().customer"
+                          filterPlaceholder="Search locations"
+                          placeholder="Select a location"
+                          [createLabel]="model().customer ? 'Create new location' : undefined"
+                          (createNew)="onCreateLocation('origin', $event)"
+                        />
+                      </ui-form-field>
+                    </ui-grid>
+
+                    <ui-grid [size]="{ xs: 12, md: 6 }">
+                      <ui-form-field
+                        label="Final Delivery Destination"
+                        for="destinationLocationId"
+                        [required]="true"
+                      >
+                        <ui-select-field
+                          id="destinationLocationId"
+                          [formField]="form.destinationLocationId"
+                          [options]="locationOptions()"
+                          optionLabel="label"
+                          optionValue="value"
+                          [filter]="!!model().customer"
+                          filterPlaceholder="Search locations"
+                          placeholder="Select a location"
+                          [createLabel]="model().customer ? 'Create new location' : undefined"
+                          (createNew)="onCreateLocation('destination', $event)"
+                        />
+                      </ui-form-field>
+                    </ui-grid>
+                  }
+
+                  <ui-grid [size]="{ xs: 12, md: 4 }">
                     <ui-form-field
-                      [label]="destinationLocationLabel()"
-                      for="destinationLocationId"
-                      [required]="true"
+                      label="Pickup Window Start"
+                      for="requestedPickupWindowStart"
+                      hint="Date (YYYY-MM-DD)"
                     >
-                      <ui-select-field
-                        id="destinationLocationId"
-                        [formField]="form.destinationLocationId!"
-                        [options]="
-                          !model().customer
-                            ? [{ label: 'Select a customer first', value: '' }]
-                            : selectedCustomerLocationOptions()
-                        "
-                        optionLabel="label"
-                        optionValue="value"
+                      <ui-text-field
+                        id="requestedPickupWindowStart"
+                        [formField]="form.requestedPickupWindowStart"
+                        placeholder="YYYY-MM-DD"
+                      />
+                    </ui-form-field>
+                  </ui-grid>
+
+                  <ui-grid [size]="{ xs: 12, md: 4 }">
+                    <ui-form-field
+                      label="Delivery Window End"
+                      for="requestedDeliveryWindowEnd"
+                      hint="Date (YYYY-MM-DD)"
+                    >
+                      <ui-text-field
+                        id="requestedDeliveryWindowEnd"
+                        [formField]="form.requestedDeliveryWindowEnd"
+                        placeholder="YYYY-MM-DD"
+                      />
+                    </ui-form-field>
+                  </ui-grid>
+
+                  <ui-grid [size]="{ xs: 12, md: 4 }">
+                    <ui-form-field label="Estimated Distance (km)" for="totalDistanceKm">
+                      <ui-text-field
+                        id="totalDistanceKm"
+                        [formField]="form.totalDistanceKm"
+                        placeholder="0"
+                      />
+                    </ui-form-field>
+                  </ui-grid>
+                } @else {
+                  <!-- Ports (all other freight modes) -->
+                  <ui-grid [size]="{ xs: 12, md: 6 }">
+                    <ui-form-field [label]="polLabel()" for="pol" [required]="true">
+                      <app-search-terminal
+                        [formField]="form.pol"
+                        placeholder="Select port of loading"
+                      />
+                    </ui-form-field>
+                  </ui-grid>
+
+                  <ui-grid [size]="{ xs: 12, md: 6 }">
+                    <ui-form-field [label]="podLabel()" for="pod" [required]="true">
+                      <app-search-terminal
+                        [formField]="form.pod"
+                        placeholder="Select port of discharge"
                       />
                     </ui-form-field>
                   </ui-grid>
                 }
-
-                <!-- Transit Schedule & Distance -->
-                <ui-grid [size]="{ xs: 12, md: 4 }">
-                  <ui-form-field
-                    label="Pickup Window Start"
-                    for="requestedPickupWindowStart"
-                    hint="Date (YYYY-MM-DD)"
-                  >
-                    <ui-text-field
-                      id="requestedPickupWindowStart"
-                      [formField]="form.requestedPickupWindowStart"
-                      placeholder="YYYY-MM-DD"
-                    />
-                  </ui-form-field>
-                </ui-grid>
-
-                <ui-grid [size]="{ xs: 12, md: 4 }">
-                  <ui-form-field
-                    label="Delivery Window End"
-                    for="requestedDeliveryWindowEnd"
-                    hint="Date (YYYY-MM-DD)"
-                  >
-                    <ui-text-field
-                      id="requestedDeliveryWindowEnd"
-                      [formField]="form.requestedDeliveryWindowEnd"
-                      placeholder="YYYY-MM-DD"
-                    />
-                  </ui-form-field>
-                </ui-grid>
-
-                <ui-grid [size]="{ xs: 12, md: 4 }">
-                  <ui-form-field label="Estimated Distance (km)" for="totalDistanceKm">
-                    <ui-text-field
-                      id="totalDistanceKm"
-                      [formField]="form.totalDistanceKm"
-                      placeholder="0"
-                    />
-                  </ui-form-field>
-                </ui-grid>
-
-                <!-- Conditional Customs & HAZMAT -->
-                <ui-grid [size]="{ xs: 12 }">
-                  <ui-stack direction="row" gap="6" class="mt-2">
-                    @if (!isDomestic()) {
-                      <ui-checkbox-field
-                        id="requiresCustomsBrokerage"
-                        [formField]="form.requiresCustomsBrokerage"
-                        label="Requires Customs Clearance & Brokerage"
-                      />
-                    }
-
-                    <ui-checkbox-field
-                      id="isHazardous"
-                      [formField]="form.isHazardous"
-                      label="Dangerous Goods / HAZMAT Classification"
-                    />
-                  </ui-stack>
-                </ui-grid>
               </ui-grid>
             </ui-stack>
           </ui-surface>
         </ui-stack>
 
         <!-- Multi-Route Stops Section -->
-        @if (routingMode() === "multi-stop") {
+        @if (isMultiStop()) {
           <ui-stack tag="section" gap="3">
             <ui-stack direction="row" gap="2" align="start">
               <ui-icon name="list" color="secondary" class="mt-1" />
@@ -341,7 +345,7 @@
             <ui-icon name="box" color="secondary" class="mt-1" />
             <ui-stack gap="0">
               <ui-typography variant="overline" color="secondary">
-                Cargo Specifications
+                Cargo Specifications (Optional)
               </ui-typography>
               <ui-typography variant="caption" color="muted">
                 Weight, package count, commodity details, and cargo valuation.
@@ -410,22 +414,13 @@
                     />
                   </ui-form-field>
                 </ui-grid>
-
-                <ui-grid [size]="{ xs: 12 }">
-                  <ui-checkbox-field
-                    id="requiresActiveRefrigeration"
-                    [formField]="form.requiresActiveRefrigeration"
-                    label="Cargo Requires Temperature Control / Cold Chain Protocol"
-                    (change)="toggleColdChain($any($event).target.checked)"
-                  />
-                </ui-grid>
               </ui-grid>
             </ui-stack>
           </ui-surface>
         </ui-stack>
 
         <!-- 4. Cold Chain & Telematics (Progressive Disclosure) -->
-        @if (isColdChainRequired()) {
+        @if (isReefer()) {
           <ui-stack tag="section" gap="3">
             <ui-stack direction="row" gap="2" align="start">
               <ui-icon name="thermometer" color="secondary" class="mt-1" />
@@ -447,7 +442,7 @@
                       <ui-select-field
                         id="temperatureZone"
                         [formField]="form.temperatureZone"
-                        [options]="temperatureZoneOptions"
+                        [options]="reeferZoneOptions"
                         optionLabel="label"
                         optionValue="value"
                       />
@@ -467,11 +462,7 @@
                   </ui-grid>
 
                   <ui-grid [size]="{ xs: 12, md: 6 }">
-                    <ui-form-field
-                      label="Setpoint (°C)"
-                      for="setpointCelsius"
-                      [required]="isColdChainRequired()"
-                    >
+                    <ui-form-field label="Setpoint (°C)" for="setpointCelsius" [required]="true">
                       <ui-text-field
                         id="setpointCelsius"
                         [formField]="form.setpointCelsius"
@@ -529,9 +520,7 @@
             appearance="text"
             icon="arrow-left"
             label="Cancel"
-            [routerLink]="[
-              quotation()?.id !== null ? `/quotations/${quotation()?.id}` : '/quotations',
-            ]"
+            [routerLink]="['/quotations']"
             [disabled]="isLoading() || form().submitting()"
           />
         </ui-stack>
@@ -544,4 +533,23 @@
   [(isOpen)]="isAddingRouteStop"
   [locations]="selectedCustomerLocationsStore.data()"
   (submitted)="handleAddStop($event)"
+  [initialCustomer]="model().customer"
 />
+
+<ui-dialog
+  header="Add New Location for this client"
+  [(open)]="createLocationOpen"
+  [modal]="true"
+  width="900px"
+>
+  @if (createLocationOpen()) {
+    <app-location-form
+      [embedded]="true"
+      [isLoading]="isCreatingLocation()"
+      [initialCustomer]="model().customer"
+      [initialName]="newLocationName()"
+      (save)="createNewLocation($event)"
+      (dismiss)="createLocationOpen.set(false)"
+    />
+  }
+</ui-dialog>

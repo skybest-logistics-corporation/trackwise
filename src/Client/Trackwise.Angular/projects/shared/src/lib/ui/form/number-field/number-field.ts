@@ -10,6 +10,10 @@ import {
   signal,
 } from "@angular/core";
 import type { FormValueControl, ValidationError } from "@angular/forms/signals";
+import {
+  TENANT_SETTINGS_PROVIDER,
+  tenantCurrencyCode,
+} from "../../../services/localization.service";
 import { HlmInput } from "../../primitives/input";
 import { focusFirstControl } from "../focus-control";
 
@@ -27,7 +31,7 @@ export type NumberFieldMode = "decimal" | "currency";
  *
  * @example
  * <ui-form-field label="Rate" for="rate" [required]="true">
- *   <ui-number-field id="rate" [formField]="form.rate" mode="currency" currency="USD" />
+ *   <ui-number-field id="rate" [formField]="form.rate" mode="currency" />
  * </ui-form-field>
  */
 @Component({
@@ -56,6 +60,7 @@ export class UiNumberField implements FormValueControl<number | null> {
   public readonly min = input<number | undefined>(undefined);
   public readonly max = input<number | undefined>(undefined);
   public readonly mode = input<NumberFieldMode>("decimal");
+  /** ISO code; omitted means the tenant's currency. */
   public readonly currency = input<string | undefined>(undefined);
   public readonly locale = input<string | undefined>(undefined);
   public readonly minFractionDigits = input<number | undefined>(undefined);
@@ -80,12 +85,16 @@ export class UiNumberField implements FormValueControl<number | null> {
   public readonly styleClass = input<string>("");
 
   protected readonly focused = signal(false);
+  private readonly tenantSettings = inject(TENANT_SETTINGS_PROVIDER, { optional: true });
 
   private readonly formatter = computed(
     () =>
       new Intl.NumberFormat(this.locale() || undefined, {
         style: this.mode() === "currency" ? "currency" : "decimal",
-        currency: this.mode() === "currency" ? this.currency() || "USD" : undefined,
+        currency:
+          this.mode() === "currency"
+            ? this.currency() || tenantCurrencyCode(this.tenantSettings)
+            : undefined,
         minimumFractionDigits: this.minFractionDigits(),
         maximumFractionDigits:
           this.maxFractionDigits() ?? (this.mode() === "currency" ? 2 : undefined),

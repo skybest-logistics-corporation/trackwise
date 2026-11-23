@@ -71,6 +71,23 @@ internal sealed class QuotationConfiguration : IEntityTypeConfiguration<Quotatio
             .HasMaxLength(10)
             .IsRequired();
 
+        // Route: optional LaneTransit (Reefer/Trucking) or POL/POD (non-lane modes)
+        builder.HasOne(q => q.Pol)
+            .WithMany()
+            .HasForeignKey(q => q.PolId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(q => q.Pod)
+             .WithMany()
+             .HasForeignKey(q => q.PodId)
+             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Property(x => x.PolId)
+            .IsRequired(false);
+
+        builder.Property(x => x.PodId)    
+            .IsRequired(false);
+
         // Compliance & Special Handling Flags
         builder.Property(x => x.IsHazardous)
             .IsRequired();
@@ -188,6 +205,12 @@ internal sealed class QuotationConfiguration : IEntityTypeConfiguration<Quotatio
 
         builder.Navigation(x => x.Lines)
             .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasMany(q => q.Events)
+            .WithOne()
+            .HasForeignKey(e => e.QuotationId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(q => q.Events).UsePropertyAccessMode(PropertyAccessMode.Field);
 
         // =========================================================================
         // Indexes

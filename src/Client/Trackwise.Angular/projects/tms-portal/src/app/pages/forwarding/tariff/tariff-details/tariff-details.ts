@@ -1,6 +1,6 @@
 import { CurrencyPipe, DatePipe, TitleCasePipe, UpperCasePipe } from "@angular/common";
-import { Component, inject, input, signal, type OnInit } from "@angular/core";
-import { RouterLink } from "@angular/router";
+import { Component, DestroyRef, effect, inject, input, signal, untracked } from "@angular/core";
+import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import {
   Api,
   getTariffById,
@@ -25,6 +25,9 @@ import {
 } from "@trackwise/shared/ui";
 import { ToastService } from "@/core/services";
 import { PageHeader } from "@/shared/components";
+import { truckTonnageClassLabels, truckTypeLabels } from "@/shared/constants/truck-options";
+import { EnumLabelPipe } from "@/shared/pipes";
+import { TariffCopyComponent } from "../components/tariff-copy/tariff-copy.component";
 
 @Component({
   selector: "app-tariff-details",
@@ -34,6 +37,7 @@ import { PageHeader } from "@/shared/components";
     CountBadge,
     CurrencyPipe,
     DatePipe,
+    EnumLabelPipe,
     EmptyState,
     Grid,
     Icon,
@@ -49,11 +53,15 @@ import { PageHeader } from "@/shared/components";
     UiTabsImports,
     UpperCasePipe,
     ConfirmDeleteDialog,
+    TariffCopyComponent,
   ],
 })
-export class TariffDetails implements OnInit {
+export class TariffDetails {
   private readonly api = inject(Api);
   private readonly toastService = inject(ToastService);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly destroyRef = inject(DestroyRef);
 
   public readonly id = input.required<string>();
   protected readonly isLoading = signal(true);
@@ -63,18 +71,36 @@ export class TariffDetails implements OnInit {
   protected readonly deleteRateConfirmVisible = signal(false);
   protected readonly isDeletingLine = signal(false);
 
-  ngOnInit(): void {
-    void this.loadTariff();
+  protected readonly truckTypeLabels = truckTypeLabels;
+  protected readonly tonnageClassLabels = truckTonnageClassLabels;
+
+  protected readonly isCopyOpen = signal(false);
+
+  private loadToken = 0;
+
+  constructor() {
+    effect(() => {
+      const id = this.id();
+      untracked(() => void this.loadTariff(id));
+    });
   }
 
-  protected async loadTariff(): Promise<void> {
+  protected async loadTariff(id: string = this.id()): Promise<void> {
+    const token = ++this.loadToken;
     this.isLoading.set(true);
     try {
-      this.tariff.set(await this.api.invoke(getTariffById, { id: this.id() }));
+      const response = await this.api.invoke(getTariffById, { id });
+      if (token === this.loadToken) {
+        this.tariff.set(response);
+      }
     } catch {
-      this.toastService.showError("Failed to load tariff");
+      if (token === this.loadToken) {
+        this.toastService.showError("Failed to load tariff");
+      }
     } finally {
-      this.isLoading.set(false);
+      if (token === this.loadToken) {
+        this.isLoading.set(false);
+      }
     }
   }
 
@@ -101,5 +127,11 @@ export class TariffDetails implements OnInit {
     } finally {
       this.isDeletingLine.set(false);
     }
+  }
+
+  protected onTariffCopied(newTariffId: string): void {
+    // Navigate to the newly copied tariff
+    void this.router.navigate(["/tariffs", newTariffId]);
+    console.log("Navigating to copied tariff with ID:", newTariffId);
   }
 }

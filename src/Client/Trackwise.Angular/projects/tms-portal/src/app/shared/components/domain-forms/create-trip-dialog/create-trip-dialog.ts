@@ -5,9 +5,18 @@ import {
   createTripFromBooking,
   type TruckDto,
   type TruckTonnageClass,
+  type TruckType,
 } from "@trackwise/shared/api";
 import { truckTonnageClassOptions } from "@trackwise/shared/api/enums";
-import { Alert, Stack, Typography, UiButton, UiDialog, UiFormField } from "@trackwise/shared/ui";
+import {
+  Alert,
+  Stack,
+  Typography,
+  UiButton,
+  UiDialog,
+  UiFormField,
+  UiSelectField,
+} from "@trackwise/shared/ui";
 import { ToastService } from "@/core/services";
 import { SearchTruck } from "@/shared/components/search";
 
@@ -19,7 +28,7 @@ import { SearchTruck } from "@/shared/components/search";
 @Component({
   selector: "app-create-trip-dialog",
   templateUrl: "./create-trip-dialog.html",
-  imports: [Alert, SearchTruck, Stack, Typography, UiButton, UiDialog, UiFormField],
+  imports: [Alert, SearchTruck, Stack, Typography, UiButton, UiDialog, UiFormField, UiSelectField],
 })
 export class CreateTripDialog {
   private readonly api = inject(Api);
@@ -27,12 +36,18 @@ export class CreateTripDialog {
 
   public readonly bookingId = input.required<string>();
   public readonly bookedSize = input<TruckTonnageClass | null | undefined>(null);
+  public readonly truckType = input<TruckType | null | undefined>(null);
+
   public readonly dropCount = input(0);
+  // public readonly containerType = input<TruckTonnageClass | null | undefined>(null);
   public readonly open = model(false);
   public readonly created = output<string>();
 
   protected readonly truck = signal<TruckDto | null>(null);
   protected readonly isBusy = signal(false);
+
+  protected readonly showAllSizes = signal(false);
+  protected readonly sizeFilter = computed(() => (this.showAllSizes() ? null : this.bookedSize()));
 
   protected readonly bookedSizeLabel = computed(() => sizeLabel(this.bookedSize()));
 

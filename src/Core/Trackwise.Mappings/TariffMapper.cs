@@ -16,6 +16,8 @@ public static partial class TariffMapper
     [MapperIgnoreSource(nameof(Tariff.ContainerType))]
     [MapperIgnoreTarget(nameof(TariffDto.ContainerTypeCode))]
     [MapperIgnoreTarget(nameof(TariffDto.ContainerTypeName))]
+    [MapperIgnoreTarget(nameof(TariffDto.TonnageClass))]
+    [MapperIgnoreTarget(nameof(TariffDto.TruckType))]
     private static partial TariffDto ToDtoCore(this Tariff entity);
 
     /// <summary>
@@ -45,6 +47,8 @@ public static partial class TariffMapper
     [MapperIgnoreSource(nameof(Tariff.History))]
     [MapperIgnoreSource(nameof(Tariff.ContainerType))]
     [MapperIgnoreSource(nameof(Tariff.ContainerTypeId))]
+    [MapperIgnoreSource(nameof(Tariff.TruckType))]
+    [MapperIgnoreSource(nameof(Tariff.TonnageClass))]
     public static partial TariffSummaryDto ToSummaryDto(this Tariff entity);
 
     public static partial List<TariffSummaryDto> ToSummaryDtoList(this IEnumerable<Tariff> entities);
@@ -71,10 +75,12 @@ public static partial class TariffMapper
             destinationLane: request.DestinationLane,
             name: request.Name,
             currency: request.Currency,
+            truckType: request.TruckType,
+            tonnageClass: request.TonnageClass!,
             containerTypeId: request.ContainerTypeId,
             carrierId: request.CarrierId,
             effectiveFrom: request.EffectiveFrom,
-            contractId: createdById); // Adjust mapping here if contractId vs createdById differs in domain signature
+            contractRef: request.ContractRef); // Adjust mapping here if contractId vs createdById differs in domain signature
     }
 
     /// <summary>
@@ -92,9 +98,11 @@ public static partial class TariffMapper
             isActive: request.IsActive,
             originLane: request.OriginLane,
             destinationLane: request.DestinationLane,
+            truckType: request.TruckType,
+            tonnageClass: request.TonnageClass!,
             containerTypeId: request.ContainerTypeId,
             carrierId: request.CarrierId,
-            contractId: request.ContractId);
+            contractRef: request.ContractRef!);
     }
 
     /// <summary>

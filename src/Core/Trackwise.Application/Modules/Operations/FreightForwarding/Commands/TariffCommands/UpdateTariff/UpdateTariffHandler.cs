@@ -24,13 +24,13 @@ internal sealed class UpdateTariffHandler(ITenantUnitOfWork tenantUow)
         {
             var mode = req.Mode ?? tariff.Mode;
             var serviceLevel = req.ServiceLevel ?? tariff.ServiceLevel;
-            var contractId = req.ContractId ?? tariff.ContractId;
+            var contractRef = req.ContractRef ?? tariff.ContractRef;
             var duplicate = await tenantUow.Repository<Tariff>().Query()
                 .AnyAsync(i => i.Id != req.Id &&
                                i.Name == req.Name &&
                                i.Mode == mode &&
                                i.ServiceLevel == serviceLevel &&
-                               i.ContractId == contractId &&
+                               i.ContractRef == contractRef &&
                                i.CustomerId == tariff.CustomerId &&
                                i.IsActive == tariff.IsActive, ct);
 
@@ -50,9 +50,11 @@ internal sealed class UpdateTariffHandler(ITenantUnitOfWork tenantUow)
             isActive: null,
             originLane: req.OriginLane,
             destinationLane: req.DestinationLane,
+            truckType: req.TruckType,
+            tonnageClass: req.TonnageClass!,
             containerTypeId: req.ContainerTypeId,
             carrierId: req.CarrierId,
-            contractId: req.ContractId);
+            contractRef: req.ContractRef!);
 
         tenantUow.Repository<Tariff>().Update(tariff);
         await tenantUow.SaveChangesAsync(ct);

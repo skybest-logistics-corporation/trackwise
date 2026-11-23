@@ -20,7 +20,11 @@ internal sealed class CreateBodyShopExpenseHandler(ITenantUnitOfWork tenantUow)
 
         var expense = new BodyShopExpense
         {
-            Amount = new Money { Amount = req.Amount, Currency = req.Currency },
+            Amount = new Money
+            {
+                Amount = req.Amount,
+                Currency = req.Currency ?? tenantUow.GetCurrentTenant().Settings.Currency.ToString()
+            },
             VendorName = req.VendorName,
             ExpenseDate = req.ExpenseDate,
             ReceiptBlobPath = req.ReceiptBlobPath,

@@ -202,7 +202,7 @@
         </ui-surface>
 
         <!-- Cargo & Temperature Specifications -->
-        @if (b.cargo || b.temperature) {
+        @if (b.cargo || b.temperature || b.truckType || b.tonnageClass || b.containerType) {
           <ui-surface variant="elevated" [border]="true">
             <h3 class="border-b pb-3 text-base font-semibold">Cargo & Equipment Conditions</h3>
 
@@ -228,6 +228,33 @@
                     {{ c.declaredValueAmount | number: "1.2-2" }} {{ c.declaredValueCurrency }}
                   </span>
                 </div>
+              </div>
+            }
+
+            @if (b.truckType || b.tonnageClass || b.containerType) {
+              <div class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
+                @if (b.truckType) {
+                  <div class="bg-muted/40 rounded-lg p-3">
+                    <span class="text-muted-foreground block text-xs">Truck Type</span>
+                    <span class="text-sm font-medium">
+                      {{ b.truckType | enumLabel: truckTypeLabels }}
+                    </span>
+                  </div>
+                }
+                @if (b.tonnageClass) {
+                  <div class="bg-muted/40 rounded-lg p-3">
+                    <span class="text-muted-foreground block text-xs">Tonnage Class</span>
+                    <span class="text-sm font-medium">
+                      {{ b.tonnageClass | enumLabel: tonnageClassLabels }}
+                    </span>
+                  </div>
+                }
+                @if (b.containerType) {
+                  <div class="bg-muted/40 rounded-lg p-3">
+                    <span class="text-muted-foreground block text-xs">Container Type</span>
+                    <span class="text-sm font-medium">{{ label(b.containerType) }}</span>
+                  </div>
+                }
               </div>
             }
 
@@ -817,6 +844,8 @@
     <app-create-trip-dialog
       [bookingId]="b.id!"
       [dropCount]="b.stops?.length ?? 0"
+      [bookedSize]="b.tonnageClass"
+      [truckType]="b.truckType"
       [(open)]="createTripDialogVisible"
       (created)="openTrip($event)"
     />

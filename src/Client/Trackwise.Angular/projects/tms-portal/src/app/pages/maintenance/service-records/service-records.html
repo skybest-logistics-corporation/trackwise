@@ -1,7 +1,7 @@
 <ui-page-header
   title="Service Records"
   backLink="/maintenance"
-  addRoute="/maintenance/records/add"
+  [addRoute]="canManage ? '/maintenance/records/add' : null"
   addTooltip="Log new service"
 />
 

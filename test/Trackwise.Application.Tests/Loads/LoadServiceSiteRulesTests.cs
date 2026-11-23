@@ -1,3 +1,4 @@
+using Trackwise.Application.Tests.TestKit;
 using Trackwise.Application.Modules.Operations.Loads.Services;
 using Trackwise.Domain.Entities;
 using Trackwise.Domain.Persistence;
@@ -30,6 +31,7 @@ public class LoadServiceSiteRulesTests
         var customerRepo = Substitute.For<ITenantRepository<Customer, Guid>>();
         var tripRepo = Substitute.For<ITenantRepository<Trip, Guid>>();
 
+        tenantUow.GetCurrentTenant().Returns(TestTenant.Create());
         tenantUow.Repository<Employee>().Returns(employeeRepo);
         tenantUow.Repository<Truck>().Returns(truckRepo);
         tenantUow.Repository<Customer>().Returns(customerRepo);

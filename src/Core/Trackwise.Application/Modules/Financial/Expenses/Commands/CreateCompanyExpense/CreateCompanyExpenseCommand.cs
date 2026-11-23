@@ -7,7 +7,8 @@ namespace Trackwise.Application.Modules.Financial.Expenses.Commands;
 public class CreateCompanyExpenseCommand : ICommand<Result<Guid>>, IExpenseFields
 {
     public decimal Amount { get; set; }
-    public string Currency { get; set; } = "USD";
+    /// <summary>ISO code of <see cref="Amount"/>. Null means the tenant's currency.</summary>
+    public string? Currency { get; set; }
     public string? VendorName { get; set; }
     public DateTime ExpenseDate { get; set; }
     public string? ReceiptBlobPath { get; set; }

@@ -13,4 +13,5 @@ public class IssueQuotationCommand : ICommand<Result>
     /// Duration before the quote expires. Defaults to 14 days if unspecified.
     /// </summary>
     public int ValidityDays { get; set; } = 14;
+    public string CustomerEmail { get; set; } = "";
 }

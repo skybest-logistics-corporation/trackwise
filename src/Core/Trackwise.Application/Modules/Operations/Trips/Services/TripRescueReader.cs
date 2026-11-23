@@ -14,6 +14,12 @@ internal static class TripRescueReader
     public static Task<IReadOnlyList<TripRescueDto>> ForTripAsync(ITenantUnitOfWork uow, Guid tripId, CancellationToken ct) =>
         ReadAsync(uow, uow.Repository<TripRescue>().Query().Where(r => r.TripId == tripId), ct);
 
+    public static Task<IReadOnlyList<TripRescueDto>> ForTripsAsync(
+        ITenantUnitOfWork uow, IReadOnlyCollection<Guid> tripIds, CancellationToken ct) =>
+        tripIds.Count == 0
+            ? Task.FromResult<IReadOnlyList<TripRescueDto>>([])
+            : ReadAsync(uow, uow.Repository<TripRescue>().Query().Where(r => tripIds.Contains(r.TripId)), ct);
+
     public static Task<IReadOnlyList<TripRescueDto>> ForIncidentAsync(
         ITenantUnitOfWork uow, Guid incidentId, CancellationToken ct) =>
         ReadAsync(uow, uow.Repository<TripRescue>().Query().Where(r => r.IncidentId == incidentId), ct);

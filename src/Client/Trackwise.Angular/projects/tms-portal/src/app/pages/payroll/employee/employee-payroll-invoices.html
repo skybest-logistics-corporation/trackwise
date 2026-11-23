@@ -1,6 +1,6 @@
 <ui-page-header
   title="Employee Payroll Invoices"
-  addRoute="/payroll/invoices/add"
+  [addRoute]="canManagePayroll ? '/payroll/invoices/add' : null"
   addTooltip="Add a new payroll invoice"
 />
 

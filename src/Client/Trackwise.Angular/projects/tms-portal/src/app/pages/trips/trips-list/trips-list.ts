@@ -1,5 +1,6 @@
 import { Component, computed, inject, signal } from "@angular/core";
 import { Router, RouterLink } from "@angular/router";
+import { Permission } from "@trackwise/shared";
 import {
   Api,
   cancelTrip,
@@ -16,7 +17,7 @@ import {
   DateFormatPipe,
   DistanceUnitPipe,
 } from "@trackwise/shared/pipes";
-import { LocalizationService } from "@trackwise/shared/services";
+import { LocalizationService, PermissionService } from "@trackwise/shared/services";
 import {
   Card,
   Grid,
@@ -92,6 +93,7 @@ export class TripsList {
   private readonly localizationService = inject(LocalizationService, { optional: true });
   private readonly addressPipe = new AddressPipe();
   protected readonly store = inject(TripsListStore);
+  protected readonly canManage = inject(PermissionService).hasPermission(Permission.Load.Manage);
 
   protected readonly distanceUnitLabel = computed(
     () => this.localizationService?.getDistanceUnitLabel() ?? "mi",

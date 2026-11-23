@@ -16,7 +16,9 @@ public class UpdateTariffCommand : ICommand<Result>
     public bool? IsActive { get; set; }
     public string? OriginLane { get; set; }
     public string? DestinationLane { get; set; }
+    public TruckType TruckType { get; set; }
+    public TruckTonnageClass? TonnageClass { get; set; }
     public Guid? ContainerTypeId { get; set; }
     public Guid? CarrierId { get; set; }
-    public Guid? ContractId { get; set; }
+    public string? ContractRef { get; set; }
 }

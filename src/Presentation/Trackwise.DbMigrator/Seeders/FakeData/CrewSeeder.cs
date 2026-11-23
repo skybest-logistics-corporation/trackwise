@@ -69,7 +69,7 @@ internal class CrewSeeder(ILogger<CrewSeeder> log, IHostEnvironment environment)
                     continue;
                 }
 
-                var employee = Employee.CreateEmployeeFromUser(user);
+                var employee = Employee.CreateEmployeeFromUser(user, tenant.Settings.Currency.ToString());
                 employee.Code = await codes.NextAsync(nameof(Employee), "EMP", ct: cancellationToken);
                 employee.RoleId = driverRole.Id;
                 employee.IsActive = crew.IsActive;

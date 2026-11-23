@@ -71,14 +71,14 @@ public sealed class BookingInvoiceLifecycleTests
             "QT-TEST-BILL-001",
             "USD",
             TransportMode.Road,
-            FreightMode.Domestic,
+            FreightMode.Trucking,
             ShipmentType.FTL,
             Incoterm.DAP,
             lane,
             cargo);
 
         var chargeCode = ChargeCode.Create(
-            "FRT", "Freight", ChargeCategory.Base, [FreightMode.Domestic], "km");
+            "FRT", "Freight", ChargeCategory.Base, [FreightMode.Trucking], "km");
         chargeCode.Currency = "USD";
         var tariffRate = new TariffRate
         {
@@ -98,8 +98,8 @@ public sealed class BookingInvoiceLifecycleTests
             null);
         typeof(QuotationLine).GetProperty(nameof(QuotationLine.TariffRate))?.SetValue(line, tariffRate);
         quotation.Approve("billing-test");
-        quotation.Issue(TimeSpan.FromDays(30));
-        quotation.Accept();
+        quotation.Issue(TimeSpan.FromDays(30), "System");
+        quotation.Accept("System");
         return Booking.CreateDraftFromQuotation(quotation, 1);
     }
 }

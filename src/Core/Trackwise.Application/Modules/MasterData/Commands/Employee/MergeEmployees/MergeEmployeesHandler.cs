@@ -1,5 +1,6 @@
 using Trackwise.Application.Abstractions;
 using Trackwise.Application.Abstractions.Modules.MasterData;
+using Trackwise.Application.Modules.IdentityAccess.Users.Services;
 using Trackwise.Domain.Entities;
 using Trackwise.Domain.Persistence;
 using Trackwise.Mappings;
@@ -11,7 +12,8 @@ namespace Trackwise.Application.Modules.MasterData.Commands;
 internal sealed class MergeEmployeesHandler(
     ITenantUnitOfWork tenantUow,
     IMasterUnitOfWork masterUow,
-    IMasterDataMergeService merges)
+    IMasterDataMergeService merges,
+    IUserPermissionService? userPermissions = null)
     : IAppRequestHandler<MergeEmployeesCommand, Result<EmployeeDto>>
 {
     public async Task<Result<EmployeeDto>> Handle(MergeEmployeesCommand req, CancellationToken ct)
@@ -91,11 +93,17 @@ internal sealed class MergeEmployeesHandler(
         // transaction cannot span the tenant and master databases.
         var tenant = tenantUow.GetCurrentTenant();
 
-        if (loserUser?.Tenant is not null && loserUser.Tenant.Id == tenant.Id)
+        if (loserUser is not null && tenant is not null && (loserUser.TenantId == tenant.Id || loserUser.Tenant?.Id == tenant.Id))
         {
             loserUser.Tenant = null;
+            loserUser.TenantId = null;
             masterUow.Repository<User>().Update(loserUser);
             await masterUow.SaveChangesAsync(ct);
+        }
+
+        if (tenant is not null)
+        {
+            userPermissions?.InvalidateTenant(tenant.Id);
         }
 
         return mergeResult;

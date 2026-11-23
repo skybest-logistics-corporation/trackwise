@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using Trackwise.Application.Abstractions;
+using Trackwise.Application.Abstractions.CurrentUser;
 using Trackwise.Domain.Entities;
 using Trackwise.Domain.Persistence;
 using Trackwise.Domain.Primitives.Enums;
@@ -9,7 +10,7 @@ using Trackwise.Shared.Models;
 
 namespace Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.ExpireQuotation;
 
-internal sealed class ExpireQuotationHandler(ITenantUnitOfWork tenantUow)
+internal sealed class ExpireQuotationHandler(ITenantUnitOfWork tenantUow, ICurrentUserService currentUserService)
     : IAppRequestHandler<ExpireQuotationCommand, Result>
 {
     public async Task<Result> Handle(ExpireQuotationCommand req, CancellationToken ct)
@@ -30,7 +31,7 @@ internal sealed class ExpireQuotationHandler(ITenantUnitOfWork tenantUow)
         }
 
         // Domain method sets Status to Expired and dispatches QuotationExpired event
-        quotation.Expire();
+        quotation.Expire(currentUserService.GetUserName());
 
         quotationRepo.Update(quotation);
         await tenantUow.SaveChangesAsync(ct);

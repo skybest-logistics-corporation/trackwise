@@ -33,6 +33,7 @@ class PreferencesManager(private val dataStore: DataStore<Preferences>) {
         val LANGUAGE = stringPreferencesKey("language")
         val HAS_ACCEPTED_LOCATION_DISCLOSURE = booleanPreferencesKey("has_accepted_location_disclosure")
         val PENDING_TRIP_EVENTS = stringPreferencesKey("pending_trip_events")
+        val OFFICE_PHONE = stringPreferencesKey("office_phone")
     }
 
     /** Trip taps not yet sent, as JSON. Cleared with everything else on logout. */
@@ -98,6 +99,15 @@ class PreferencesManager(private val dataStore: DataStore<Preferences>) {
 
     suspend fun getTruckId(): String? {
         return dataStore.data.first()[TRUCK_ID]
+    }
+
+    /** Kept on the phone, so the crew can still call the office when there's no data signal. */
+    suspend fun saveOfficePhone(phone: String?) {
+        dataStore.edit { prefs -> if (phone.isNullOrBlank()) prefs.remove(OFFICE_PHONE) else prefs[OFFICE_PHONE] = phone }
+    }
+
+    suspend fun getOfficePhone(): String? {
+        return dataStore.data.first()[OFFICE_PHONE]
     }
 
     // Truck Number

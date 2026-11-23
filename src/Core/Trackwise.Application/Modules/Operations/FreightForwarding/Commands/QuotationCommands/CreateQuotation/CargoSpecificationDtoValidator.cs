@@ -15,7 +15,7 @@ public class CargoSpecificationDtoValidator : AbstractValidator<CargoSpecificati
             .MaximumLength(200);
 
         RuleFor(x => x.TotalWeightKg)
-            .GreaterThan(0)
+            .GreaterThanOrEqualTo(0)
             .WithMessage("Total cargo weight must be greater than 0 kg.");
 
         RuleFor(x => x.PalletCount)

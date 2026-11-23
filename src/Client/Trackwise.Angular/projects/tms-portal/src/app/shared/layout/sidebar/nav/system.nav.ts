@@ -11,7 +11,13 @@ export const systemNav: NavSection = {
       label: "Settings",
       icon: "settings",
       route: "/settings",
-      permission: Permission.Tenant.View,
+      permission: [
+        Permission.Tenant.View,
+        Permission.Payment.View,
+        Permission.Accounting.View,
+        Permission.ApiKey.View,
+        Permission.TenantRole.Manage,
+      ],
       children: [
         {
           id: "settings-company",
@@ -32,7 +38,7 @@ export const systemNav: NavSection = {
           label: "Integrations",
           route: "/settings/integrations",
           feature: ["accounting", "mcp_server"],
-          permission: Permission.Accounting.View,
+          permission: [Permission.Accounting.View, Permission.ApiKey.View],
           menuHidden: true,
         },
         {

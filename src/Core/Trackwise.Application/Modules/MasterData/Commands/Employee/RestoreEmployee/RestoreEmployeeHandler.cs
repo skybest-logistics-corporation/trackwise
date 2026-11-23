@@ -1,4 +1,5 @@
 using Trackwise.Application.Abstractions;
+using Trackwise.Application.Modules.IdentityAccess.Users.Services;
 using Trackwise.Domain.Entities;
 using Trackwise.Domain.Persistence;
 using Trackwise.Shared.Models;
@@ -6,7 +7,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Trackwise.Application.Modules.MasterData.Commands;
 
-internal sealed class RestoreEmployeeHandler(ITenantUnitOfWork tenantUow)
+internal sealed class RestoreEmployeeHandler(
+    ITenantUnitOfWork tenantUow,
+    IMasterUnitOfWork? masterUow = null,
+    IUserPermissionService? userPermissions = null)
     : IAppRequestHandler<RestoreEmployeeCommand, Result>
 {
     public async Task<Result> Handle(RestoreEmployeeCommand req, CancellationToken ct)
@@ -43,6 +47,24 @@ internal sealed class RestoreEmployeeHandler(ITenantUnitOfWork tenantUow)
         employee.DeletedBy = null;
 
         await tenantUow.SaveChangesAsync(ct);
+
+        var tenant = tenantUow.GetCurrentTenant();
+        if (tenant is not null)
+        {
+            if (masterUow is not null)
+            {
+                var user = await masterUow.Repository<User>().GetByIdAsync(employee.Id, ct);
+                if (user is not null && user.TenantId is null)
+                {
+                    user.TenantId = tenant.Id;
+                    masterUow.Repository<User>().Update(user);
+                    await masterUow.SaveChangesAsync(ct);
+                }
+            }
+
+            userPermissions?.InvalidateTenant(tenant.Id);
+        }
+
         return Result.Ok();
     }
 }

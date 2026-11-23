@@ -1,7 +1,7 @@
 <div class="animate-in fade-in space-y-4">
   <ui-page-header
     title="Vessels"
-    addRoute="/master-data/vessels/add"
+    [addRoute]="canManage ? '/master-data/vessels/add' : null"
     addTooltip="Add a new vessel"
   />
 

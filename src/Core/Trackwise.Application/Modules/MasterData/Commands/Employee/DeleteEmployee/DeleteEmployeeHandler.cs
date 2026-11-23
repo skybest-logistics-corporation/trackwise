@@ -1,11 +1,15 @@
 using Trackwise.Application.Abstractions;
+using Trackwise.Application.Modules.IdentityAccess.Users.Services;
 using Trackwise.Domain.Entities;
 using Trackwise.Domain.Persistence;
 using Trackwise.Shared.Models;
 
 namespace Trackwise.Application.Modules.MasterData.Commands;
 
-internal sealed class DeleteEmployeeHandler(ITenantUnitOfWork tenantUow, IMasterUnitOfWork masterUow)
+internal sealed class DeleteEmployeeHandler(
+    ITenantUnitOfWork tenantUow,
+    IMasterUnitOfWork masterUow,
+    IUserPermissionService? userPermissions = null)
     : IAppRequestHandler<DeleteEmployeeCommand, Result>
 {
     public async Task<Result> Handle(DeleteEmployeeCommand req, CancellationToken ct)
@@ -63,11 +67,17 @@ internal sealed class DeleteEmployeeHandler(ITenantUnitOfWork tenantUow, IMaster
         // databases, a pre-existing gap this change does not attempt to close.
         var tenant = tenantUow.GetCurrentTenant();
 
-        if (user?.Tenant is not null && user.Tenant.Id == tenant.Id)
+        if (user is not null && tenant is not null && (user.TenantId == tenant.Id || user.Tenant?.Id == tenant.Id))
         {
             user.Tenant = null;
+            user.TenantId = null;
             masterUow.Repository<User>().Update(user);
             await masterUow.SaveChangesAsync(ct);
+        }
+
+        if (tenant is not null)
+        {
+            userPermissions?.InvalidateTenant(tenant.Id);
         }
 
         return Result.Ok();

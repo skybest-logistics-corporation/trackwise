@@ -1,5 +1,17 @@
 <ui-page-header [title]="tariff()?.name ?? 'Tariff Details'" backLink="/tariffs">
   @if (tariff()) {
+    <ui-button
+      icon="pencil"
+      label="Edit"
+      appearance="outlined"
+      [routerLink]="['/tariffs/edit', id()]"
+    />
+    <ui-button
+      icon="copy"
+      label="Create Copy"
+      appearance="outlined"
+      (click)="isCopyOpen.set(true)"
+    />
     <ui-button icon="plus" label="Add Rate" [routerLink]="['/tariffs', id(), 'rates', 'add']" />
     @if (tariff()!.isActive) {
       <ui-button icon="copy" label="Supersede" [routerLink]="['/tariffs', id(), 'supersede']" />
@@ -39,6 +51,18 @@
         </ui-grid>
         <ui-grid [size]="{ xs: 6, md: 3 }">
           <ui-info-item label="Destination Lane" [value]="tariff.destinationLane ?? '-'" />
+        </ui-grid>
+        <ui-grid [size]="{ xs: 6, md: 3 }">
+          <ui-info-item
+            label="Truck Type"
+            [value]="(tariff.truckType | enumLabel: truckTypeLabels) ?? '-'"
+          />
+        </ui-grid>
+        <ui-grid [size]="{ xs: 6, md: 3 }">
+          <ui-info-item
+            label="Tonnage Class"
+            [value]="(tariff.tonnageClass | enumLabel: tonnageClassLabels) ?? '-'"
+          />
         </ui-grid>
         <ui-grid [size]="{ xs: 6, md: 3 }">
           <ui-info-item label="Container Type" [value]="tariff.containerTypeName ?? '-'" />
@@ -97,19 +121,19 @@
                   <td>{{ rate.pricingModel | titlecase }}</td>
                   <td>{{ rate.unit }}</td>
                   <td class="text-right">
-                    {{ rate.baseAmount | currency: tariff.currency ?? "USD" }}
+                    {{ rate.baseAmount | currency: tariff.currency ?? "PHP" }}
                   </td>
                   <td class="text-right">
                     {{
                       (rate.minimum ?? null) !== null
-                        ? (rate.minimum | currency: tariff.currency ?? "USD")
+                        ? (rate.minimum | currency: tariff.currency ?? "PHP")
                         : "-"
                     }}
                   </td>
                   <td class="text-right">
                     {{
                       (rate.maximum ?? null) !== null
-                        ? (rate.maximum | currency: tariff.currency ?? "USD")
+                        ? (rate.maximum | currency: tariff.currency ?? "PHP")
                         : "-"
                     }}
                   </td>
@@ -178,4 +202,11 @@
   [(visible)]="deleteRateConfirmVisible"
   [deleting]="isDeletingLine()"
   (confirm)="onConfirmDeleteRate()"
+/>
+
+<app-tariff-copy
+  [tariffId]="id()"
+  [originName]="tariff()?.name ?? 'Tariff'"
+  [(isOpen)]="isCopyOpen"
+  (copied)="onTariffCopied($event)"
 />

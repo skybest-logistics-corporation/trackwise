@@ -1,5 +1,6 @@
 using MockQueryable;
 using NSubstitute;
+using Trackwise.Application.Abstractions.CurrentUser;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.CreateQuotationRevision;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Services;
 using Trackwise.Domain.Entities;
@@ -14,6 +15,7 @@ namespace Trackwise.Application.Tests.FreightForwarding;
 public class CreateQuotationRevisionHandlerTests
 {
     private readonly ITenantUnitOfWork tenantUow = Substitute.For<ITenantUnitOfWork>();
+    private readonly ICurrentUserService currentUserService = Substitute.For<ICurrentUserService>();
     private readonly ITenantRepository<Branch, Guid> branchRepo = Substitute.For<ITenantRepository<Branch, Guid>>();
     private readonly Branch branch = new() { Code = "MNL", Name = "Manila" };
     private readonly ITenantRepository<Quotation, Guid> quotationRepo =
@@ -38,6 +40,8 @@ public class CreateQuotationRevisionHandlerTests
             ServiceLevel.Standard,
             "Domestic rates",
             "USD",
+            null,
+            null,
             null,
             null,
             null,
@@ -67,7 +71,7 @@ public class CreateQuotationRevisionHandlerTests
             null,
             "Original charge");
         source.Approve("manager@test.com");
-        source.Issue(TimeSpan.FromDays(14));
+        source.Issue(TimeSpan.FromDays(14), "System");
 
         quotationRepo.Query().Returns(new List<Quotation> { source }.BuildMock());
         Quotation? createdRevision = null;
@@ -80,7 +84,7 @@ public class CreateQuotationRevisionHandlerTests
         referenceGenerator.NextAsync(Arg.Any<FreightMode>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns("QT-2026-DOM-00002");
 
-        var sut = new CreateQuotationRevisionHandler(tenantUow, referenceGenerator);
+        var sut = new CreateQuotationRevisionHandler(tenantUow, referenceGenerator, currentUserService);
         var result = await sut.Handle(new CreateQuotationRevisionCommand(source.Id), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -112,7 +116,7 @@ public class CreateQuotationRevisionHandlerTests
         var source = CreateQuotation();
         quotationRepo.Query().Returns(new List<Quotation> { source }.BuildMock());
 
-        var sut = new CreateQuotationRevisionHandler(tenantUow, referenceGenerator);
+        var sut = new CreateQuotationRevisionHandler(tenantUow, referenceGenerator, currentUserService);
         var result = await sut.Handle(new CreateQuotationRevisionCommand(source.Id), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -125,10 +129,10 @@ public class CreateQuotationRevisionHandlerTests
     {
         var source = CreateQuotation();
         SetStatus(source, QuotationStatus.Approved);
-        var existingRevision = source.CreateRevision("QT-2026-DOM-00002", 2);
+        var existingRevision = source.CreateRevision("QT-2026-DOM-00002", 2, "System");
         quotationRepo.Query().Returns(new List<Quotation> { source, existingRevision }.BuildMock());
 
-        var sut = new CreateQuotationRevisionHandler(tenantUow, referenceGenerator);
+        var sut = new CreateQuotationRevisionHandler(tenantUow, referenceGenerator, currentUserService);
         var result = await sut.Handle(new CreateQuotationRevisionCommand(source.Id), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -158,7 +162,7 @@ public class CreateQuotationRevisionHandlerTests
             "QT-2026-DOM-00001",
             "USD",
             TransportMode.Road,
-            FreightMode.Domestic,
+            FreightMode.Trucking,
             ShipmentType.FTL,
             Incoterm.DAP,
             lane,

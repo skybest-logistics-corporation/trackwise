@@ -182,7 +182,7 @@ internal class EmployeeSeeder(ILogger<EmployeeSeeder> logger) : SeederBase(logge
 
         if (employee is null)
         {
-            employee = Employee.CreateEmployeeFromUser(user, salary, salaryType);
+            employee = Employee.CreateEmployeeFromUser(user, context.CurrentTenant!.Settings.Currency.ToString(), salary, salaryType);
             employee.Code = await context.ServiceProvider.GetRequiredService<IMasterDataCodeGenerator>()
                 .NextAsync(nameof(Employee), "EMP");
             employee.Address = context.Region?.CompanyAddress;

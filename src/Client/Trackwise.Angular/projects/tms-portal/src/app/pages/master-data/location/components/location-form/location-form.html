@@ -1,5 +1,5 @@
 <ui-grid container spacing="3">
-  <ui-grid [size]="{ xs: 12, lg: 9, xl: 8 }">
+  <ui-grid [size]="embedded() ? { xs: 12 } : { xs: 12, lg: 9, xl: 8 }">
     <form [formRoot]="form">
       <ui-stack gap="4">
         <ui-stack tag="section" gap="3">
@@ -133,6 +133,18 @@
                   <ui-address-form [formField]="form.address" />
                 </ui-form-field>
 
+                @if (mapsSearchUrl(); as url) {
+                  <a
+                    [href]="url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="text-primary inline-flex items-center gap-1 text-sm hover:underline"
+                  >
+                    <ui-icon name="external-link" size="sm" />
+                    Search this address on Google Maps
+                  </a>
+                }
+
                 <ui-grid container spacing="3">
                   <ui-grid [size]="{ xs: 12, md: 4 }">
                     <ui-form-field label="Latitude" for="latitude" hint="Decimal degrees">
@@ -144,6 +156,35 @@
                     <ui-form-field label="Longitude" for="longitude" hint="Decimal degrees">
                       <ui-number-field id="longitude" [formField]="form.longitude" />
                     </ui-form-field>
+                  </ui-grid>
+                </ui-grid>
+                <ui-grid container spacing="3">
+                  <ui-grid [size]="{ xs: 12, md: 8 }">
+                    <ui-form-field
+                      label="Google Maps link"
+                      for="mapsLink"
+                      [hint]="mapsLinkError() ?? 'Paste a link to fill latitude and longitude'"
+                    >
+                      <ui-text-field
+                        id="mapsLink"
+                        type="url"
+                        placeholder="https://www.google.com/maps/place/..."
+                        [(value)]="mapsLink"
+                        (paste)="onMapsLinkPaste()"
+                      />
+                    </ui-form-field>
+                  </ui-grid>
+
+                  <ui-grid [size]="{ xs: 12, md: 4 }">
+                    <ui-stack direction="row" gap="2" align="center" class="md:pt-6">
+                      <ui-button
+                        type="button"
+                        icon="map-pin"
+                        label="Use link"
+                        [disabled]="!mapsLink().trim()"
+                        (click)="applyMapsLink()"
+                      />
+                    </ui-stack>
                   </ui-grid>
                 </ui-grid>
               }
@@ -165,6 +206,7 @@
             label="Cancel"
             [routerLink]="['/master-data/locations']"
             [disabled]="isLoading()"
+            (click)="dismiss.emit()"
           />
         </ui-stack>
       </ui-stack>

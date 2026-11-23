@@ -1,6 +1,7 @@
 using Trackwise.Domain.Primitives.Enums;
 using Trackwise.Domain.Primitives.Enums.FreightForwarding;
 using Trackwise.Domain.Primitives.ValueObjects;
+using Trackwise.Shared.Models.QuotationEvents;
 using Trackwise.Shared.Models.Quotations;
 
 namespace Trackwise.Shared.Models;
@@ -16,6 +17,7 @@ public class QuotationSummaryDto
     public string BranchName { get; set; } = default!;
     public string ReferenceNumber { get; set; } = default!;
     public string CustomerName { get; set; } = default!;
+    public string CustomerEmail { get; set; } = default!;
     public string Currency { get; set; } = default!;
     public QuotationStatus Status { get; set; }
     public int LineCount { get; set; }
@@ -32,8 +34,11 @@ public class QuotationDto
     public Guid BranchId { get; set; }
     public string BranchName { get; set; } = default!;
     public string CustomerName { get; set; } = default!;
+    public string CustomerEmail { get; set; } = default!;
     public string ReferenceNumber { get; set; } = default!;
     public string Currency { get; set; } = default!;
+    public string? RejectionReason { get; set; } = default!;
+    public string? RejectedBy { get; set; } = default!;
     public QuotationStatus Status { get; set; }
     public Guid RevisionGroupId { get; set; }
     public int RevisionNumber { get; set; }
@@ -50,6 +55,14 @@ public class QuotationDto
     // Route & Stops
     public decimal TotalDistanceKm { get; set; }
     public List<RouteStopSummaryDto> Stops { get; set; } = [];
+    /// <summary>Port of Loading - only applicable to the non-lane (Domestic / Import / Export / Triangular) modes.</summary>
+    // Ports - only applicable to the non-lane (Domestic / Import / Export / Triangular) modes.
+    /// <summary>Port of Loading id.</summary>
+    public Guid? PolId { get; set; }
+    public TerminalSummaryDto? Pol { get; set; }
+    /// <summary>Port of Discharge id.</summary>
+    public Guid? PodId { get; set; }
+    public TerminalSummaryDto? Pod { get; set; }
 
     // Cargo & Cold Chain Profile
     public string? Commodity { get; set; } = default!;
@@ -77,6 +90,11 @@ public class QuotationDto
 
     public List<QuotationLineDto> Lines { get; set; } = [];
     public string? Notes { get; set; }
+
+    // Audit & Activity
+    public string? UpdatedBy { get; set; }
+    public DateTimeOffset? UpdatedAt { get; set; }
+    public List<QuotationEventDto> Timeline { get; set; } = [];
 }
 
 public record QuotationRevisionDto(

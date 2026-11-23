@@ -24,7 +24,7 @@ export const forwardingNav: NavSection = {
       label: "Bookings & Executions",
       icon: "calendar",
       route: "/bookings-executions",
-      permission: Permission.Booking.Manage,
+      permission: Permission.Booking.View,
     },
     // {
     //   id: "Workfiles",
@@ -42,6 +42,14 @@ export const forwardingNav: NavSection = {
     //   comingSoon: true,
     // },
     {
+      id: "Booking Expenses",
+      label: "Booking Expenses",
+      icon: "file",
+      route: "/booking-expenses",
+      permission: Permission.Billing.View,
+      // comingSoon: true,
+    },
+    {
       id: "Billing & Invoicing",
       label: "Billing & Invoicing",
       icon: "file",
@@ -54,7 +62,7 @@ export const forwardingNav: NavSection = {
       label: "Shipment Tracking",
       icon: "truck",
       route: "/shipment-tracking",
-      permission: Permission.Shipments.View,
+      permission: Permission.Shipment.View,
       comingSoon: true,
     },
     {

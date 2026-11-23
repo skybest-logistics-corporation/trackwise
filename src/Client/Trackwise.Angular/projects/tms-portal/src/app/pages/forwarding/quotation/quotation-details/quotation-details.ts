@@ -1,10 +1,11 @@
 import { DatePipe, DecimalPipe, TitleCasePipe } from "@angular/common";
-import { Component, DestroyRef, inject, signal, type OnInit } from "@angular/core";
+import { Component, computed, DestroyRef, inject, signal, type OnInit } from "@angular/core";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { ActivatedRoute, Router } from "@angular/router";
+import { PermissionService } from "@trackwise/shared";
 import {
   acceptQuotation,
-  addQuotationLine,
+  addQuotationLines,
   Api,
   approveQuotation,
   convertQuotationToBooking,
@@ -17,7 +18,9 @@ import {
   removeQuotationLine,
   submitQuotation,
   type ConvertQuotationToBookingRequest,
+  type FreightMode,
   type QuotationDto,
+  type QuotationEventType,
   type QuotationLineDto,
   type QuotationStatus,
 } from "@trackwise/shared/api";
@@ -37,6 +40,9 @@ import {
   UiNumberField,
   UiSelectField,
   UiTextareaField,
+  UiTextField,
+  type IconColor,
+  type IconName,
 } from "@trackwise/shared/ui";
 import { distinctUntilChanged, map } from "rxjs";
 import { ContainerTypeOptionsService, ToastService } from "@/core/services";
@@ -50,6 +56,14 @@ import {
   type QuotationLineFormValue,
 } from "../components/quotation-line-form/quotation-line-form";
 import { QuotationLinesTable } from "../components/quotation-lines-table/quotation-lines-table";
+
+interface TimelineMeta {
+  label: string;
+  icon: IconName;
+  color: IconColor;
+}
+
+const LANE_FREIGHT_MODES: readonly FreightMode[] = ["reefer", "trucking"];
 
 @Component({
   selector: "app-quotation-details",
@@ -69,6 +83,7 @@ import { QuotationLinesTable } from "../components/quotation-lines-table/quotati
     TitleCasePipe,
     Typography,
     UiButton,
+    UiTextField,
     UiDateField,
     UiDialog,
     UiFormField,
@@ -100,6 +115,7 @@ export class QuotationDetailsComponent implements OnInit {
 
   protected readonly issueDialogVisible = signal(false);
   protected readonly validityDays = signal<number>(30);
+  protected readonly customerEmail = signal<string>("");
 
   protected readonly convertDialogVisible = signal(false);
   protected readonly repeatBooking = signal(false);
@@ -108,12 +124,43 @@ export class QuotationDetailsComponent implements OnInit {
   protected readonly convertDeliveryDate = signal<Date | null>(null);
   protected readonly convertNotes = signal("");
 
+  protected readonly isNotesExpanded = signal(false);
+
   protected readonly openQuotationPdfViewer = signal(false);
 
   // Deletion dialog state
   protected readonly deleteLineDialogVisible = signal(false);
   protected readonly isDeletingLine = signal(false);
   protected readonly lineToDelete = signal<QuotationLineDto | null>(null);
+
+  private readonly currentPermissions = inject(PermissionService);
+
+  protected readonly canApprove = computed(() =>
+    this.currentPermissions.hasPermission("Permission.Quotation.Approve"),
+  );
+
+  private readonly timelineMeta: Record<QuotationEventType, TimelineMeta> = {
+    created: { label: "Created", icon: "file-pen-line", color: "muted" },
+    edited: { label: "Edited", icon: "pencil", color: "muted" },
+    revision_created: { label: "Revision Created", icon: "file-pen", color: "muted" },
+    submitted: { label: "Submitted", icon: "send", color: "primary" },
+    approved: { label: "Approved", icon: "circle-check", color: "success" },
+    rejected: { label: "Rejected", icon: "circle-x", color: "danger" },
+    issued: { label: "Issued", icon: "file-output", color: "primary" },
+    accepted: { label: "Accepted", icon: "shield-check", color: "success" },
+    expired: { label: "Expired", icon: "calendar-x", color: "warning" },
+    converted_to_booking: { label: "Converted to Booking", icon: "calendar", color: "success" },
+  };
+
+  protected timelineEntry(type?: string): TimelineMeta {
+    return (
+      this.timelineMeta[type as QuotationEventType] ?? {
+        label: this.formatLabel(type),
+        icon: "circle",
+        color: "muted",
+      }
+    );
+  }
 
   ngOnInit(): void {
     void this.containerTypes.load();
@@ -128,6 +175,59 @@ export class QuotationDetailsComponent implements OnInit {
         if (id) void this.load(id);
       });
   }
+
+  /** Distinct truck type + tonnage combinations across the lines' tariffs. */
+  private readonly vehicleSpecs = computed(() => {
+    const specs = new Map<string, string>();
+    for (const line of this.quotation()?.lines ?? []) {
+      if (!line.tariffTruckType && !line.tariffTonnageClass) continue; // not a vehicle-based tariff
+      const key = `${line.tariffTruckType ?? ""}|${line.tariffTonnageClass ?? ""}`;
+      const label = [
+        this.formatLabel(line.tariffTruckType),
+        this.formatLabel(line.tariffTonnageClass),
+      ]
+        .filter((part) => part !== "-")
+        .join(" ");
+      specs.set(key, label);
+    }
+    return [...specs.values()];
+  });
+
+  /** A booking is one truck type and size, so a mixed quotation can't be converted as is. */
+  protected readonly hasMixedVehicleSpecs = computed(() => this.vehicleSpecs().length > 1);
+  protected readonly mixedVehicleSummary = computed(() => this.vehicleSpecs().join(", "));
+
+  /** Revisions can only be made from the latest, non-draft version. */
+  protected readonly canCreateRevision = computed(() => {
+    const q = this.quotation();
+    return !!q && q.status !== "draft" && q.revisionNumber === q.revisions?.length;
+  });
+
+  /** Reefer / Trucking quote a stop-by-stop lane; everything else quotes POL / POD. */
+  protected readonly isLaneBased = computed(() => {
+    const mode = this.quotation()?.freightMode;
+    return !!mode && LANE_FREIGHT_MODES.includes(mode);
+  });
+
+  protected readonly isReefer = computed(() => this.quotation()?.freightMode === "reefer");
+
+  protected readonly sortedStops = computed(() =>
+    [...(this.quotation()?.stops ?? [])].sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0)),
+  );
+
+  protected readonly stopTypeLabels: Record<string, string> = {
+    pickup: "Pickup",
+    dropoff: "Drop-off",
+    waypoint: "Waypoint",
+    cross_dock_staging: "Cross-dock Staging",
+  };
+
+  protected readonly polLabel = computed(() =>
+    this.quotation()?.mode === "air" ? "Airport of Departure (POL)" : "Port of Loading (POL)",
+  );
+  protected readonly podLabel = computed(() =>
+    this.quotation()?.mode === "air" ? "Airport of Destination (POD)" : "Port of Discharge (POD)",
+  );
 
   /**
    * Triggered when the trash icon is clicked in the table.
@@ -180,22 +280,22 @@ export class QuotationDetailsComponent implements OnInit {
     }
   }
 
-  protected async addLine(value: QuotationLineFormValue): Promise<void> {
-    const quotationId = this.quotation()?.id;
-    if (!quotationId || this.isBusy()) return;
+  // protected async addLine(value: QuotationLineFormValue): Promise<void> {
+  //   const quotationId = this.quotation()?.id;
+  //   if (!quotationId || this.isBusy()) return;
 
-    this.isBusy.set(true);
-    try {
-      await this.api.invoke(addQuotationLine, { id: quotationId, body: value });
-      this.addLineDialogVisible.set(false);
-      this.toastService.showSuccess("Line added to quotation.");
-      await this.load();
-    } catch {
-      this.toastService.showError("Failed to add line. Check the tariff rate and currency.");
-    } finally {
-      this.isBusy.set(false);
-    }
-  }
+  //   this.isBusy.set(true);
+  //   try {
+  //     await this.api.invoke(addQuotationLine, { id: quotationId, body: value });
+  //     this.addLineDialogVisible.set(false);
+  //     this.toastService.showSuccess("Line added to quotation.");
+  //     await this.load();
+  //   } catch {
+  //     this.toastService.showError("Failed to add line. Check the tariff rate and currency.");
+  //   } finally {
+  //     this.isBusy.set(false);
+  //   }
+  // }
 
   protected submit(): void {
     const id = this.quotation()?.id;
@@ -243,6 +343,7 @@ export class QuotationDetailsComponent implements OnInit {
 
   protected openIssueDialog(): void {
     this.validityDays.set(30);
+    this.customerEmail.set(this.quotation()?.customerEmail ?? "");
     this.issueDialogVisible.set(true);
   }
 
@@ -254,10 +355,13 @@ export class QuotationDetailsComponent implements OnInit {
     try {
       await this.api.invoke(issueQuotation, {
         id,
-        body: { validityDays: this.validityDays() },
+        body: {
+          validityDays: this.validityDays(),
+          customerEmail: this.customerEmail(),
+        },
       });
       this.issueDialogVisible.set(false);
-      this.toastService.showSuccess("Quotation issued successfully.");
+      this.toastService.showSuccess("Quotation issued and sent successfully.");
       await this.load();
     } catch {
       this.toastService.showError("Failed to issue quotation.");
@@ -387,7 +491,7 @@ export class QuotationDetailsComponent implements OnInit {
 
   protected async confirmConvertToBooking(): Promise<void> {
     const quotationId = this.quotation()?.id;
-    if (!quotationId || this.isBusy()) return;
+    if (!quotationId || this.isBusy() || this.hasMixedVehicleSpecs()) return;
 
     const body: ConvertQuotationToBookingRequest = {
       containerTypeId: this.convertContainerTypeId() ?? undefined,
@@ -433,27 +537,27 @@ export class QuotationDetailsComponent implements OnInit {
     }
   }
 
-  async addLines(lines: QuotationLineFormValue[]): Promise<void> {
-    const quotationId = this.quotation()?.id; // or this.quotation()?.id;
+  protected async addLines(lines: QuotationLineFormValue[]): Promise<void> {
+    const quotationId = this.quotation()?.id;
+    if (!quotationId || lines.length === 0 || this.isBusy()) return;
 
-    // 1. Guard check narrows quotationId from `string | undefined` to `string`
-    if (!quotationId) {
-      console.error("Quotation ID is required to add lines.");
-      return;
+    this.isBusy.set(true);
+    try {
+      await this.api.invoke(addQuotationLines, { id: quotationId, body: { lines } });
+      this.addLineDialogVisible.set(false);
+      this.toastService.showSuccess(
+        lines.length === 1
+          ? "Line added to quotation."
+          : `${lines.length} lines added to quotation.`,
+      );
+      await this.load();
+    } catch {
+      this.toastService.showError(
+        "Failed to add lines. Nothing was saved, so check the tariff rates and currency.",
+      );
+    } finally {
+      this.isBusy.set(false);
     }
-
-    // 2. quotationId is now strictly `string`
-    await Promise.all(
-      lines.map((line) =>
-        this.api.invoke(addQuotationLine, {
-          id: quotationId,
-          body: { ...line },
-        }),
-      ),
-    );
-
-    this.addLineDialogVisible.set(false);
-    await this.load();
   }
 
   protected formatLabel(text?: string | null): string {

@@ -1,10 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using Trackwise.Application.Abstractions;
 using Trackwise.Domain.Entities;
+using Trackwise.Domain.Entities.FreightForwarding;
 using Trackwise.Domain.Persistence;
 using Trackwise.Domain.Primitives.Enums;
 using Trackwise.Shared.Models;
+using Trackwise.Shared.Models.QuotationEvents;
 using Trackwise.Shared.Models.Quotations;
+using Trackwise.Mappings;
 
 namespace Trackwise.Application.Modules.Operations.FreightForwarding.Queries;
 
@@ -18,10 +21,12 @@ internal sealed class GetQuotationByIdHandler(ITenantUnitOfWork tenantUow)
         var quotation = await tenantUow.Repository<Quotation>().Query()
             .Include(q => q.Lines)
                 .ThenInclude(l => l.TariffRate)
-                    .ThenInclude(tr => tr!.ChargeCode)
+                    .ThenInclude(tr => tr!.Tariff)
             .Include(q => q.Lines)
                 .ThenInclude(l => l.TariffRate)
-                    .ThenInclude(tr => tr!.Tariff)
+                    .ThenInclude(tr => tr!.ChargeCode)
+            .Include(q => q.Pod)
+            .Include(q => q.Pol)
             .FirstOrDefaultAsync(q => q.Id == req.Id, ct);
 
         if (quotation is null)
@@ -80,11 +85,17 @@ internal sealed class GetQuotationByIdHandler(ITenantUnitOfWork tenantUow)
             totalBuying += buying.Amount;
             totalSelling += selling.Amount;
 
+            var tariffRate = line.TariffRate;
+
             linesDto.Add(new QuotationLineDto
             {
                 Id = line.Id,
                 QuotationId = line.QuotationId,
                 TariffRateId = line.TariffRateId,
+                TariffId = tariffRate?.TariffId,
+                TariffName = tariffRate?.Tariff?.Name,
+                TariffTruckType = tariffRate?.Tariff?.TruckType,
+                TariffTonnageClass = tariffRate?.Tariff?.TonnageClass,
                 ChargeCode = line.TariffRate?.ChargeCode?.Code ?? "UNKNOWN",
                 ChargeName = line.TariffRate?.ChargeCode?.Name ?? "Unspecified Charge",
                 Unit = line.TariffRate?.PricingModel == PricingModel.Percentage
@@ -103,6 +114,25 @@ internal sealed class GetQuotationByIdHandler(ITenantUnitOfWork tenantUow)
             });
         }
 
+        // 5b. Lifecycle timeline, oldest first. Loaded with its own query instead of an Include, so
+        // it doesn't multiply rows with Lines and needs no provider-specific AsSplitQuery.
+        var timeline = await tenantUow.Repository<QuotationEvent>().Query()
+            .Where(e => e.QuotationId == quotation.Id)
+            .OrderBy(e => e.OccurredAt)
+            .Select(e => new QuotationEventDto(
+                e.Id, e.Type, e.Actor, e.OccurredAt, e.Details, e.RelatedId))
+            .ToListAsync(ct);
+
+        // "Last updated by" comes from the newest event, so it is already a display name.
+        var lastEvent = timeline.LastOrDefault();
+
+        // Entity audit timestamps are UTC DateTime values that EF returns as Kind = Unspecified.
+        // Mark them as UTC before widening, or the server's local offset would be applied.
+        // Resolved in its own statement: `a ?? (cond ? x : null)` has no type for the conditional.
+        DateTimeOffset? entityUpdatedAt = quotation.UpdatedAt is { } updated
+            ? (DateTimeOffset?)new DateTimeOffset(DateTime.SpecifyKind(updated, DateTimeKind.Utc))
+            : null;
+
         // 6. Assemble Quotation DTO
         var dto = new QuotationDto
         {
@@ -110,6 +140,7 @@ internal sealed class GetQuotationByIdHandler(ITenantUnitOfWork tenantUow)
             CustomerId = quotation.CustomerId,
             BranchId = quotation.BranchId,
             CustomerName = customer?.Name ?? "Unknown Customer",
+            CustomerEmail = customer?.Email ?? "",
             BranchName = branch?.Name ?? "Unknown Branch",
             ReferenceNumber = quotation.ReferenceNumber,
             Currency = quotation.Currency,
@@ -118,6 +149,8 @@ internal sealed class GetQuotationByIdHandler(ITenantUnitOfWork tenantUow)
             RevisionNumber = quotation.RevisionNumber,
             PreviousRevisionId = quotation.PreviousRevisionId,
             Revisions = revisions,
+            RejectionReason = quotation.RejectionReason,
+            RejectedBy = quotation.RejectedBy,
             ValidUntil = quotation.ValidUntil,
             Mode = quotation.Mode,
             FreightMode = quotation.FreightMode,
@@ -125,6 +158,10 @@ internal sealed class GetQuotationByIdHandler(ITenantUnitOfWork tenantUow)
             Incoterm = quotation.Incoterm,
             TotalDistanceKm = quotation.Lane?.TotalDistanceKm ?? 0m,
             Stops = stopsDto,
+            PolId = quotation.PolId,
+            Pol = quotation.Pol.ToTerminalSummary(),
+            PodId = quotation.PodId,
+            Pod = quotation.Pod.ToTerminalSummary(),
             Commodity = quotation.CargoSpec?.Commodity ?? null,
             TotalWeightKg = quotation.CargoSpec?.TotalWeightKg > 0 ? quotation.CargoSpec?.TotalWeightKg : null,
             PalletCount = quotation.CargoSpec?.PalletCount > 0 ? quotation.CargoSpec?.PalletCount : null,
@@ -145,7 +182,10 @@ internal sealed class GetQuotationByIdHandler(ITenantUnitOfWork tenantUow)
             TotalBuyingAmount = totalBuying,
             TotalSellingAmount = totalSelling,
             Lines = linesDto,
-            Notes = quotation.Notes
+            Notes = quotation.Notes,
+            Timeline = timeline,
+            UpdatedBy = lastEvent?.Actor,
+            UpdatedAt = lastEvent?.OccurredAt ?? entityUpdatedAt
         };
 
         return Result<QuotationDto>.Ok(dto);

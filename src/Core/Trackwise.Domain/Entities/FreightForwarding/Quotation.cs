@@ -1,7 +1,10 @@
 using System.Collections.ObjectModel;
+using FreightModeKind = Trackwise.Domain.Primitives.Enums.FreightMode;
 using Trackwise.Domain.Core;
+using Trackwise.Domain.Entities.FreightForwarding;
 using Trackwise.Domain.Primitives.Enums;
 using Trackwise.Domain.Primitives.Enums.FreightForwarding;
+using Trackwise.Domain.Primitives.Enums.QuotationEvents;
 using Trackwise.Domain.Primitives.ValueObjects;
 
 namespace Trackwise.Domain.Entities;
@@ -29,10 +32,23 @@ public class Quotation : AuditableEntity, ITenantEntity
 
     // Freight Forwarding Core Logistics Context
     public TransportMode Mode { get; private set; }
-    public FreightMode FreightMode { get; private set; }   // Domestic, Import, Export, Triangular
+    public FreightMode FreightMode { get; private set; }   // Domestic, Import, Export, Triangular, Reefer, Trucking
     public ShipmentType ShipmentType { get; private set; }
+
     public Incoterm Incoterm { get; private set; }
-    public LaneTransit Lane { get; private set; } = default!;
+    /// <summary>
+    /// Route lane. Only applicable to Reefer and Trucking freight modes, which drive a real
+    /// stop-by-stop truck route; everything else quotes by Port of Loading / Port of Discharge.
+    /// </summary>
+    public LaneTransit? Lane { get; private set; }
+    /// <summary>Port of Loading - only applicable to the non-lane (Domestic / Import / Export / Triangular) modes.</summary>
+    /// <summary>Port of Loading - only for the non-lane (Domestic / Import / Export / Triangular) modes.</summary>
+    public Guid? PolId { get; private set; }
+    public virtual Terminal? Pol { get; private set; }
+
+    /// <summary>Port of Discharge - only for the non-lane modes.</summary>
+    public Guid? PodId { get; private set; }
+    public virtual Terminal? Pod { get; private set; }
     public CargoSpecification? CargoSpec { get; private set; }
 
     /// <summary>
@@ -62,6 +78,9 @@ public class Quotation : AuditableEntity, ITenantEntity
     private readonly List<QuotationLine> _lines = [];
     public virtual IReadOnlyCollection<QuotationLine> Lines => new ReadOnlyCollection<QuotationLine>(_lines);
 
+    private readonly List<QuotationEvent> _events = [];
+    public virtual IReadOnlyCollection<QuotationEvent> Events => new ReadOnlyCollection<QuotationEvent>(_events);
+
     protected Quotation() { }
 
     public static Quotation Create(
@@ -73,17 +92,20 @@ public class Quotation : AuditableEntity, ITenantEntity
         FreightMode freightMode,
         ShipmentType shipmentType,
         Incoterm incoterm,
-        LaneTransit lane,
+        LaneTransit? lane,
         CargoSpecification? cargoSpec,
         TemperatureControl? tempSpec = null,
         bool isHazardous = false,
         bool requiresCustomsBrokerage = false,
         string? notes = null,
-        decimal? declaredCargoValuePhp = null)
+        decimal? declaredCargoValuePhp = null,
+        Guid? polId = null,
+        Guid? podId = null,
+        string? createdBy = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(referenceNumber);
         ArgumentException.ThrowIfNullOrWhiteSpace(currency);
-        ArgumentNullException.ThrowIfNull(lane);
+        ValidateRouting(freightMode, lane, polId, podId);
         ValidateTemperatureRequirements(cargoSpec, tempSpec);
 
         var quotation = new Quotation
@@ -100,6 +122,8 @@ public class Quotation : AuditableEntity, ITenantEntity
             ShipmentType = shipmentType,
             Incoterm = incoterm,
             Lane = lane,
+            PolId = polId,
+            PodId = podId,
             CargoSpec = cargoSpec,
             DeclaredCargoValuePhp = declaredCargoValuePhp,
             TemperatureSpec = tempSpec,
@@ -110,11 +134,12 @@ public class Quotation : AuditableEntity, ITenantEntity
 
         quotation.RevisionGroupId = quotation.Id;
         quotation.EvaluateApprovalRequirements();
+        quotation.Record(QuotationEventType.Created, createdBy);
         quotation.DomainEvents.Add(new QuotationCreated(quotation.Id, customerId));
         return quotation;
     }
 
-    public Quotation CreateRevision(string referenceNumber, int revisionNumber)
+    public Quotation CreateRevision(string referenceNumber, int revisionNumber, string createdBy)
     {
         if (Status == QuotationStatus.Draft)
             throw new InvalidOperationException("A draft quotation can be edited directly and cannot be revised.");
@@ -122,15 +147,17 @@ public class Quotation : AuditableEntity, ITenantEntity
         if (revisionNumber <= RevisionNumber)
             throw new ArgumentOutOfRangeException(nameof(revisionNumber), "A revision number must be greater than the current revision.");
 
-        var lane = new LaneTransit(
-            Lane.Stops.Select(stop => RouteStop.Create(
-                stop.Sequence,
-                stop.LocationId,
-                stop.Type,
-                stop.WindowStart,
-                stop.WindowEnd,
-                stop.Instructions)),
-            Lane.TotalDistanceKm);
+        var lane = Lane is null
+            ? null
+            : new LaneTransit(
+                Lane.Stops.Select(stop => RouteStop.Create(
+                    stop.Sequence,
+                    stop.LocationId,
+                    stop.Type,
+                    stop.WindowStart,
+                    stop.WindowEnd,
+                    stop.Instructions)),
+                Lane.TotalDistanceKm);
         var cargoSpec = CargoSpec is null
             ? null
             : CargoSpecification.Create(
@@ -167,7 +194,9 @@ public class Quotation : AuditableEntity, ITenantEntity
             IsHazardous,
             RequiresCustomsBrokerage,
             Notes,
-            DeclaredCargoValuePhp);
+            DeclaredCargoValuePhp,
+            PolId,
+            PodId);
 
         revision.RevisionGroupId = RevisionGroupId;
         revision.RevisionNumber = revisionNumber;
@@ -177,6 +206,9 @@ public class Quotation : AuditableEntity, ITenantEntity
             revision._lines.Add(line.CopyTo(revision.Id, revision.Currency));
 
         revision.EvaluateApprovalRequirements();
+        revision._events.Clear();
+        revision.Record(QuotationEventType.RevisionCreated, createdBy,
+    details: $"Revised from {ReferenceNumber}");
         return revision;
     }
 
@@ -192,19 +224,22 @@ public class Quotation : AuditableEntity, ITenantEntity
         FreightMode freightMode,
         ShipmentType shipmentType,
         Incoterm incoterm,
-        LaneTransit lane,
+        LaneTransit? lane,
+        string updatedBy,
         CargoSpecification? cargoSpec,
         TemperatureControl? tempSpec = null,
         bool isHazardous = false,
         bool requiresCustomsBrokerage = false,
         string? notes = null,
-        decimal? declaredCargoValuePhp = null)
+        decimal? declaredCargoValuePhp = null,
+        Guid? polId = null,
+        Guid? podId = null)
     {
         if (Status != QuotationStatus.Draft)
             throw new InvalidOperationException("Details can only be changed while the quotation is in Draft status.");
 
         ArgumentException.ThrowIfNullOrWhiteSpace(currency);
-        ArgumentNullException.ThrowIfNull(lane);
+        ValidateRouting(freightMode, lane, polId, podId);
         ValidateTemperatureRequirements(cargoSpec, tempSpec);
 
         var newCurrency = currency.Trim().ToUpperInvariant();
@@ -219,7 +254,9 @@ public class Quotation : AuditableEntity, ITenantEntity
         if (RevisionNumber > 1 &&
             (customerId != CustomerId ||
              freightMode != FreightMode ||
-             !HasSameRoute(Lane, lane)))
+             !HasSameRoute(Lane, lane) ||
+             polId != PolId ||
+             podId != PodId))
         {
             throw new InvalidOperationException(
                 "A quotation revision must keep the same customer, freight mode, and route. Create a new quotation to change them.");
@@ -233,6 +270,8 @@ public class Quotation : AuditableEntity, ITenantEntity
         ShipmentType = shipmentType;
         Incoterm = incoterm;
         Lane = lane;
+        PolId = polId;
+        PodId = podId;
         CargoSpec = cargoSpec;
         DeclaredCargoValuePhp = declaredCargoValuePhp;
         TemperatureSpec = tempSpec;
@@ -242,6 +281,8 @@ public class Quotation : AuditableEntity, ITenantEntity
 
         EvaluateApprovalRequirements();
         DomainEvents.Add(new QuotationUpdated(Id));
+
+        Record(QuotationEventType.Edited, updatedBy);
     }
 
     /// <summary>Removes every line (Draft only) so the quotation can be repriced from scratch.</summary>
@@ -291,8 +332,34 @@ public class Quotation : AuditableEntity, ITenantEntity
         }
     }
 
-    private static bool HasSameRoute(LaneTransit current, LaneTransit updated)
+    private static void ValidateRouting(FreightMode freightMode, LaneTransit? lane, Guid? pol, Guid? pod)
     {
+        bool isLaneMode = freightMode == FreightModeKind.Reefer || freightMode == FreightModeKind.Trucking;
+
+        if (isLaneMode)
+        {
+            if (lane is null)
+                throw new ArgumentNullException(nameof(lane), "A route lane is required for Reefer and Trucking freight modes.");
+            if (pol.HasValue || pod.HasValue)
+                throw new ArgumentException(
+                    "POL/POD are not applicable to Reefer and Trucking freight modes; supply a route lane instead.", nameof(pol));
+        }
+        else
+        {
+            if (lane is not null)
+                throw new ArgumentException(
+                    "A route lane is not applicable to Domestic/Import/Export/Triangular freight modes; supply POL and POD instead.", nameof(lane));
+            if (!pol.HasValue || !pod.HasValue)
+                throw new ArgumentException(
+                    "POL and POD are required for Domestic/Import/Export/Triangular freight modes.", nameof(pol));
+        }
+    }
+
+    private static bool HasSameRoute(LaneTransit? current, LaneTransit? updated)
+    {
+        if (current is null || updated is null)
+            return current is null && updated is null;
+
         var currentStops = current.Stops
             .OrderBy(stop => stop.Sequence)
             .Select(stop => (stop.Sequence, stop.LocationId, stop.Type));
@@ -477,28 +544,28 @@ public class Quotation : AuditableEntity, ITenantEntity
     public void EvaluateApprovalRequirements()
     {
         // 1. High-Value Cargo rule across all modes (USD threshold, currency-safe)
-        if (DeclaredCargoValuePhp > HighValueCargoThresholdPhp)
-        {
-            RequiresSpecialApproval = true;
-            ApprovalEscalationReason = "Cargo value exceeds standard automated insurance limit (30,000,000).";
-            return;
-        }
+        //if (DeclaredCargoValuePhp > HighValueCargoThresholdPhp)
+        //{
+        //    RequiresSpecialApproval = true;
+        //    ApprovalEscalationReason = "Cargo value exceeds standard automated insurance limit (30,000,000).";
+        //    return;
+        //}
 
-        // 2. Dangerous Goods / Hazmat approval rule
-        if (IsHazardous)
-        {
-            RequiresSpecialApproval = true;
-            ApprovalEscalationReason = "Dangerous goods require Hazmat Compliance team sign-off.";
-            return;
-        }
+        //// 2. Dangerous Goods / Hazmat approval rule
+        //if (IsHazardous)
+        //{
+        //    RequiresSpecialApproval = true;
+        //    ApprovalEscalationReason = "Dangerous goods require Hazmat Compliance team sign-off.";
+        //    return;
+        //}
 
-        // 3. Cold Chain Ultra-Low threshold rule
-        if (TemperatureSpec?.Zone == TemperatureZone.Cryogenic)
-        {
-            RequiresSpecialApproval = true;
-            ApprovalEscalationReason = "Cryogenic temperature handling mandates Quality Team sign-off.";
-            return;
-        }
+        //// 3. Cold Chain Ultra-Low threshold rule
+        //if (TemperatureSpec?.Zone == TemperatureZone.Cryogenic)
+        //{
+        //    RequiresSpecialApproval = true;
+        //    ApprovalEscalationReason = "Cryogenic temperature handling mandates Quality Team sign-off.";
+        //    return;
+        //}
 
         // 4. Air Charter or Large Project Cargo threshold rule
         if (ShipmentType == ShipmentType.AirCharter)
@@ -516,7 +583,7 @@ public class Quotation : AuditableEntity, ITenantEntity
     /// Submits draft quote for processing. Validates operational integrity,
     /// auto-approves standard loads, or routes to PendingApproval if risk rules trigger.
     /// </summary>
-    public void Submit()
+    public void Submit(string submittedBy)
     {
         if (Status != QuotationStatus.Draft)
             throw new InvalidOperationException("Only Draft quotations can be submitted.");
@@ -527,18 +594,25 @@ public class Quotation : AuditableEntity, ITenantEntity
         ValidateOperationalIntegrity();
         EvaluateApprovalRequirements();
 
-        if (RequiresSpecialApproval)
-        {
-            Status = QuotationStatus.PendingApproval;
-            DomainEvents.Add(new QuotationSubmittedForApproval(Id, ApprovalEscalationReason!));
-        }
-        else
-        {
-            Status = QuotationStatus.Approved;
-            ApprovedBy = "SYSTEM_AUTO_APPROVER";
-            ApprovedAt = DateTimeOffset.UtcNow;
-            DomainEvents.Add(new QuotationApproved(Id, ApprovedBy));
-        }
+        Status = QuotationStatus.PendingApproval;
+        DomainEvents.Add(new QuotationSubmittedForApproval(Id, ApprovalEscalationReason!));
+
+        var from = Status;
+        Status = QuotationStatus.PendingApproval;
+        Record(QuotationEventType.Submitted, submittedBy, from);
+
+        //if (RequiresSpecialApproval)
+        //{
+        //    Status = QuotationStatus.PendingApproval;
+        //    DomainEvents.Add(new QuotationSubmittedForApproval(Id, ApprovalEscalationReason!));
+        //}
+        //else
+        //{
+        //    Status = QuotationStatus.Approved;
+        //    ApprovedBy = "SYSTEM_AUTO_APPROVER";
+        //    ApprovedAt = DateTimeOffset.UtcNow;
+        //    DomainEvents.Add(new QuotationApproved(Id, ApprovedBy));
+        //}
     }
 
     /// <summary>
@@ -552,8 +626,9 @@ public class Quotation : AuditableEntity, ITenantEntity
                 $"Quotation in '{Status}' status cannot be approved. Expected Draft or PendingApproval.");
         }
 
-        ValidateOperationalIntegrity();
+        //ValidateOperationalIntegrity();
 
+        var from = Status;
         Status = QuotationStatus.Approved;
         ApprovedBy = approvedBy;
         ApprovedAt = DateTimeOffset.UtcNow;
@@ -562,12 +637,13 @@ public class Quotation : AuditableEntity, ITenantEntity
         RejectionReason = null;
 
         DomainEvents.Add(new QuotationApproved(Id, approvedBy));
+        Record(QuotationEventType.Approved, approvedBy, from);
     }
 
     /// <summary>
     /// Issues the approved quote to the customer and locks pricing.
     /// </summary>
-    public void Issue(TimeSpan validityDuration)
+    public void Issue(TimeSpan validityDuration, string issuedBy)
     {
         if (Status != QuotationStatus.Approved)
             throw new InvalidOperationException("Only approved quotations can be issued to customers.");
@@ -583,16 +659,24 @@ public class Quotation : AuditableEntity, ITenantEntity
             line.SnapshotPrices(bases[line.Id]);
         }
 
+        var from = Status;
         Status = QuotationStatus.Issued;
         IssuedAt = DateTimeOffset.UtcNow;
         ValidUntil = DateTimeOffset.UtcNow.Add(validityDuration);
         DomainEvents.Add(new QuotationIssued(Id, ValidUntil.Value));
+
+        Record(QuotationEventType.Issued, issuedBy, from, $"Valid until {ValidUntil:d MMM yyyy}");
     }
+
+    /// <summary>Call after the status change, so ToStatus is the new status.</summary>
+    private void Record(QuotationEventType type, string? actor, QuotationStatus? from = null,
+        string? details = null, Guid? relatedId = null) =>
+        _events.Add(QuotationEvent.Create(Id, type, from, Status, actor, details, relatedId));
 
     /// <summary>
     /// Customer accepts the quotation, enabling downstream booking conversion.
     /// </summary>
-    public void Accept()
+    public void Accept(string acceptedBy)
     {
         if (Status != QuotationStatus.Issued)
             throw new InvalidOperationException("Only issued quotations can be accepted.");
@@ -604,21 +688,34 @@ public class Quotation : AuditableEntity, ITenantEntity
             throw new InvalidOperationException("Quotation has expired.");
         }
 
+        var from = Status;
         Status = QuotationStatus.Accepted;
         AcceptedAt = DateTimeOffset.UtcNow;
         DomainEvents.Add(new QuotationAccepted(Id, CustomerId));
+        Record(QuotationEventType.Accepted, acceptedBy, from);
     }
 
     /// <summary>
     /// Marks an issued quotation as expired when the customer acceptance window has elapsed.
     /// </summary>
-    public void Expire()
+    public void Expire(string? expiredBy = null)
     {
         if (Status != QuotationStatus.Issued)
             throw new InvalidOperationException($"Cannot expire quotation in status '{Status}'. Must be Issued.");
 
+        var from = Status;
         Status = QuotationStatus.Expired;
         DomainEvents.Add(new QuotationExpired(Id));
+        Record(QuotationEventType.Expired, expiredBy, from);
+    }
+
+    public void RecordConvertedToBooking(Guid bookingId, string bookingNumber, string convertedBy)
+    {
+        if (Status != QuotationStatus.Accepted)
+            throw new InvalidOperationException("Only accepted quotations can be converted to a booking.");
+
+        Record(QuotationEventType.ConvertedToBooking, convertedBy, Status,
+            $"Booking {bookingNumber}", bookingId);
     }
 
     public void Reject(string rejectedBy, string reason)
@@ -628,11 +725,13 @@ public class Quotation : AuditableEntity, ITenantEntity
             throw new InvalidOperationException($"Quotation in status '{Status}' cannot be rejected.");
         }
 
+        var from = Status;
         Status = QuotationStatus.Rejected;
         RejectedBy = rejectedBy;
         RejectedAt = DateTimeOffset.UtcNow;
         RejectionReason = reason;
         DomainEvents.Add(new QuotationRejected(Id, rejectedBy, reason));
+        Record(QuotationEventType.Rejected, rejectedBy, from, reason);
     }
 
     /// <summary>
@@ -655,12 +754,12 @@ public class Quotation : AuditableEntity, ITenantEntity
                     "Shipment requires continuous telematics, but no telemetry fee is quoted.");
             }
 
-            if (TemperatureSpec.Zone != TemperatureZone.Ambient &&
-                !_lines.Any(l => l.ServiceType == OperationalServiceType.PreCoolingAndPTI))
-            {
-                throw new InvalidOperationException(
-                    "Refrigerated load requires a Pre-Cooling & PTI service line.");
-            }
+            //if (TemperatureSpec.Zone != TemperatureZone.Ambient &&
+            //    !_lines.Any(l => l.ServiceType == OperationalServiceType.PreCoolingAndPTI))
+            //{
+            //    throw new InvalidOperationException(
+            //        "Refrigerated load requires a Pre-Cooling & PTI service line.");
+            //}
         }
 
         // 3. International customs brokerage integrity
@@ -671,6 +770,7 @@ public class Quotation : AuditableEntity, ITenantEntity
                 "Shipment requires customs brokerage, but no customs clearance line is present.");
         }
     }
+
 }
 
 public record QuotationTotals(string Currency, decimal Buying, decimal Selling)

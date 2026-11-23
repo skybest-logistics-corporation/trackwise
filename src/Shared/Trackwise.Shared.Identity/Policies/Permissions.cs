@@ -248,6 +248,7 @@ public static class Permission
     {
         public const string View = $"{nameof(Permission)}.{nameof(Quotation)}.View";
         public const string Manage = $"{nameof(Permission)}.{nameof(Quotation)}.Manage";
+        public const string Approve = $"{nameof(Permission)}.{nameof(Quotation)}.Approve";
     }
 
     public static class Booking
@@ -271,11 +272,6 @@ public static class Permission
     {
         public const string View = $"{nameof(Permission)}.{nameof(Tariff)}.View";
         public const string Manage = $"{nameof(Permission)}.{nameof(Tariff)}.Manage";
-
-        public static object Create(object mode, object serviceLevel, string name, string currency, string originLane, string destinationLane, object equipmentType, object carrierId, DateOnly effectiveFrom, object contractId)
-        {
-            throw new NotImplementedException();
-        }
     }
 
     public static class Shipment

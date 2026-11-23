@@ -2,7 +2,8 @@ import { Component, inject, signal } from "@angular/core";
 import { Router } from "@angular/router";
 import { Api, createTariff, type CreateTariffCommand } from "@trackwise/shared/api";
 import { ToastService } from "@/core/services";
-import { PageHeader, TariffForm, type TariffFormValue } from "@/shared/components";
+import { PageHeader } from "@/shared/components";
+import { TariffForm, type TariffFormValue } from "../components/tariff-form/tariff-form";
 
 @Component({
   selector: "app-tariff-add",
@@ -29,22 +30,24 @@ export class TariffAddComponent {
       serviceLevel: formValue.serviceLevel,
       originLane: formValue.originLane ?? undefined,
       destinationLane: formValue.destinationLane ?? undefined,
+      truckType: formValue.truckType ?? undefined,
+      tonnageClass: formValue.tonnageClass ?? undefined,
       containerTypeId: formValue.containerTypeId ?? undefined,
       currency: formValue.currency.trim().toUpperCase(),
       effectiveFrom: formValue.effectiveFrom,
       carrierId: formValue.carrierId ?? undefined,
-      contractId: formValue.contractId ?? undefined,
+      contractRef: formValue.contractRef ?? undefined,
       customerId: formValue.customerId ?? undefined,
     };
 
     try {
-      await this.api.invoke(createTariff, {
+      const tariffId = await this.api.invoke(createTariff, {
         body: command,
       });
 
       this.toastService.showSuccess("A new tariff has been created successfully");
 
-      await this.router.navigateByUrl("/tariffs");
+      await this.router.navigate(["/tariffs", tariffId]);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "An unexpected error occurred.";
 

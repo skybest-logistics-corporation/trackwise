@@ -1,5 +1,6 @@
 using MockQueryable;
 using NSubstitute;
+using Trackwise.Application.Abstractions.CurrentUser;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.ConvertQuotationToBooking;
 using Trackwise.Domain.Entities;
 using Trackwise.Domain.Persistence;
@@ -14,6 +15,7 @@ namespace Trackwise.Application.Tests.FreightForwarding;
 public class ConvertQuotationToBookingHandlerTests
 {
     private readonly ITenantUnitOfWork tenantUow = Substitute.For<ITenantUnitOfWork>();
+    private readonly ICurrentUserService currentUserService = Substitute.For<ICurrentUserService>();
 
     private readonly ITenantRepository<Quotation, Guid> quotationRepo =
         Substitute.For<ITenantRepository<Quotation, Guid>>();
@@ -33,7 +35,7 @@ public class ConvertQuotationToBookingHandlerTests
         quotationRepo.GetByIdAsync(quotation.Id, Arg.Any<CancellationToken>()).Returns(quotation);
         bookingRepo.Query().Returns(new List<Booking>().BuildMock());
 
-        sut = new ConvertQuotationToBookingHandler(tenantUow);
+        sut = new ConvertQuotationToBookingHandler(tenantUow, currentUserService);
     }
 
     [Fact]
@@ -151,7 +153,7 @@ public class ConvertQuotationToBookingHandlerTests
             referenceNumber: "QT-TEST-001",
             currency: "USD",
             mode: TransportMode.Road,
-            freightMode: FreightMode.Domestic,
+            freightMode: FreightMode.Trucking,
             shipmentType: ShipmentType.FTL,
             incoterm: Incoterm.DAP,
             lane: lane,

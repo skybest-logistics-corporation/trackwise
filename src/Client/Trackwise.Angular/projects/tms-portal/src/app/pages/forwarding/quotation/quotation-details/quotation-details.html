@@ -49,6 +49,17 @@
       </ui-alert>
     }
 
+    @if (q.rejectionReason?.trim()) {
+      <ui-alert intent="danger">
+        <div class="flex flex-col gap-1">
+          <span class="font-semibold">
+            {{ q.status === "auto_declined" ? "Automatically declined" : "Quotation rejected" }}
+          </span>
+          <span class="wrap-break-word whitespace-pre-wrap">{{ q.rejectionReason }}</span>
+        </div>
+      </ui-alert>
+    }
+
     <!-- Financial & High-Level Overview -->
     <ui-surface variant="elevated" [border]="true">
       <ui-grid container spacing="3">
@@ -75,7 +86,7 @@
           <ui-typography variant="caption" color="muted">Total Selling</ui-typography>
           <ui-typography
             variant="body"
-            class="font-mono font-semibold text-emerald-600 dark:text-emerald-400"
+            class="font-mono font-medium text-emerald-600 dark:text-emerald-400"
           >
             {{ q.totalSellingAmount ?? 0 | number: "1.2-2" }} {{ q.currency }}
           </ui-typography>
@@ -83,14 +94,14 @@
 
         <ui-grid [size]="{ xs: 6, sm: 4, md: 2 }">
           <ui-typography variant="caption" color="muted">Total Buying</ui-typography>
-          <ui-typography variant="body" class="font-mono">
+          <ui-typography variant="body" class="font-mono font-medium">
             {{ q.totalBuyingAmount ?? 0 | number: "1.2-2" }} {{ q.currency }}
           </ui-typography>
         </ui-grid>
 
         <ui-grid [size]="{ xs: 6, sm: 4, md: 2 }">
           <ui-typography variant="caption" color="muted">Net Margin</ui-typography>
-          <ui-typography variant="body" class="font-mono">
+          <ui-typography variant="body" class="font-mono font-medium">
             {{ q.netMarginAmount ?? 0 | number: "1.2-2" }} {{ q.currency }}
             <span class="text-muted-foreground text-xs">
               ({{ q.netMarginPercentage ?? 0 | number: "1.1-2" }}%)
@@ -127,7 +138,9 @@
           <ui-stack gap="3">
             <ui-stack direction="row" gap="2" align="center">
               <ui-icon name="truck" color="secondary" />
-              <ui-typography variant="overline" color="secondary">Transport & Lane</ui-typography>
+              <ui-typography variant="overline" color="secondary">
+                {{ isLaneBased() ? "Transport & Lane" : "Transport & Ports" }}
+              </ui-typography>
             </ui-stack>
 
             <ui-grid container spacing="2">
@@ -151,21 +164,68 @@
                   {{ q.incoterm || "-" }}
                 </ui-typography>
               </ui-grid>
-              <ui-grid [size]="{ xs: 6 }">
-                <ui-typography variant="caption" color="muted">Total Distance</ui-typography>
-                <ui-typography variant="body">
-                  {{
-                    q.totalDistanceKm !== undefined && q.totalDistanceKm !== null
-                      ? q.totalDistanceKm + " km"
-                      : "-"
-                  }}
-                </ui-typography>
-              </ui-grid>
-              <ui-grid [size]="{ xs: 6 }">
-                <ui-typography variant="caption" color="muted">Route Stops</ui-typography>
-                <ui-typography variant="body">{{ q.stops?.length ?? 0 }} stops</ui-typography>
-              </ui-grid>
+              @if (isLaneBased()) {
+                <ui-grid [size]="{ xs: 6 }">
+                  <ui-typography variant="caption" color="muted">Total Distance</ui-typography>
+                  <ui-typography variant="body">
+                    {{ q.totalDistanceKm ? q.totalDistanceKm + " km" : "-" }}
+                  </ui-typography>
+                </ui-grid>
+                <ui-grid [size]="{ xs: 6 }">
+                  <ui-typography variant="caption" color="muted">Route Stops</ui-typography>
+                  <ui-typography variant="body">{{ sortedStops().length }} stops</ui-typography>
+                </ui-grid>
+              } @else {
+                <ui-grid [size]="{ xs: 6 }">
+                  <ui-typography variant="caption" color="muted">{{ polLabel() }}</ui-typography>
+                  <ui-typography variant="body">
+                    {{ q.pol ? q.pol.code + " - " + q.pol.name : "-" }}
+                  </ui-typography>
+                  @if (q.pol?.countryCode) {
+                    <ui-typography variant="caption" color="muted">
+                      {{ q.pol.countryCode }}
+                    </ui-typography>
+                  }
+                </ui-grid>
+                <ui-grid [size]="{ xs: 6 }">
+                  <ui-typography variant="caption" color="muted">{{ podLabel() }}</ui-typography>
+                  <ui-typography variant="body">
+                    {{ q.pod ? q.pod.code + " - " + q.pod.name : "-" }}
+                  </ui-typography>
+                  @if (q.pod?.countryCode) {
+                    <ui-typography variant="caption" color="muted">
+                      {{ q.pod?.countryCode }}
+                    </ui-typography>
+                  }
+                </ui-grid>
+              }
             </ui-grid>
+            @if (isLaneBased() && sortedStops().length) {
+              <ol class="border-border space-y-2 border-t pt-3">
+                @for (stop of sortedStops(); track stop.sequence) {
+                  <li class="flex items-start gap-3">
+                    <span class="text-muted-foreground w-12 shrink-0 text-xs font-semibold">
+                      Stop {{ stop.sequence }}
+                    </span>
+                    <div class="flex flex-col">
+                      <ui-typography variant="body" class="font-medium">
+                        {{ stop.locationCode ? stop.locationCode + " - " : ""
+                        }}{{ stop.locationName }}
+                      </ui-typography>
+                      <ui-typography variant="caption" color="muted">
+                        {{ stopTypeLabels[stop.type ?? ""] ?? "Stop" }}
+                        @if (stop.windowStart) {
+                          · {{ stop.windowStart | date: "medium" }}
+                        }
+                        @if (stop.windowEnd) {
+                          – {{ stop.windowEnd | date: "medium" }}
+                        }
+                      </ui-typography>
+                    </div>
+                  </li>
+                }
+              </ol>
+            }
           </ui-stack>
         </ui-surface>
       </ui-grid>
@@ -176,7 +236,9 @@
           <ui-stack gap="3">
             <ui-stack direction="row" gap="2" align="center">
               <ui-icon name="box" color="secondary" />
-              <ui-typography variant="overline" color="secondary">Cargo & Cold Chain</ui-typography>
+              <ui-typography variant="overline" color="secondary">
+                {{ isReefer() ? "Cargo & Cold Chain" : "Cargo" }}
+              </ui-typography>
             </ui-stack>
 
             <ui-grid container spacing="2">
@@ -202,14 +264,16 @@
                 <ui-typography variant="caption" color="muted">Declared Cargo Value</ui-typography>
                 <ui-typography variant="body" class="font-mono">
                   {{
-                    q.declaredCargoValueAmount !== undefined
-                      ? (q.declaredCargoValueAmount | number: "1.2-2") + " " + q.currency
+                    q.declaredCargoValueAmount !== undefined && q.declaredCargoValueAmount !== null
+                      ? (q.declaredCargoValueAmount | number: "1.2-2") +
+                        " " +
+                        (q.declaredCargoValueCurrency || q.currency)
                       : "-"
                   }}
                 </ui-typography>
               </ui-grid>
 
-              @if (q.temperatureSpec; as temp) {
+              @if (isReefer() && q.temperatureSpec; as temp) {
                 <ui-grid [size]="{ xs: 6 }">
                   <ui-typography variant="caption" color="muted">Temperature Zone</ui-typography>
                   <ui-typography variant="body">{{ formatLabel(temp.zone) }}</ui-typography>
@@ -246,21 +310,89 @@
 
     @if (q.notes) {
       <ui-surface variant="elevated" [border]="true">
-        <ui-typography variant="caption" color="muted">Quotation Notes</ui-typography>
-        <ui-typography variant="body" class="mt-1 whitespace-pre-wrap">{{ q.notes }}</ui-typography>
+        <!-- Clickable Header -->
+        <ui-stack
+          direction="row"
+          align="center"
+          justify="between"
+          class="cursor-pointer select-none"
+          (click)="isNotesExpanded.set(!isNotesExpanded())"
+        >
+          <ui-typography variant="body-sm" color="muted">Quotation Notes</ui-typography>
+          <ui-icon
+            [name]="isNotesExpanded() ? 'chevron-up' : 'chevron-down'"
+            color="muted"
+            size="sm"
+          />
+        </ui-stack>
+
+        <!-- Collapsible Body -->
+        @if (isNotesExpanded()) {
+          <div class="border-border mt-2 border-t pt-2">
+            <ui-typography variant="body" class="whitespace-pre-wrap">{{ q.notes }}</ui-typography>
+          </div>
+        }
       </ui-surface>
+    }
+
+    @if (q.timeline?.length) {
+      <ui-surface variant="elevated" [border]="true">
+        <ui-stack gap="3">
+          <ui-stack direction="row" gap="2" align="center">
+            <ui-icon name="history" color="secondary" />
+            <ui-typography variant="overline" color="secondary">Activity</ui-typography>
+          </ui-stack>
+
+          <ol class="border-border ml-3 space-y-4 border-l">
+            @for (event of q.timeline; track event.id) {
+              @let meta = timelineEntry(event.type);
+              <li class="relative pl-6">
+                <span
+                  class="bg-background border-border absolute top-0 -left-3 flex h-6 w-6 items-center justify-center rounded-full border"
+                >
+                  <ui-icon [name]="meta.icon" size="sm" [color]="meta.color" />
+                </span>
+                <ui-typography variant="body" class="font-medium">{{ meta.label }}</ui-typography>
+                <ui-typography variant="caption" color="muted">
+                  {{ event.actor }} · {{ event.occurredAt | date: "medium" }}
+                </ui-typography>
+                @if (event.details) {
+                  <ui-typography variant="body-sm" class="whitespace-pre-wrap">
+                    {{ event.details }}
+                  </ui-typography>
+                }
+              </li>
+            }
+          </ol>
+        </ui-stack>
+      </ui-surface>
+    }
+
+    @if (q.status === "accepted" && hasMixedVehicleSpecs()) {
+      <ui-alert intent="warning">
+        <div class="flex flex-col gap-1">
+          <span class="font-semibold">Can't create a booking from this quotation yet</span>
+          <span>
+            Its tariffs cover more than one truck type or tonnage ({{ mixedVehicleSummary() }}), but
+            a booking needs a single truck type and size. Revise the quotation and keep only the
+            tariffs for the truck you'll use.
+          </span>
+        </div>
+      </ui-alert>
     }
 
     <!-- Action Workflow Controls -->
     <ui-stack direction="row" wrap="true" gap="2" align="stretch">
       @if (q.status !== "draft" && q.revisionNumber === q.revisions?.length) {
-        <ui-button
-          icon="copy"
-          appearance="outlined"
-          label="Create Revision"
-          [disabled]="isBusy()"
-          (click)="createRevision()"
-        />
+        @if (canCreateRevision()) {
+          <ui-button
+            icon="copy"
+            appearance="outlined"
+            label="Create Revision"
+            [disabled]="isBusy()"
+            (click)="createRevision()"
+          />
+        }
       }
 
       @if (q.status === "draft") {
@@ -270,19 +402,22 @@
           [disabled]="isBusy()"
           (click)="addLineDialogVisible.set(true)"
         />
-        <ui-button
-          icon="send"
-          label="Submit for Approval"
-          [disabled]="isBusy() || !q.lines?.length"
-          (click)="submit()"
-        />
-        <ui-button
-          icon="check"
-          intent="success"
-          label="Approve"
-          [disabled]="isBusy() || !q.lines?.length"
-          (click)="approve()"
-        />
+        @if (canApprove()) {
+          <ui-button
+            icon="check"
+            intent="success"
+            label="Approve"
+            [disabled]="isBusy() || !q.lines?.length"
+            (click)="approve()"
+          />
+        } @else {
+          <ui-button
+            icon="send"
+            label="Submit for Approval"
+            [disabled]="isBusy() || !q.lines?.length"
+            (click)="submit()"
+          />
+        }
         <ui-button
           icon="x"
           intent="danger"
@@ -302,21 +437,25 @@
       }
 
       @if (q.status === "pending_approval") {
-        <ui-button
-          icon="check"
-          intent="success"
-          label="Approve"
-          [disabled]="isBusy()"
-          (click)="approve()"
-        />
-        <ui-button
-          icon="x"
-          intent="danger"
-          appearance="outlined"
-          label="Reject"
-          [disabled]="isBusy()"
-          (click)="openRejectDialog()"
-        />
+        @if (canApprove()) {
+          <ui-button
+            icon="check"
+            intent="success"
+            label="Approve"
+            [disabled]="isBusy()"
+            (click)="approve()"
+          />
+          <ui-button
+            icon="x"
+            intent="danger"
+            appearance="outlined"
+            label="Reject"
+            [disabled]="isBusy()"
+            (click)="openRejectDialog()"
+          />
+        } @else {
+          <ui-typography variant="body-sm" color="muted">Waiting for an approver.</ui-typography>
+        }
       }
 
       @if (q.status === "approved") {
@@ -337,21 +476,23 @@
           [disabled]="isBusy()"
           (click)="accept()"
         />
-        <ui-button
-          icon="x"
-          intent="danger"
-          appearance="outlined"
-          label="Reject"
-          [disabled]="isBusy()"
-          (click)="openRejectDialog()"
-        />
-        <ui-button
-          icon="clock"
-          appearance="text"
-          label="Expire"
-          [disabled]="isBusy()"
-          (click)="expire()"
-        />
+        @if (canApprove()) {
+          <ui-button
+            icon="x"
+            intent="danger"
+            appearance="outlined"
+            label="Reject"
+            [disabled]="isBusy()"
+            (click)="openRejectDialog()"
+          />
+          <ui-button
+            icon="clock"
+            appearance="text"
+            label="Expire"
+            [disabled]="isBusy()"
+            (click)="expire()"
+          />
+        }
       }
 
       @if (q.status === "accepted") {
@@ -359,14 +500,14 @@
           icon="calendar"
           intent="primary"
           label="Convert to Booking"
-          [disabled]="isBusy()"
+          [disabled]="isBusy() || hasMixedVehicleSpecs()"
           (click)="openConvertDialog()"
         />
         <ui-button
           icon="copy"
           appearance="text"
           label="Create Another Booking"
-          [disabled]="isBusy()"
+          [disabled]="isBusy() || hasMixedVehicleSpecs()"
           (click)="openRepeatBookingDialog()"
         />
       }
@@ -414,22 +555,39 @@
 </ui-dialog>
 
 <!-- Issue Quotation Dialog -->
+<!-- Issue Quotation Dialog -->
 <ui-dialog header="Issue Quotation" [(open)]="issueDialogVisible" [modal]="true" width="400px">
   <div class="flex flex-col gap-4">
-    <p class="text-subtle-foreground">
-      Specify how many days this quotation remains valid for the customer.
-    </p>
+    <!-- Prompt about sending the email -->
+    <div class="bg-primary/10 rounded-md p-3 text-sm">
+      <ui-icon name="info" class="mr-2 align-middle" size="sm"></ui-icon>
+      <span class="align-middle">
+        Issuing this quotation will finalize the rates and automatically send the official offer to
+        the email address below.
+      </span>
+    </div>
+
     <ui-form-field label="Validity (Days)" for="validityDays">
-      <ui-number-field [(value)]="validityDays" [min]="1" />
+      <ui-number-field id="validityDays" [(value)]="validityDays" [min]="1" />
+    </ui-form-field>
+
+    <ui-form-field label="Customer Email" for="customerEmail">
+      <ui-text-field
+        id="customerEmail"
+        [(value)]="customerEmail"
+        type="email"
+        placeholder="client@example.com"
+      />
     </ui-form-field>
   </div>
+
   <ng-template #footer>
     <ui-button appearance="text" label="Cancel" (click)="issueDialogVisible.set(false)" />
     <ui-button
       intent="primary"
-      label="Issue"
+      label="Issue & Send"
       icon="send"
-      [disabled]="isBusy() || validityDays() < 1"
+      [disabled]="isBusy() || validityDays() < 1 || !customerEmail()"
       (click)="confirmIssue()"
     />
   </ng-template>

@@ -1,5 +1,9 @@
 <div class="animate-in fade-in">
-  <ui-page-header title="List Loads" addRoute="/loads/add" addTooltip="Add a new load">
+  <ui-page-header
+    title="List Loads"
+    [addRoute]="canManage ? '/loads/add' : null"
+    addTooltip="Add a new load"
+  >
     <ui-stack direction="row" gap="1">
       <ui-button
         appearance="text"

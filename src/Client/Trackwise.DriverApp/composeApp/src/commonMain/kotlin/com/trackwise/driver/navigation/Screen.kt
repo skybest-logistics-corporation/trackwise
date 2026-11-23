@@ -56,6 +56,9 @@ data class PodCaptureRoute(
 ) : NavKey
 
 @Serializable
+data class ReportProblemRoute(val tripId: String) : NavKey
+
+@Serializable
 data class ConditionReportRoute(
     val loadId: String,
     val inspectionType: InspectionType
@@ -115,6 +118,7 @@ val navSavedStateConfiguration: SavedStateConfiguration = SavedStateConfiguratio
             subclass(ConversationRoute::class)
             subclass(EmployeeSelectRoute::class)
             subclass(PodCaptureRoute::class)
+            subclass(ReportProblemRoute::class)
             subclass(ConditionReportRoute::class)
             subclass(DvirFormRoute::class)
             subclass(AccountRoute::class)

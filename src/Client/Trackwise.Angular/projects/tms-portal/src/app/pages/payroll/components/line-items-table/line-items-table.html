@@ -101,12 +101,7 @@
 
     <div class="grid grid-cols-2 gap-4">
       <ui-form-field label="Amount" [required]="true">
-        <ui-number-field
-          [formField]="form.amount"
-          mode="currency"
-          currency="USD"
-          styleClass="w-full"
-        />
+        <ui-number-field [formField]="form.amount" mode="currency" styleClass="w-full" />
       </ui-form-field>
 
       <ui-form-field label="Quantity" [required]="true">

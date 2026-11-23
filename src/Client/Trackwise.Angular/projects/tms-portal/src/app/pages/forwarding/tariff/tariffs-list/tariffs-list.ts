@@ -1,6 +1,8 @@
 import { Component, inject } from "@angular/core";
 import { Router, RouterLink } from "@angular/router";
+import { Permission } from "@trackwise/shared";
 import { Api, deactivateTariff, type TariffDto } from "@trackwise/shared/api";
+import { PermissionService } from "@trackwise/shared/services";
 import { Stack, UiButton, UiTooltip } from "@trackwise/shared/ui";
 import { downloadBlobFile } from "@trackwise/shared/utils";
 import { ToastService } from "@/core/services";
@@ -24,6 +26,7 @@ export class TariffsListComponent {
   private readonly toastService = inject(ToastService);
 
   protected readonly store = inject(TariffsListStore);
+  protected readonly canManage = inject(PermissionService).hasPermission(Permission.Tariff.Manage);
 
   constructor() {
     this.store.setFilters(
@@ -94,7 +97,7 @@ export class TariffsListComponent {
       tariff.currency ?? "",
       tariff.effectiveFrom ?? "",
       tariff.isActive ? "Active" : "Inactive",
-      tariff.contractId ?? "",
+      tariff.contractRef ?? "",
     ]);
 
     const csvContent = [headers, ...rows]

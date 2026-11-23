@@ -1,6 +1,7 @@
 import {
   booleanAttribute,
   Component,
+  computed,
   ElementRef,
   inject,
   input,
@@ -8,6 +9,11 @@ import {
   output,
 } from "@angular/core";
 import type { FormValueControl, ValidationError } from "@angular/forms/signals";
+import {
+  currencySymbol,
+  TENANT_SETTINGS_PROVIDER,
+  tenantCurrencyCode,
+} from "../../../services/localization.service";
 import { focusFirstControl } from "../focus-control";
 import { UiNumberField } from "../number-field/number-field";
 
@@ -42,10 +48,16 @@ export class CurrencyField implements FormValueControl<number | null> {
 
   public readonly id = input<string>("");
   public readonly inputId = input<string | undefined>(undefined);
-  public readonly currency = input<string>("$");
+  /** Prefix symbol; omitted means the tenant's currency symbol. */
+  public readonly currency = input<string | undefined>(undefined);
   public readonly placeholder = input<string>("0.00");
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly tenantSettings = inject(TENANT_SETTINGS_PROVIDER, { optional: true });
+
+  protected readonly symbol = computed(
+    () => this.currency() ?? currencySymbol(tenantCurrencyCode(this.tenantSettings)),
+  );
 
   /** Signal Forms calls this via `FieldState.focusBoundControl()`. */
   public focus(options?: FocusOptions): void {

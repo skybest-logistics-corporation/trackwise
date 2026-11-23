@@ -20,7 +20,7 @@ internal sealed class CreateTariffHandler(ITenantUnitOfWork tenantUow)
             .GetAsync(i => i.Name == req.Name &&
                            i.Mode == req.Mode &&
                            i.ServiceLevel == req.ServiceLevel &&
-                           i.ContractId == req.ContractId &&
+                           i.ContractRef == req.ContractRef &&
                            i.CustomerId == req.CustomerId &&
                            i.IsActive, ct);
 
@@ -36,10 +36,12 @@ internal sealed class CreateTariffHandler(ITenantUnitOfWork tenantUow)
             currency: req.Currency,
             originLane: req.OriginLane,
             destinationLane: req.DestinationLane,
+            truckType: req.TruckType,
+            tonnageClass: req.TonnageClass!,
             containerTypeId: req.ContainerTypeId,
             carrierId: req.CarrierId,
             effectiveFrom: req.EffectiveFrom,
-            contractId: req.ContractId,
+            contractRef: req.ContractRef,
             customerId: req.CustomerId);
 
         await tenantUow.Repository<Tariff>().AddAsync(tariff, ct);

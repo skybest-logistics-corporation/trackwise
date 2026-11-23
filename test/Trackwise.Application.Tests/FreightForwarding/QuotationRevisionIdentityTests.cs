@@ -23,7 +23,7 @@ public class QuotationRevisionIdentityTests
     {
         var revision = CreateRevision();
 
-        var exception = Assert.Throws<InvalidOperationException>(() => Update(revision, freightMode: FreightMode.Import));
+        var exception = Assert.Throws<InvalidOperationException>(() => Update(revision, freightMode: FreightMode.Reefer));
 
         Assert.Contains("same customer, freight mode, and route", exception.Message);
     }
@@ -69,7 +69,7 @@ public class QuotationRevisionIdentityTests
             "QT-2026-DOM-00001",
             "USD",
             TransportMode.Road,
-            FreightMode.Domestic,
+            FreightMode.Trucking,
             ShipmentType.FTL,
             Incoterm.DAP,
             LaneTransit.PointToPoint(
@@ -81,7 +81,7 @@ public class QuotationRevisionIdentityTests
             null);
         typeof(Quotation).GetProperty(nameof(Quotation.Status))!
             .SetValue(quotation, QuotationStatus.Accepted);
-        return quotation.CreateRevision("QT-2026-DOM-00002", 2);
+        return quotation.CreateRevision("QT-2026-DOM-00002", 2, "System");
     }
 
     private static void Update(
@@ -100,6 +100,7 @@ public class QuotationRevisionIdentityTests
             quotation.ShipmentType,
             quotation.Incoterm,
             lane ?? quotation.Lane,
+            "System",
             null,
             notes: notes);
     }

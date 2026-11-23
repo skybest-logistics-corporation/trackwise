@@ -1,7 +1,7 @@
 <div class="animate-in fade-in space-y-4">
   <ui-page-header
     title="Commodities"
-    addRoute="/master-data/commodities/add"
+    [addRoute]="canManage ? '/master-data/commodities/add' : null"
     addTooltip="Add a new commodity"
   />
 

@@ -1,8 +1,10 @@
 import { CommonModule } from "@angular/common";
 import { Component, computed, inject, signal } from "@angular/core";
 import { Router, RouterModule } from "@angular/router";
+import { Permission } from "@trackwise/shared";
 import { Api, downloadExpenseReceipt, type ExpenseDto } from "@trackwise/shared/api";
 import { CurrencyFormatPipe, DateFormatPipe } from "@trackwise/shared/pipes";
+import { PermissionService } from "@trackwise/shared/services";
 import {
   Card,
   Icon,
@@ -47,14 +49,17 @@ import { ExpensesListStore } from "../store/expenses-list.store";
 export class ExpensesListPage {
   private readonly api = inject(Api);
   private readonly router = inject(Router);
+  private readonly permissions = inject(PermissionService);
   protected readonly store = inject(ExpensesListStore);
   protected readonly expenseActions = inject(ExpenseActionsService);
+  protected readonly canManage = this.permissions.hasPermission(Permission.Expense.Manage);
+  protected readonly canApprove = this.permissions.hasPermission(Permission.Expense.Approve);
 
   protected readonly selectedRow = signal<ExpenseDto | null>(null);
 
   protected readonly actionMenuItems = computed<UiMenuItem[]>(() => {
     const expense = this.selectedRow();
-    const canApproveOrReject = expense?.status === "pending";
+    const canApproveOrReject = expense?.status === "pending" && this.canApprove;
 
     const items: UiMenuItem[] = [
       {
@@ -62,11 +67,15 @@ export class ExpensesListPage {
         icon: "eye",
         command: () => this.viewDetails(),
       },
-      {
-        label: "Edit",
-        icon: "pencil",
-        command: () => this.editExpense(),
-      },
+      ...(this.canManage
+        ? [
+            {
+              label: "Edit",
+              icon: "pencil" as const,
+              command: () => this.editExpense(),
+            },
+          ]
+        : []),
     ];
 
     if (canApproveOrReject) {

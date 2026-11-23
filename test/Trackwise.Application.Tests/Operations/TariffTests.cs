@@ -21,10 +21,12 @@ public class TariffTests
             currency: "usd",
             originLane: "CNSHA",
             destinationLane: "USLAX",
+            truckType: null,
+            tonnageClass: null,
             containerTypeId: HighCube40,
             carrierId: null,
             effectiveFrom: new DateOnly(2026, 1, 1),
-            contractId: null);
+            contractRef: null);
 
         Assert.Equal("Asia-US Tariff", tariff.Name);
         Assert.Equal(FreightMode.Import, tariff.Mode);
@@ -53,9 +55,11 @@ public class TariffTests
             isActive: false,
             originLane: "USLAX",
             destinationLane: "CNSHA",
+            truckType: null,
+            tonnageClass: null,
             containerTypeId: Reefer40,
             carrierId: null,
-            contractId: null);
+            contractRef: null);
 
         Assert.Equal("Updated Tariff", tariff.Name);
         Assert.Equal(FreightMode.Export, tariff.Mode);
@@ -125,9 +129,11 @@ public class TariffTests
             currency: "USD",
             originLane: "A",
             destinationLane: "B",
+            truckType: null,
+            tonnageClass: null,
             containerTypeId: null,
             carrierId: null,
             effectiveFrom: new DateOnly(2026, 1, 1),
-            contractId: null);
+            contractRef: null);
     }
 }

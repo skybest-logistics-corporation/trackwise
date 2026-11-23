@@ -26,11 +26,19 @@ public class BookingDto
     public Guid? QuotationId { get; set; }
     public string? QuotationReference { get; set; }
 
+    public TruckType? TruckType { get; set; }
+    public TruckTonnageClass? TonnageClass { get; set; }
+    public string ContainerType { get; set; } = default!;
+
     // Logistics snapshot
     public TransportMode Mode { get; set; }
     public FreightMode FreightMode { get; set; }
     public ShipmentType ShipmentType { get; set; }
     public Incoterm Incoterm { get; set; }
+    public Guid? PolId { get; set; }
+    public TerminalSummaryDto? Pol { get; set; }
+    public Guid? PodId { get; set; }
+    public TerminalSummaryDto? Pod { get; set; }
     public DateTimeOffset? RequestedPickupStart { get; set; }
     public DateTimeOffset? RequestedDeliveryEnd { get; set; }
     public decimal TotalDistanceKm { get; set; }
@@ -98,11 +106,16 @@ public class BookingSummaryDto
     public string? CustomerReference { get; set; }
     public Guid? QuotationId { get; set; }
     public string? QuotationReference { get; set; }
+    public TruckType? TruckType { get; set; }
+    public TruckTonnageClass? TonnageClass { get; set; }
+    public string ContainerType { get; set; } = default!;
     public string Currency { get; set; } = default!;
 
     public TransportMode Mode { get; set; }
     public FreightMode FreightMode { get; set; }
     public ShipmentType ShipmentType { get; set; }
+    public Guid? PolId { get; set; }
+    public Guid? PodId { get; set; }
     public DateTimeOffset? RequestedPickupStart { get; set; }
     public DateTimeOffset? RequestedDeliveryEnd { get; set; }
 

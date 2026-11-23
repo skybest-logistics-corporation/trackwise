@@ -7,7 +7,7 @@ namespace Trackwise.Application.Modules.Financial.Expenses.Commands;
 public interface IExpenseFields
 {
     decimal Amount { get; }
-    string Currency { get; }
+    string? Currency { get; }
     string? VendorName { get; }
     DateTime ExpenseDate { get; }
     string? ReceiptBlobPath { get; }
