@@ -141,76 +141,94 @@ public class Quotation : AuditableEntity, ITenantEntity
 
     public Quotation CreateRevision(string referenceNumber, int revisionNumber, string createdBy)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(referenceNumber);
+
         if (Status == QuotationStatus.Draft)
             throw new InvalidOperationException("A draft quotation can be edited directly and cannot be revised.");
 
         if (revisionNumber <= RevisionNumber)
             throw new ArgumentOutOfRangeException(nameof(revisionNumber), "A revision number must be greater than the current revision.");
 
-        var lane = Lane is null
-            ? null
-            : new LaneTransit(
-                Lane.Stops.Select(stop => RouteStop.Create(
-                    stop.Sequence,
-                    stop.LocationId,
-                    stop.Type,
-                    stop.WindowStart,
-                    stop.WindowEnd,
-                    stop.Instructions)),
-                Lane.TotalDistanceKm);
-        var cargoSpec = CargoSpec is null
-            ? null
-            : CargoSpecification.Create(
-                CargoSpec.Commodity,
-                CargoSpec.TotalWeightKg,
-                CargoSpec.PalletCount,
-                new Money
-                {
-                    Amount = CargoSpec.DeclaredCargoValue.Amount,
-                    Currency = CargoSpec.DeclaredCargoValue.Currency
-                },
-                CargoSpec.RequiresActiveRefrigeration);
-        var temperatureSpec = TemperatureSpec is null
-            ? null
-            : TemperatureControl.Create(
-                TemperatureSpec.Zone,
-                TemperatureSpec.SetpointCelsius,
-                TemperatureSpec.AllowableVarianceCelsius,
-                TemperatureSpec.Compliance,
-                TemperatureSpec.RequiresContinuousTelematics);
-
-        var revision = Create(
-            CustomerId,
-            BranchId,
-            referenceNumber,
-            Currency,
-            Mode,
-            FreightMode,
-            ShipmentType,
-            Incoterm,
-            lane,
-            cargoSpec,
-            temperatureSpec,
-            IsHazardous,
-            RequiresCustomsBrokerage,
-            Notes,
-            DeclaredCargoValuePhp,
-            PolId,
-            PodId);
-
-        revision.RevisionGroupId = RevisionGroupId;
-        revision.RevisionNumber = revisionNumber;
-        revision.PreviousRevisionId = Id;
+        // The source already passed Create/UpdateDetails, so routing and temperature rules
+        // are copied as-is rather than re-validated. Lane is null for POL/POD modes,
+        // PolId/PodId are null for lane modes; each is copied only when present.
+        var revision = new Quotation
+        {
+            CustomerId = CustomerId,
+            BranchId = BranchId,
+            ReferenceNumber = referenceNumber.Trim(),
+            Currency = Currency,
+            Status = QuotationStatus.Draft,
+            RevisionGroupId = RevisionGroupId,
+            RevisionNumber = revisionNumber,
+            PreviousRevisionId = Id,
+            Mode = Mode,
+            FreightMode = FreightMode,
+            ShipmentType = ShipmentType,
+            Incoterm = Incoterm,
+            Lane = CloneLane(Lane),
+            PolId = PolId,
+            PodId = PodId,
+            CargoSpec = CloneCargoSpec(CargoSpec),
+            DeclaredCargoValuePhp = DeclaredCargoValuePhp,
+            TemperatureSpec = CloneTemperatureSpec(TemperatureSpec),
+            IsHazardous = IsHazardous,
+            RequiresCustomsBrokerage = RequiresCustomsBrokerage,
+            Notes = Notes
+        };
 
         foreach (var line in _lines)
             revision._lines.Add(line.CopyTo(revision.Id, revision.Currency));
 
         revision.EvaluateApprovalRequirements();
-        revision._events.Clear();
+        revision.DomainEvents.Add(new QuotationCreated(revision.Id, CustomerId));
         revision.Record(QuotationEventType.RevisionCreated, createdBy,
-    details: $"Revised from {ReferenceNumber}");
+            details: $"Revised from {ReferenceNumber}");
+
         return revision;
     }
+
+    private static LaneTransit? CloneLane(LaneTransit? lane)
+    {
+        // A quotation with no lane (POL/POD modes) can come back from EF as an empty
+        // LaneTransit whose Stops is null, so check Stops, not just the lane itself.
+        if (lane?.Stops is null || !lane.Stops.Any())
+            return null;
+
+        return new LaneTransit(
+            lane.Stops.Select(stop => RouteStop.Create(
+                stop.Sequence,
+                stop.LocationId,
+                stop.Type,
+                stop.WindowStart,
+                stop.WindowEnd,
+                stop.Instructions)),
+            lane.TotalDistanceKm);
+    }
+
+    private static CargoSpecification? CloneCargoSpec(CargoSpecification? spec) =>
+        spec is null
+            ? null
+            : CargoSpecification.Create(
+                spec.Commodity,
+                spec.TotalWeightKg,
+                spec.PalletCount,
+                new Money
+                {
+                    Amount = spec.DeclaredCargoValue.Amount,
+                    Currency = spec.DeclaredCargoValue.Currency
+                },
+                spec.RequiresActiveRefrigeration);
+
+    private static TemperatureControl? CloneTemperatureSpec(TemperatureControl? spec) =>
+        spec is null
+            ? null
+            : TemperatureControl.Create(
+                spec.Zone,
+                spec.SetpointCelsius,
+                spec.AllowableVarianceCelsius,
+                spec.Compliance,
+                spec.RequiresContinuousTelematics);
 
     /// <summary>
     /// Replaces the editable details of a Draft quotation. Mirrors Create's invariants.
@@ -357,18 +375,17 @@ public class Quotation : AuditableEntity, ITenantEntity
 
     private static bool HasSameRoute(LaneTransit? current, LaneTransit? updated)
     {
-        if (current is null || updated is null)
-            return current is null && updated is null;
-
-        var currentStops = current.Stops
-            .OrderBy(stop => stop.Sequence)
-            .Select(stop => (stop.Sequence, stop.LocationId, stop.Type));
-        var updatedStops = updated.Stops
-            .OrderBy(stop => stop.Sequence)
-            .Select(stop => (stop.Sequence, stop.LocationId, stop.Type));
+        var currentStops = NormalizedStops(current);
+        var updatedStops = NormalizedStops(updated);
 
         return currentStops.SequenceEqual(updatedStops);
     }
+
+    private static IEnumerable<(int Sequence, Guid LocationId, StopType Type)> NormalizedStops(LaneTransit? lane) =>
+    (lane?.Stops ?? [])
+        .OrderBy(stop => stop.Sequence)
+        .Select(stop => (stop.Sequence, stop.LocationId, stop.Type));
+
 
     /// <summary>Refresh the USD equivalent (e.g. after an FX update) and re-run approval rules.</summary>
     public void SetDeclaredCargoValueUsd(decimal usdValue)
@@ -676,7 +693,7 @@ public class Quotation : AuditableEntity, ITenantEntity
     /// <summary>
     /// Customer accepts the quotation, enabling downstream booking conversion.
     /// </summary>
-    public void Accept(string acceptedBy)
+    public void Accept(string acceptedBy, string? message)
     {
         if (Status != QuotationStatus.Issued)
             throw new InvalidOperationException("Only issued quotations can be accepted.");
@@ -692,7 +709,7 @@ public class Quotation : AuditableEntity, ITenantEntity
         Status = QuotationStatus.Accepted;
         AcceptedAt = DateTimeOffset.UtcNow;
         DomainEvents.Add(new QuotationAccepted(Id, CustomerId));
-        Record(QuotationEventType.Accepted, acceptedBy, from);
+        Record(QuotationEventType.Accepted, acceptedBy, from, message?.Trim());
     }
 
     /// <summary>

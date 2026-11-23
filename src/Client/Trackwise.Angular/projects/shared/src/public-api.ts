@@ -13,3 +13,4 @@ export * from "./lib/constants";
 export * from "./lib/models";
 export * from "./lib/pipes";
 export * from "./lib/stores";
+export * from "./lib/components/pdf-viewer/pdf-viewer.component";

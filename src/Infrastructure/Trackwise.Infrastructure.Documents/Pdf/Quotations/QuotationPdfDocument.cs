@@ -19,10 +19,11 @@ namespace Trackwise.Infrastructure.Documents.Pdf.Quotations;
 /// Port of Discharge.
 /// </para>
 /// <para>
-/// Two charge layouts (lane modes only): a quotation priced for a single truck type/size prints
-/// the itemised charge table; a quotation whose tariffs span several truck types/sizes prints a
-/// rate matrix (one row per delivery lane, one column per truck) because those lines are
-/// alternatives, not charges that add up.
+/// Two charge layouts (all modes): a quotation priced for a single truck type/size/container type
+/// prints the itemised charge table; a quotation whose tariffs span several truck types, sizes or
+/// container types prints a rate matrix because those lines are alternatives, not charges that
+/// add up. Lane modes get one row per delivery lane; port-routed modes get a single route row.
+/// Columns are the truck / container options.
 /// </para>
 /// </summary>
 public sealed class QuotationPdfDocument : IDocument
@@ -45,7 +46,7 @@ public sealed class QuotationPdfDocument : IDocument
     private readonly IReadOnlyList<string> _lanes;
     private readonly bool _isMatrix;
 
-    private readonly record struct VehicleSpec(TruckType Type, TruckTonnageClass Tonnage);
+    private readonly record struct VehicleSpec(TruckType? Type, TruckTonnageClass? Tonnage, ContainerType? ContainerType);
 
     private sealed record PricedLine(
         string Code,
@@ -59,8 +60,8 @@ public sealed class QuotationPdfDocument : IDocument
         decimal Buying,
         decimal Selling,
         bool Priced,
-        VehicleSpec? Vehicle,   // null = not tied to a truck type/size (common charge)
-        string? Lane);          // delivery lane label, only set for vehicle-based tariffs
+        VehicleSpec? Vehicle,   // null = not tied to a truck type/size/container type (common charge)
+        string? Lane);          // row label, only set for vehicle-based tariffs
 
     public QuotationPdfDocument(QuotationPdfRequest request)
     {
@@ -70,9 +71,11 @@ public sealed class QuotationPdfDocument : IDocument
         _customerAddress = request.CustomerAddress;
         _locationNames = request.LocationNames;
         _logo = PdfLogo.TryDecode(request.LogoBytes);
-        _lines = BuildLines(request);
 
+        // Must be set before BuildLines: LaneLabel depends on it.
         _isLaneMode = _quote.FreightMode is FreightMode.Reefer or FreightMode.Trucking;
+
+        _lines = BuildLines(request);
 
         _tariffLines = _lines.Where(l => l.Vehicle.HasValue).ToList();
         _commonLines = _lines.Where(l => !l.Vehicle.HasValue).ToList();
@@ -82,13 +85,14 @@ public sealed class QuotationPdfDocument : IDocument
             .Distinct()
             .OrderBy(v => v.Type)
             .ThenBy(v => v.Tonnage)
+            .ThenBy(v => v.ContainerType?.Code)
             .ToList();
 
         _lanes = _tariffLines.Select(l => l.Lane ?? "—").Distinct().ToList(); // keeps first-seen order
 
-        // More than one truck type/size = alternatives, so a single itemised table would be misleading.
-        // Only lane modes can have alternatives; a port-routed quotation never renders as a matrix.
-        _isMatrix = _isLaneMode && _columns.Count > 1;
+        // More than one truck type/size/container type = alternatives, in any freight mode,
+        // so a single itemised table would be misleading.
+        _isMatrix = _columns.Count > 1;
     }
 
     /// <summary>
@@ -121,9 +125,11 @@ public sealed class QuotationPdfDocument : IDocument
                 priced = false;
             }
 
-            VehicleSpec? vehicle = tariff is { TruckType: { } type, TonnageClass: { } tonnage }
-                ? new VehicleSpec(type, tonnage)
-                : null;
+            // Any one of truck type / tonnage / container type is enough to make the line an "option".
+            VehicleSpec? vehicle = tariff is not null
+                && (tariff.TruckType is not null || tariff.TonnageClass is not null || tariff.ContainerType is not null)
+                    ? new VehicleSpec(tariff.TruckType, tariff.TonnageClass, tariff.ContainerType)
+                    : null;
 
             result.Add(new PricedLine(
                 Code: charge?.Code ?? "—",
@@ -147,12 +153,15 @@ public sealed class QuotationPdfDocument : IDocument
     }
 
     /// <summary>
-    /// The row label in the matrix. Falls back to the tariff name, which for you reads
-    /// "Reefer 2 Tonner Taguig - Baguio". If Tariff carries origin/destination ids,
-    /// build "Origin - Destination" from _locationNames here instead, so the vehicle
-    /// words don't repeat in the row label.
+    /// The row label in the matrix. Lane modes use the tariff name (e.g. "Reefer 2 Tonner Taguig - Baguio").
+    /// Port-routed modes use the quotation's POL - POD, because the tariff name carries the container
+    /// size ("20 FTR Tagoloan - MCT PORT") and would split each container type onto its own row.
     /// </summary>
-    private string LaneLabel(Tariff tariff) => tariff.Name;
+    private string LaneLabel(Tariff tariff) =>
+        _isLaneMode ? tariff.Name : RouteLabel();
+
+    private string RouteLabel() =>
+        $"{_quote.Pol?.Name ?? "To be advised"} - {_quote.Pod?.Name ?? "To be advised"}";
 
     private static string DescribeMarkup(QuotationLine line) => line.MarkupType switch
     {
@@ -232,21 +241,42 @@ public sealed class QuotationPdfDocument : IDocument
     {
         container.Column(col =>
         {
-            col.Item().PaddingTop(8).Background(Colors.Grey.Lighten4).Padding(8).Row(row =>
+            col.Item().PaddingTop(8).Background(Colors.Grey.Lighten4).Padding(8).Column(summary =>
             {
-                Spec(row, "Quotation Reference", _quote.ReferenceNumber, 1.8f);
-                Spec(row, "Freight Mode", PdfFormatting.Display(_quote.FreightMode));
-                Spec(row, "Transport Mode", PdfFormatting.Display(_quote.Mode));
-                Spec(row, "Shipment Type", PdfFormatting.Display(_quote.ShipmentType));
+                summary.Item().Row(row =>
+                {
+                    Spec(row, "Quotation Reference", _quote.ReferenceNumber, 1.8f);
+                    Spec(row, "Freight Mode", PdfFormatting.Display(_quote.FreightMode));
+                    Spec(row, "Transport Mode", PdfFormatting.Display(_quote.Mode));
+                    Spec(row, "Shipment Type", PdfFormatting.Display(_quote.ShipmentType));
+                    Spec(row, "Incoterm", PdfFormatting.Display(_quote.Incoterm));
+                    Spec(row, "Currency", _quote.Currency);
+                });
 
                 var truckTypes = TruckTypeSummary();
-                if (truckTypes is not null)
-                {
-                    Spec(row, "Truck Type", truckTypes);
-                }
+                var tonnage = TonnageClassSummary();
+                var containerTypes = ContainerTypeSummary();
 
-                Spec(row, "Incoterm", PdfFormatting.Display(_quote.Incoterm));
-                Spec(row, "Currency", _quote.Currency);
+                if (truckTypes is not null || tonnage is not null || containerTypes is not null)
+                {
+                    summary.Item().PaddingTop(6).Row(row =>
+                    {
+                        if (truckTypes is not null)
+                        {
+                            Spec(row, "Truck Type", truckTypes);
+                        }
+
+                        if (tonnage is not null)
+                        {
+                            Spec(row, "Tonnage Class", tonnage);
+                        }
+
+                        if (containerTypes is not null)
+                        {
+                            Spec(row, "Container Type", containerTypes);
+                        }
+                    });
+                }
             });
 
             // Non-lane modes route by POL / POD. Lane modes: each matrix row has its own lane, so one
@@ -325,7 +355,7 @@ public sealed class QuotationPdfDocument : IDocument
         return string.IsNullOrWhiteSpace(terminal.CountryCode) ? label : $"{label} ({terminal.CountryCode})";
     }
 
-    /// <summary>Matrix mode: only the pickup point, since each lane has its own row.</summary>
+    /// <summary>Matrix mode (lane modes): only the pickup point, since each lane has its own row.</summary>
     private void ComposePickup(ColumnDescriptor col)
     {
         var first = OrderedStops().FirstOrDefault();
@@ -410,7 +440,7 @@ public sealed class QuotationPdfDocument : IDocument
         }
     }
 
-    // ── Single-vehicle layout: itemised table ──────────────────────────────────
+    // ── Single-option layout: itemised table ───────────────────────────────────
 
     private void ComposeLineTable(IContainer container)
     {
@@ -458,13 +488,14 @@ public sealed class QuotationPdfDocument : IDocument
         });
     }
 
-    // ── Multi-vehicle layout: rate matrix (lane modes only) ────────────────────
+    // ── Multi-option layout: rate matrix ───────────────────────────────────────
 
     private void ComposeRateMatrix(IContainer container)
     {
         container.Column(col =>
         {
-            col.Item().Text("RATES PER TRIP").Bold().FontSize(9).FontColor(Colors.Blue.Darken3);
+            col.Item().Text(_isLaneMode ? "RATES PER TRIP" : "RATES BY CONTAINER TYPE")
+                .Bold().FontSize(9).FontColor(Colors.Blue.Darken3);
 
             col.Item().PaddingTop(4).Table(table =>
             {
@@ -479,7 +510,7 @@ public sealed class QuotationPdfDocument : IDocument
 
                 table.Header(header =>
                 {
-                    header.Cell().Element(PdfStyles.HeaderCell).Text("Delivery Location");
+                    header.Cell().Element(PdfStyles.HeaderCell).Text(_isLaneMode ? "Delivery Location" : "Route");
                     foreach (var spec in _columns)
                     {
                         header.Cell().Element(PdfStyles.HeaderCell).AlignRight().Text(ColumnLabel(spec));
@@ -499,14 +530,35 @@ public sealed class QuotationPdfDocument : IDocument
             });
 
             col.Item().PaddingTop(4)
-                .Text("Rates are per trip and depend on the truck engaged. Only one rate per delivery location applies.")
+                .Text(_isLaneMode
+                    ? "Rates are per trip and depend on the truck engaged. Only one rate per delivery location applies."
+                    : "Rates depend on the container type engaged. Only one rate applies per shipment.")
                 .FontSize(8).FontColor(Colors.Grey.Darken1);
         });
     }
 
-    private string ColumnLabel(VehicleSpec spec) =>
-        $"{PdfFormatting.Display(spec.Type)} {NumberWordsToDigits(PdfFormatting.Display(spec.Tonnage))}"
-            .ToUpperInvariant();
+    private string ColumnLabel(VehicleSpec spec)
+    {
+        var parts = new List<string>();
+
+        if (spec.Type is { } type)
+        {
+            parts.Add(PdfFormatting.Display(type));
+        }
+
+        if (spec.Tonnage is { } tonnage)
+        {
+            parts.Add(NumberWordsToDigits(PdfFormatting.Display(tonnage)));
+        }
+
+        var container = ContainerTypeLabel(spec.ContainerType);
+        if (container is not null)
+        {
+            parts.Add(container);
+        }
+
+        return string.Join(" ", parts).ToUpperInvariant();
+    }
 
     private static readonly Dictionary<string, string> NumberWords = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -534,7 +586,7 @@ public sealed class QuotationPdfDocument : IDocument
     private static string NumberWordsToDigits(string text) =>
         NumberWordPattern.Replace(text, m => NumberWords[m.Value]);
 
-    /// <summary>Sum of everything priced under that lane + truck. A blank price is "—", never a partial sum.</summary>
+    /// <summary>Sum of everything priced under that row + option. A blank price is "—", never a partial sum.</summary>
     private string CellAmount(string lane, VehicleSpec spec)
     {
         var cell = _tariffLines.Where(l => (l.Lane ?? "—") == lane && l.Vehicle == spec).ToList();
@@ -546,12 +598,13 @@ public sealed class QuotationPdfDocument : IDocument
         return PdfFormatting.Money(cell.Sum(l => l.Selling), _quote.Currency);
     }
 
-    /// <summary>Charges not tied to a truck (e.g. permits) apply to whichever truck is used.</summary>
+    /// <summary>Charges not tied to a truck / container type (e.g. permits) apply to whichever option is used.</summary>
     private void ComposeCommonCharges(IContainer container)
     {
         container.Column(col =>
         {
-            col.Item().Text("ADDITIONAL CHARGES (ALL TRUCKS)").Bold().FontSize(9).FontColor(Colors.Blue.Darken3);
+            col.Item().Text(_isLaneMode ? "ADDITIONAL CHARGES (ALL TRUCKS)" : "ADDITIONAL CHARGES (ALL OPTIONS)")
+                .Bold().FontSize(9).FontColor(Colors.Blue.Darken3);
 
             col.Item().PaddingTop(4).Table(table =>
             {
@@ -643,12 +696,50 @@ public sealed class QuotationPdfDocument : IDocument
     private string? TruckTypeSummary()
     {
         var types = _columns
-            .Select(c => c.Type)
+            .Where(c => c.Type.HasValue)
+            .Select(c => c.Type!.Value)
             .Distinct()
             .Select(t => PdfFormatting.Display(t))
             .ToList();
 
         return types.Count == 0 ? null : string.Join(", ", types);
+    }
+
+    /// <summary>Distinct tonnage classes across the tariffs ("2 Tonner", or "2 Tonner, 4 Tonner"); null if none.</summary>
+    private string? TonnageClassSummary()
+    {
+        var values = _columns
+            .Where(c => c.Tonnage.HasValue)
+            .Select(c => c.Tonnage!.Value)
+            .Distinct()
+            .Select(t => NumberWordsToDigits(PdfFormatting.Display(t)))
+            .ToList();
+
+        return values.Count == 0 ? null : string.Join(", ", values);
+    }
+
+    /// <summary>The text printed for a container type: its name, falling back to its code.</summary>
+    private static string? ContainerTypeLabel(ContainerType? containerType)
+    {
+        if (containerType is null)
+        {
+            return null;
+        }
+
+        var label = string.IsNullOrWhiteSpace(containerType.Name) ? containerType.Code : containerType.Name;
+        return string.IsNullOrWhiteSpace(label) ? null : label.Trim();
+    }
+
+    /// <summary>Distinct container types across the tariffs; null if none.</summary>
+    private string? ContainerTypeSummary()
+    {
+        var values = _columns
+            .Select(c => ContainerTypeLabel(c.ContainerType))
+            .Where(l => l is not null)
+            .Distinct()
+            .ToList();
+
+        return values.Count == 0 ? null : string.Join(", ", values);
     }
 
     private static void Spec(RowDescriptor row, string label, string value, float weight = 1f) =>

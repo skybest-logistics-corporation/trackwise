@@ -22,6 +22,11 @@ export const routes: Routes = [
     loadComponent: () => import("./pages/payment/public-payment").then((m) => m.PublicPayment),
   },
   {
+    path: "quotations/:tenantId/:token",
+    loadComponent: () =>
+      import("./pages/public-quotation/public-quotation").then((m) => m.PublicQuotation),
+  },
+  {
     path: "select-tenant",
     canActivate: [authGuard],
     loadComponent: () => import("./pages/select-tenant/select-tenant").then((m) => m.SelectTenant),

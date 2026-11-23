@@ -21,7 +21,7 @@ import { NgxExtendedPdfViewerModule } from "ngx-extended-pdf-viewer";
 export type PdfLoader = (id: string) => Promise<Blob>;
 
 @Component({
-  selector: "app-pdf-viewer",
+  selector: "ui-app-pdf-viewer",
   standalone: true,
   imports: [CommonModule, NgxExtendedPdfViewerModule],
   templateUrl: "./pdf-viewer.component.html",

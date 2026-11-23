@@ -43,7 +43,7 @@ internal static class TestQuotations
         AddBaseLine(quotation);
         quotation.Approve(approvedBy);
         quotation.Issue(TimeSpan.FromDays(30), "System");
-        quotation.Accept("System");
+        quotation.Accept("System", "");
         return quotation;
     }
 }

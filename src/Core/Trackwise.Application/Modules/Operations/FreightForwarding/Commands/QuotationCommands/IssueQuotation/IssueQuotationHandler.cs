@@ -1,19 +1,25 @@
 using System;
-using System.Collections.Generic;
-using System.Text;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Trackwise.Application.Abstractions;
+using Trackwise.Application.Abstractions.CurrentUser;
+using Trackwise.Application.Abstractions.Email;
+using Trackwise.Application.Abstractions.Email.Models;
+using Trackwise.Application.Utilities;
 using Trackwise.Domain.Entities;
+using Trackwise.Domain.Options;
 using Trackwise.Domain.Persistence;
 using Trackwise.Domain.Primitives.Enums;
 using Trackwise.Shared.Models;
-using Microsoft.EntityFrameworkCore;
-using FluentValidation;
-using Trackwise.Application.Abstractions.Email;
-using Trackwise.Application.Abstractions.CurrentUser;
 
 namespace Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.IssueQuotation;
 
-internal sealed class IssueQuotationHandler(ITenantUnitOfWork tenantUow, IEmailSender emailSender, ICurrentUserService currentUserService)
+internal sealed class IssueQuotationHandler(
+    ITenantUnitOfWork tenantUow,
+    IEmailSender emailSender,
+    IEmailTemplateService emailTemplateService,
+    ICurrentUserService currentUserService,
+    IOptions<CustomerPortalOptions> portalOptions)
     : IAppRequestHandler<IssueQuotationCommand, Result>
 {
     public async Task<Result> Handle(IssueQuotationCommand req, CancellationToken ct)
@@ -40,25 +46,60 @@ internal sealed class IssueQuotationHandler(ITenantUnitOfWork tenantUow, IEmailS
         {
             // Freezes buying and selling numbers on every line to prevent tariff-drift
             quotation.Issue(TimeSpan.FromDays(req.ValidityDays), currentUserService.GetUserName());
-
-            // Send email to customer if email is provided
-            if (!string.IsNullOrWhiteSpace(req.CustomerEmail))
-            {
-                var emailSubject = $"Quotation {quotation.ReferenceNumber} Issued";
-                var emailBody = new StringBuilder();
-                emailBody.AppendLine($"Dear Customer,");
-
-                await emailSender.SendEmailAsync(req.CustomerEmail, emailSubject, emailBody.ToString());
-            }
         }
         catch (InvalidOperationException ex)
         {
             return Result.Fail(ex.Message);
         }
 
+        QuotationLink? quotationLink = null;
+
+        // Send email to customer if email is provided, carrying a tokenized link to the issued offer
+        if (!string.IsNullOrWhiteSpace(req.CustomerEmail))
+        {
+            quotationLink = new QuotationLink
+            {
+                Token = TokenGenerator.GenerateSecureToken(64),
+                QuotationId = quotation.Id,
+                ExpiresAt = quotation.ValidUntil!.Value.UtcDateTime,
+                CreatedByUserId = currentUserService.GetUserId() ?? Guid.Empty
+            };
+
+            var sent = await SendQuotationIssuedEmailAsync(quotation, quotationLink, req.CustomerEmail, ct);
+            if (!sent)
+                return Result.Fail("Failed to send the quotation email. Please try again.");
+        }
+
         quotationRepo.Update(quotation);
+        if (quotationLink is not null)
+            await tenantUow.Repository<QuotationLink>().AddAsync(quotationLink, ct);
         await tenantUow.SaveChangesAsync(ct);
 
         return Result.Ok();
+    }
+
+    private async Task<bool> SendQuotationIssuedEmailAsync(
+        Quotation quotation,
+        QuotationLink quotationLink,
+        string customerEmail,
+        CancellationToken ct)
+    {
+        var tenant = tenantUow.GetCurrentTenant();
+        var customer = await tenantUow.Repository<Customer>().GetByIdAsync(quotation.CustomerId, ct);
+
+        var model = new QuotationIssuedEmailModel
+        {
+            CompanyName = tenant.CompanyName ?? tenant.Name,
+            CustomerName = customer?.Name ?? "Customer",
+            ReferenceNumber = quotation.ReferenceNumber,
+            QuotationUrl = $"{portalOptions.Value.BaseUrl}/quotations/{tenant.Id}/{quotationLink.Token}",
+            ExpiresAt = quotationLink.ExpiresAt.ToString("MMMM dd, yyyy"),
+            PersonalMessage = null
+        };
+
+        var subject = $"Quotation {quotation.ReferenceNumber} Issued | {model.CompanyName}";
+        var body = await emailTemplateService.RenderAsync("QuotationIssued", model);
+
+        return await emailSender.SendEmailAsync(customerEmail, subject, body);
     }
 }

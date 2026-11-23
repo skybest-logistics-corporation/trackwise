@@ -173,8 +173,8 @@ public class Tariff : AuditableEntity, ITenantEntity
         if (containerTypeId.HasValue) ContainerTypeId = containerTypeId.Value;
         if (carrierId.HasValue) CarrierId = carrierId.Value;
         if (!string.IsNullOrWhiteSpace(contractRef)) ContractRef = contractRef;
-        if (truckType != default) TruckType = truckType;
-        if (tonnageClass.HasValue) TonnageClass = tonnageClass.Value;
+        TruckType = truckType;
+        TonnageClass = tonnageClass;
         DomainEvents.Add(new TariffUpdated(Id, Name));
     }
 }

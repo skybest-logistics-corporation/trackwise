@@ -1,4 +1,5 @@
 using MockQueryable;
+using Microsoft.Extensions.Options;
 using Trackwise.Application.Tests.TestKit;
 using NSubstitute;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.AcceptQuotation;
@@ -9,13 +10,15 @@ using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.Quotat
 using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.RejectQuotation;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.SubmitQuotation;
 using Trackwise.Domain.Entities;
+using Trackwise.Domain.Options;
 using Trackwise.Domain.Persistence;
 using Trackwise.Domain.Primitives.Enums;
 using Trackwise.Domain.Primitives.Enums.FreightForwarding;
 using Trackwise.Domain.Primitives.ValueObjects;
 using Xunit;
-using Trackwise.Application.Abstractions.Email;
 using Trackwise.Application.Abstractions.CurrentUser;
+using Trackwise.Application.Abstractions.Email;
+using Trackwise.Application.Abstractions.Email.Models;
 
 namespace Trackwise.Application.Tests.FreightForwarding;
 
@@ -23,16 +26,22 @@ public class QuotationLifecycleHandlersTests
 {
     private readonly ITenantUnitOfWork _tenantUow = Substitute.For<ITenantUnitOfWork>();
     private readonly IEmailSender _emailSender = Substitute.For<IEmailSender>();
+    private readonly IEmailTemplateService _emailTemplateService = Substitute.For<IEmailTemplateService>();
     private readonly ICurrentUserService currentUserService = Substitute.For<ICurrentUserService>();
+    private readonly IOptions<CustomerPortalOptions> _portalOptions = Options.Create(new CustomerPortalOptions());
     private readonly ITenantRepository<Quotation, Guid> _quotationRepo = Substitute.For<ITenantRepository<Quotation, Guid>>();
     private readonly ITenantRepository<QuotationLine, Guid> _quotationLineRepo = Substitute.For<ITenantRepository<QuotationLine, Guid>>();
     private readonly ITenantRepository<TariffRate, Guid> _tariffRateRepo = Substitute.For<ITenantRepository<TariffRate, Guid>>();
+    private readonly ITenantRepository<Customer, Guid> _customerRepo = Substitute.For<ITenantRepository<Customer, Guid>>();
+    private readonly ITenantRepository<QuotationLink, Guid> _quotationLinkRepo = Substitute.For<ITenantRepository<QuotationLink, Guid>>();
 
     public QuotationLifecycleHandlersTests()
     {
         _tenantUow.Repository<Quotation>().Returns(_quotationRepo);
         _tenantUow.Repository<QuotationLine>().Returns(_quotationLineRepo);
         _tenantUow.Repository<TariffRate>().Returns(_tariffRateRepo);
+        _tenantUow.Repository<Customer>().Returns(_customerRepo);
+        _tenantUow.Repository<QuotationLink>().Returns(_quotationLinkRepo);
     }
 
     #region AddQuotationLines
@@ -290,7 +299,7 @@ public class QuotationLifecycleHandlersTests
         _quotationRepo.GetByIdAsync(quotation.Id, Arg.Any<CancellationToken>()).Returns(quotation);
         _quotationRepo.Query().Returns(new[] { quotation }.BuildMock());
 
-        var sut = new IssueQuotationHandler(_tenantUow, _emailSender, currentUserService);
+        var sut = new IssueQuotationHandler(_tenantUow, _emailSender, _emailTemplateService, currentUserService, _portalOptions);
         var result = await sut.Handle(
             new IssueQuotationCommand { Id = quotation.Id, ValidityDays = 10 },
             CancellationToken.None);
@@ -313,11 +322,83 @@ public class QuotationLifecycleHandlersTests
         _quotationRepo.GetByIdAsync(quotation.Id, Arg.Any<CancellationToken>()).Returns(quotation);
         _quotationRepo.Query().Returns(new[] { quotation }.BuildMock());
 
-        var sut = new IssueQuotationHandler(_tenantUow, _emailSender, currentUserService);
+        var sut = new IssueQuotationHandler(_tenantUow, _emailSender, _emailTemplateService, currentUserService, _portalOptions);
         var result = await sut.Handle(new IssueQuotationCommand { Id = quotation.Id }, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Contains("Only Approved quotations can be issued", result.Error);
+    }
+
+    [Fact]
+    public async Task Issue_WithoutCustomerEmail_DoesNotSendQuotationEmail()
+    {
+        var quotation = CreateTestQuotation();
+        AddPricedLine(quotation);
+        quotation.Approve("manager@test.com");
+
+        _quotationRepo.GetByIdAsync(quotation.Id, Arg.Any<CancellationToken>()).Returns(quotation);
+        _quotationRepo.Query().Returns(new[] { quotation }.BuildMock());
+
+        var sut = new IssueQuotationHandler(_tenantUow, _emailSender, _emailTemplateService, currentUserService, _portalOptions);
+        var result = await sut.Handle(new IssueQuotationCommand { Id = quotation.Id }, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        await _emailSender.DidNotReceive().SendEmailAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>());
+        await _quotationLinkRepo.DidNotReceive().AddAsync(Arg.Any<QuotationLink>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Issue_WithCustomerEmail_GeneratesTokenizedQuotationLinkAndSendsEmail()
+    {
+        var quotation = CreateTestQuotation();
+        AddPricedLine(quotation);
+        quotation.Approve("manager@test.com");
+
+        var customer = new Customer { Id = quotation.CustomerId, Name = "Acme Shipping" };
+        _quotationRepo.GetByIdAsync(quotation.Id, Arg.Any<CancellationToken>()).Returns(quotation);
+        _quotationRepo.Query().Returns(new[] { quotation }.BuildMock());
+        _customerRepo.GetByIdAsync(quotation.CustomerId, Arg.Any<CancellationToken>()).Returns(customer);
+        _tenantUow.GetCurrentTenant().Returns(new Tenant
+        {
+            Id = Guid.NewGuid(),
+            Name = "Acme Logistics",
+            CompanyName = "Acme Logistics",
+            CompanyAddress = new Address
+            {
+                StreetAddress = "123 Test Street",
+                CityOrMunicipality = "Makati",
+                Province = "Metro Manila",
+                Region = "NCR",
+                Zipcode = "1200",
+                Country = "PH"
+            },
+            ConnectionString = "Host=localhost;Database=test",
+            BillingEmail = "billing@acme.com"
+        });
+        QuotationLink? addedLink = null;
+        _quotationLinkRepo.AddAsync(Arg.Do<QuotationLink>(l => addedLink = l), Arg.Any<CancellationToken>())
+            .ReturnsForAnyArgs(Task.CompletedTask);
+
+        _emailTemplateService
+            .RenderAsync("QuotationIssued", Arg.Any<QuotationIssuedEmailModel>())
+            .Returns("Dear Customer, <a href=\"https://app/track\">View Quotation</a>");
+        _emailSender.SendEmailAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+            .Returns(true);
+
+        var sut = new IssueQuotationHandler(_tenantUow, _emailSender, _emailTemplateService, currentUserService, _portalOptions);
+        var result = await sut.Handle(
+            new IssueQuotationCommand { Id = quotation.Id, ValidityDays = 10, CustomerEmail = "shipper@acme.com" },
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        await _emailSender.Received(1).SendEmailAsync("shipper@acme.com", Arg.Any<string>(), Arg.Any<string>());
+        await _quotationLinkRepo.Received(1).AddAsync(Arg.Any<QuotationLink>(), Arg.Any<CancellationToken>());
+
+        await _quotationLinkRepo.Received(1).AddAsync(Arg.Any<QuotationLink>(), Arg.Any<CancellationToken>());
+        Assert.NotNull(addedLink);
+        Assert.False(string.IsNullOrWhiteSpace(addedLink.Token));
+        Assert.Equal(quotation.Id, addedLink.QuotationId);
+        Assert.Equal(quotation.ValidUntil!.Value.UtcDateTime, addedLink.ExpiresAt);
     }
 
     #endregion

@@ -7588,6 +7588,79 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
                     b.ToTable("quotation_lines", (string)null);
                 });
 
+            modelBuilder.Entity("Trackwise.Domain.Entities.QuotationLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("AccessCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("access_count");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("created_by");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<DateTime?>("LastAccessedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_accessed_at");
+
+                    b.Property<Guid>("QuotationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("quotation_id");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("token");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_quotation_links");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasDatabaseName("ix_quotation_links_expires_at");
+
+                    b.HasIndex("QuotationId")
+                        .HasDatabaseName("ix_quotation_links_quotation_id");
+
+                    b.HasIndex("Token")
+                        .IsUnique()
+                        .HasDatabaseName("ix_quotation_links_token");
+
+                    b.ToTable("quotation_links", (string)null);
+                });
+
             modelBuilder.Entity("Trackwise.Domain.Entities.RateAgreement", b =>
                 {
                     b.Property<Guid>("Id")
@@ -12880,6 +12953,18 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
                     b.Navigation("Quotation");
 
                     b.Navigation("TariffRate");
+                });
+
+            modelBuilder.Entity("Trackwise.Domain.Entities.QuotationLink", b =>
+                {
+                    b.HasOne("Trackwise.Domain.Entities.Quotation", "Quotation")
+                        .WithMany()
+                        .HasForeignKey("QuotationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_quotation_links_quotations_quotation_id");
+
+                    b.Navigation("Quotation");
                 });
 
             modelBuilder.Entity("Trackwise.Domain.Entities.RateAgreement", b =>

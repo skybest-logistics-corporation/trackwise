@@ -967,6 +967,19 @@ truck size, with fuel on top.
 -Applications: `Application/Modules/operations/FreightForwarding` (`CreateQuotationRevision` creates a new draft in the same revision family, preserving the customer, freight mode, route, and charge setup)
 -API/UI: `Trackwise.Api/QuotationController`, `tms-portal/pages/forwarding/quotation/`
 
+### Quotation Link (public share-by-token)
+
+-Domain: `Entities/Freightforwarding/QuotationLink.cs` (token → quotation + expiry + access bookkeeping)
+-Configuration: `Infrastructure/Persistence/Configurations/QuotationLinkEntityConfiguration.cs` (table `quotation_links`, unique token index, FK to quotations cascade)
+-Migration: `Migrations/Tenant/*_AddQuotationLink.cs`
+-Application:
+
+- Issue path: `Application/Modules/Operations/FreightForwarding/Commands/QuotationCommands/IssueQuotation/IssueQuotationHandler.cs` — generates `TokenGenerator.GenerateSecureToken(64)`, builds `QuotationIssuedEmailModel.QuotationUrl` = `{CustomerPortalOptions.BaseUrl}/quotations/{tenantId}/{token}`, sends `QuotationIssued.liquid` email, persists `QuotationLink` expiry = `quotation.ValidUntil`
+- Access path: `Queries/GetPublicQuotation/GetPublicQuotationHandler.cs` (validates token `IsValid`, defers access bookkeeping via `Commands/RecordQuotationLinkAccess/`)
+  -API/UI: `Trackwise.Api/Controllers/PublicQuotationController.cs` (`GET /public/quotations/{tenantId}/{token}`, AllowAnonymous) → `Application/Shared/Models/Quotations/PublicQuotationDto` (selling side only)
+  -Frontend: `customer-portal/pages/public-quotation/` (`cp-public-quotation`, route `/quotations/:tenantId/:token`)
+  -Email template: `Infrastructure/Communications/Email/Templates/QuotationIssued.liquid`; model: `Application.Abstractions/Email/Models/QuotationIssuedEmailModel.cs`
+
 ### Booking
 
 An accepted (Approved) Quotation converts into a Booking - the trackable job against a carrier.
