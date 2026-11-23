@@ -216,7 +216,9 @@ internal static class Setup
             });
 
         services.AddTrackwiseCors(
-            "https://trackwise.skybest.com.ph", "https://admin.skybest.com.ph");
+            "https://trackwise.skybest.com.ph",
+            "https://admin.skybest.com.ph",
+            "https://customer.skybest.com.ph");
 
         // Freght forwarding services
         builder.Services.AddFreightForwardingServices();
