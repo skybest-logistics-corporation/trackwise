@@ -73,7 +73,7 @@ This table is the canonical port reference - `deploy/docker-compose.yml` and `de
 | `id.skybest.com.ph`        | 7001                  | `IDENTITY_SERVER_PORT` | yes                            |
 | `admin.skybest.com.ph`     | 7002                  | `ADMIN_PORTAL_PORT`    | yes                            |
 | `trackwise.skybest.com.ph` | 7003                  | `TMS_PORTAL_PORT`      | yes                            |
-| `customer.skybest.com.ph`  | 7004                  | `CUSTOMER_PORTAL_PORT` | no - nginx block commented out |
+| `customer.skybest.com.ph`  | 7004                  | `CUSTOMER_PORTAL_PORT` | yes                            |
 | `skybest.com.ph` (website) | 7005                  | `WEBSITE_PORT`         | no - nginx block commented out |
 | `portainer.skybest.com.ph` | 9000 (separate stack) | -                      | no - nginx block commented out |
 
