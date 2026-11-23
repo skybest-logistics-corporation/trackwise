@@ -311,7 +311,7 @@ public sealed class QuotationPdfDocument : IDocument
 
                 col.Item().PaddingTop(8).Background(Colors.Grey.Lighten4).Padding(6).Row(row =>
                 {
-                    row.RelativeItem().Text("TOTAL ESTIMATED SELLING CHARGES:").Bold().FontColor(Colors.Blue.Darken3);
+                    row.RelativeItem().Text("TOTAL ESTIMATED CHARGES:").Bold().FontColor(Colors.Blue.Darken3);
                     row.RelativeItem().AlignRight().Text(PdfFormatting.Money(TotalSelling(), _quote.Currency))
                         .Bold().FontSize(11).FontColor(Colors.Blue.Darken3);
                 });
@@ -453,7 +453,6 @@ public sealed class QuotationPdfDocument : IDocument
                 columns.RelativeColumn(1.4f);
                 columns.RelativeColumn(1.2f);
                 columns.RelativeColumn(1.6f);
-                columns.RelativeColumn(1.6f);
             });
 
             table.Header(header =>
@@ -463,7 +462,7 @@ public sealed class QuotationPdfDocument : IDocument
                 header.Cell().Element(PdfStyles.HeaderCell).Text("Pricing");
                 header.Cell().Element(PdfStyles.HeaderCell).AlignRight().Text("Quantity");
                 header.Cell().Element(PdfStyles.HeaderCell).AlignRight().Text($"Total ({_quote.Currency})");
-                header.Cell().Element(PdfStyles.HeaderCell).AlignRight().Text("Buying");
+                //header.Cell().Element(PdfStyles.HeaderCell).AlignRight().Text("Buying");
             });
 
             var index = 1;
@@ -481,8 +480,8 @@ public sealed class QuotationPdfDocument : IDocument
                 table.Cell().Element(PdfStyles.Cell).AlignRight()
                     .Text(line.Priced ? PdfFormatting.Money(line.Selling, _quote.Currency) : "—")
                     .Bold();
-                table.Cell().Element(PdfStyles.Cell).AlignRight()
-                    .Text(line.Priced ? PdfFormatting.Money(line.Buying, _quote.Currency) : "—");
+                //table.Cell().Element(PdfStyles.Cell).AlignRight()
+                //    .Text(line.Priced ? PdfFormatting.Money(line.Buying, _quote.Currency) : "—");
                 index++;
             }
         });
