@@ -45,7 +45,8 @@ internal sealed class ConvertQuotationToBookingHandler(ITenantUnitOfWork tenantU
             bookingSequence: existingCount + 1,
             requestedPickupDate: req.RequestedPickupDate,
             requestedDeliveryDate: req.RequestedDeliveryDate,
-            notes: req.Notes);
+            notes: req.Notes,
+            createdBy: currentUser);
 
         await tenantUow.Repository<Booking>().AddAsync(booking, ct);
         quotation.RecordConvertedToBooking(booking.Id, booking.BookingNumber, currentUser);

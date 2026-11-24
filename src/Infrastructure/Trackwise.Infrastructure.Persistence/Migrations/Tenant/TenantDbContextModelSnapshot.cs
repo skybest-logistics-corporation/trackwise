@@ -3625,6 +3625,61 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
                     b.UseTphMappingStrategy();
                 });
 
+            modelBuilder.Entity("Trackwise.Domain.Entities.FreightForwarding.BookingEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Actor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("actor");
+
+                    b.Property<Guid>("BookingId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("booking_id");
+
+                    b.Property<string>("Details")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("details");
+
+                    b.Property<string>("FromStatus")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("from_status");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<Guid?>("RelatedId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("related_id");
+
+                    b.Property<string>("ToStatus")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("to_status");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("type");
+
+                    b.HasKey("Id")
+                        .HasName("pk_bookingevents");
+
+                    b.HasIndex("BookingId", "OccurredAt")
+                        .HasDatabaseName("ix_bookingevents_booking_id_occurred_at");
+
+                    b.ToTable("bookingevents", (string)null);
+                });
+
             modelBuilder.Entity("Trackwise.Domain.Entities.FreightForwarding.QuotationEvent", b =>
                 {
                     b.Property<Guid>("Id")
@@ -12301,6 +12356,16 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
                     b.Navigation("Role");
                 });
 
+            modelBuilder.Entity("Trackwise.Domain.Entities.FreightForwarding.BookingEvent", b =>
+                {
+                    b.HasOne("Trackwise.Domain.Entities.Booking", null)
+                        .WithMany("Events")
+                        .HasForeignKey("BookingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_bookingevents_bookings_booking_id");
+                });
+
             modelBuilder.Entity("Trackwise.Domain.Entities.FreightForwarding.QuotationEvent", b =>
                 {
                     b.HasOne("Trackwise.Domain.Entities.Quotation", null)
@@ -13817,6 +13882,8 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
                     b.Navigation("Documents");
 
                     b.Navigation("Drops");
+
+                    b.Navigation("Events");
                 });
 
             modelBuilder.Entity("Trackwise.Domain.Entities.CashFund", b =>

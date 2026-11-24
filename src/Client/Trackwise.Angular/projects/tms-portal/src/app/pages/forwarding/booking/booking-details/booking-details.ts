@@ -16,6 +16,7 @@ import {
   type BillIndicator,
   type BookingChargeDto,
   type BookingDto,
+  type BookingEventDto,
   type FreightMode,
   type ReportCategory,
   type TruckingVariant,
@@ -132,7 +133,9 @@ export class BookingDetailsComponent implements OnInit {
   protected readonly isCancelled = computed(() => this.status() === "cancelled");
 
   protected readonly createTripDialogVisible = signal(false);
-  protected readonly isColdChain = computed(() => !!this.booking()?.temperature);
+  protected readonly isColdChainOrTrucking = computed(
+    () => this.booking()?.freightMode === "reefer" || this.booking()?.freightMode === "trucking",
+  );
 
   protected readonly canCancel = computed(() => this.isDraft() || this.isConfirmed());
   protected readonly canOpenWorkfile = computed(() => this.isConfirmed() || this.isInProgress());
@@ -217,6 +220,46 @@ export class BookingDetailsComponent implements OnInit {
       b.requiresCustomsBrokerage ? "Customs brokerage" : null,
     ].filter((flag): flag is string => !!flag);
   });
+
+  // ── Activity timeline ──────────────────────────────────────────────────────
+
+  /** Newest first, as returned by the server. */
+  protected readonly events = computed(() => this.booking()?.events ?? []);
+
+  /** Dot colour: green for progress, red for cancellations and rejections, neutral otherwise. */
+  protected eventDotClass(event: BookingEventDto): string {
+    const key = statusKey(event.type);
+    if (key === "cancelled" || key.endsWith("rejected")) return "bg-red-500";
+    if (
+      ["confirmed", "completed", "documentverified", "documentwaived", "creditapproved"].includes(
+        key,
+      )
+    ) {
+      return "bg-emerald-500";
+    }
+    return "bg-muted-foreground/50";
+  }
+
+  /** Where `relatedId` leads, for the event types that point at a page. Null = plain text. */
+  protected eventLink(event: BookingEventDto): string[] | null {
+    if (!event.relatedId) return null;
+
+    switch (statusKey(event.type)) {
+      case "chargesinvoiced":
+      case "chargesreleased":
+        return ["/billing-invoicing", event.relatedId];
+      case "created":
+        return ["/quotations", event.relatedId];
+      default:
+        return null;
+    }
+  }
+
+  /** "Draft → Confirmed" only when the status actually changed. */
+  protected eventTransition(event: BookingEventDto): string | null {
+    if (!event.fromStatus || event.fromStatus === event.toStatus) return null;
+    return `${this.statusLabel(event.fromStatus)} → ${this.statusLabel(event.toStatus)}`;
+  }
 
   // ── Open Workfile dialog ───────────────────────────────────────────────────
 

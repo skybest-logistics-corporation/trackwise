@@ -38793,6 +38793,13 @@
             },
             "nullable": true
           },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BookingEventDto"
+            },
+            "nullable": true
+          },
           "confirmationBlockers": {
             "type": "array",
             "items": {
@@ -38876,6 +38883,65 @@
           }
         },
         "additionalProperties": false
+      },
+      "BookingEventDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "$ref": "#/components/schemas/BookingEventType"
+          },
+          "fromStatus": {
+            "$ref": "#/components/schemas/BookingStatus"
+          },
+          "toStatus": {
+            "$ref": "#/components/schemas/BookingStatus"
+          },
+          "actor": {
+            "type": "string",
+            "nullable": true
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "details": {
+            "type": "string",
+            "nullable": true
+          },
+          "relatedId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "BookingEventType": {
+        "enum": [
+          "created",
+          "updated",
+          "charge_added",
+          "charge_updated",
+          "charge_removed",
+          "charges_invoiced",
+          "charges_released",
+          "document_added",
+          "document_verified",
+          "document_rejected",
+          "document_waived",
+          "credit_approved",
+          "credit_rejected",
+          "confirmed",
+          "started",
+          "rescheduled",
+          "completed",
+          "cancelled"
+        ],
+        "type": "string"
       },
       "BookingInvoicePurpose": {
         "enum": [
@@ -48400,7 +48466,8 @@
           "deduction",
           "reimbursement",
           "adjustment",
-          "surcharge"
+          "surcharge",
+          "base"
         ],
         "type": "string"
       },

@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using Trackwise.Domain.Core;
+using Trackwise.Domain.Entities.FreightForwarding;
 using Trackwise.Domain.Primitives.Enums;
+using Trackwise.Domain.Primitives.Enums.BookingEvents;
 using Trackwise.Domain.Primitives.Enums.FreightForwarding;
 using Trackwise.Domain.Primitives.Enums.FreightForwarding.BookingEnums;
 using Trackwise.Domain.Primitives.ValueObjects;
@@ -125,6 +127,14 @@ public partial class Booking : AuditableEntity, ITenantEntity
     private readonly List<BookingChargeLine> _charges = [];
     public virtual IReadOnlyCollection<BookingChargeLine> Charges => new ReadOnlyCollection<BookingChargeLine>(_charges);
 
+    private readonly List<BookingEvent> _events = [];
+    public virtual IReadOnlyCollection<BookingEvent> Events => new ReadOnlyCollection<BookingEvent>(_events);
+
+    /// <summary>Call after the status change, so ToStatus is the new status.</summary>
+    private void Record(BookingEventType type, string? actor, BookingStatus? from = null,
+        string? details = null, Guid? relatedId = null) =>
+        _events.Add(BookingEvent.Create(Id, type, from, Status, actor, details, relatedId));
+
     private readonly List<BookingDocument> _documents = [];
     public virtual IReadOnlyCollection<BookingDocument> Documents => new ReadOnlyCollection<BookingDocument>(_documents);
 
@@ -144,7 +154,8 @@ public partial class Booking : AuditableEntity, ITenantEntity
         bool customerCreditCheckRequired = false,
         DateTime? requestedPickupDate = null,
         DateTime? requestedDeliveryDate = null,
-        string? notes = null)
+        string? notes = null,
+        string? createdBy = null)
     {
         ArgumentNullException.ThrowIfNull(quotation);
 
@@ -189,6 +200,8 @@ public partial class Booking : AuditableEntity, ITenantEntity
         //booking.GenerateDocumentRequirements();
 
         booking.DomainEvents.Add(new BookingDraftCreated(booking.Id, quotation.Id, quotation.CustomerId));
+        booking.Record(BookingEventType.Created, createdBy,
+            details: $"From quotation {quotation.ReferenceNumber}", relatedId: quotation.Id);
         return booking;
     }
 
@@ -225,7 +238,7 @@ public partial class Booking : AuditableEntity, ITenantEntity
 
     // ── Header / cargo edits (Draft only) ────────────────────────────────────
 
-    public void UpdateHeader(string? customerReference, string? notes, int paymentTermsDays, decimal? depositRequiredPercent)
+    public void UpdateHeader(string? customerReference, string? notes, int paymentTermsDays, decimal? depositRequiredPercent, string? updatedBy = null)
     {
         EnsureDraft();
 
@@ -238,15 +251,17 @@ public partial class Booking : AuditableEntity, ITenantEntity
         Notes = notes;
         PaymentTermsDays = paymentTermsDays;
         DepositRequiredPercent = depositRequiredPercent;
+        Record(BookingEventType.Updated, updatedBy, details: "Header updated");
     }
 
     /// <summary>Operational dates/stops can be refined on the booking (e.g. confirmed pickup window).</summary>
-    public void UpdateLane(LaneTransit? lane)
+    public void UpdateLane(LaneTransit? lane, string? updatedBy = null)
     {
         EnsureDraft();
         ArgumentNullException.ThrowIfNull(lane);
         Lane = lane;
         DomainEvents.Add(new BookingUpdated(Id));
+        Record(BookingEventType.Updated, updatedBy, details: "Route/schedule updated");
     }
 
     /// <summary>
@@ -280,6 +295,7 @@ public partial class Booking : AuditableEntity, ITenantEntity
 
         DomainEvents.Add(new BookingRescheduled(
             Id, oldPickup, RequestedPickupStart, oldDelivery, RequestedDeliveryEnd, reason, requestedBy));
+        Record(BookingEventType.Rescheduled, requestedBy, details: reason);
     }
 
     private static void EnsureSameRoute(LaneTransit? current, LaneTransit? proposed)
@@ -304,12 +320,13 @@ public partial class Booking : AuditableEntity, ITenantEntity
     /// <summary>
     /// Cargo may be refined (actual weight, pallet count) but its declared value is tied to the quote.
     /// </summary>
-    public void UpdateCargo(CargoSpecification cargoSpec)
+    public void UpdateCargo(CargoSpecification cargoSpec, string? updatedBy = null)
     {
         EnsureDraft();
         ArgumentNullException.ThrowIfNull(cargoSpec);
         CargoSpec = cargoSpec;
         DomainEvents.Add(new BookingUpdated(Id));
+        Record(BookingEventType.Updated, updatedBy, details: "Cargo updated");
     }
 
     // ── Charges ──────────────────────────────────────────────────────────────
@@ -323,7 +340,8 @@ public partial class Booking : AuditableEntity, ITenantEntity
         decimal quantity,
         decimal unitBuying,
         decimal unitSelling,
-        string reason)
+        string reason,
+        string? addedBy = null)
     {
         if (Status is BookingStatus.Completed or BookingStatus.Cancelled)
             throw new InvalidOperationException($"Charges cannot be added to a {Status} booking.");
@@ -333,13 +351,15 @@ public partial class Booking : AuditableEntity, ITenantEntity
         var charge = BookingChargeLine.CreateAdditional(Id, ChargeCode, quantity, unitBuying, unitSelling, Currency, reason);
         _charges.Add(charge);
         DomainEvents.Add(new BookingChargeAdded(Id, charge.Id));
+        Record(BookingEventType.ChargeAdded, addedBy,
+            details: $"{charge.Description}: {reason.Trim()}", relatedId: charge.Id);
         return charge;
     }
 
-    public void RemoveAdditionalCharge(Guid chargeId)
-        => RemoveAdditionalCharge(chargeId, allowInvoicedDraft: false);
+    public void RemoveAdditionalCharge(Guid chargeId, string? removedBy = null)
+        => RemoveAdditionalCharge(chargeId, allowInvoicedDraft: false, removedBy);
 
-    public void RemoveAdditionalCharge(Guid chargeId, bool allowInvoicedDraft)
+    public void RemoveAdditionalCharge(Guid chargeId, bool allowInvoicedDraft, string? removedBy = null)
     {
         var charge = _charges.FirstOrDefault(c => c.Id == chargeId);
         if (charge is null) return;
@@ -351,6 +371,7 @@ public partial class Booking : AuditableEntity, ITenantEntity
 
         _charges.Remove(charge);
         DomainEvents.Add(new BookingChargeRemoved(Id, chargeId));
+        Record(BookingEventType.ChargeRemoved, removedBy, details: charge.Description, relatedId: chargeId);
     }
 
     public void UpdateAdditionalCharge(
@@ -359,7 +380,8 @@ public partial class Booking : AuditableEntity, ITenantEntity
         decimal unitBuying,
         decimal unitSelling,
         string reason,
-        bool allowInvoicedDraft)
+        bool allowInvoicedDraft,
+        string? updatedBy = null)
     {
         var charge = _charges.FirstOrDefault(c => c.Id == chargeId)
             ?? throw new InvalidOperationException($"Charge '{chargeId}' not found on this booking.");
@@ -371,6 +393,8 @@ public partial class Booking : AuditableEntity, ITenantEntity
 
         charge.Update(quantity, unitBuying, unitSelling, reason);
         DomainEvents.Add(new BookingChargeUpdated(Id, chargeId));
+        Record(BookingEventType.ChargeUpdated, updatedBy,
+            details: $"{charge.Description}: {reason.Trim()}", relatedId: chargeId);
     }
 
     public BookingTotals GetTotals() =>
@@ -382,47 +406,68 @@ public partial class Booking : AuditableEntity, ITenantEntity
         _charges.Where(c => c.BillingStatus == BillingStatus.Unbilled && c.IsBillable).ToList();
 
     /// <summary>Called by Billing after it creates the invoice, so charges are never billed twice.</summary>
-    public void MarkChargesInvoiced(Guid invoiceId, IEnumerable<Guid> chargeIds)
+    public void MarkChargesInvoiced(Guid invoiceId, IEnumerable<Guid> chargeIds, string? actor = null)
     {
         var ids = chargeIds.ToHashSet();
+        var count = 0;
         foreach (var charge in _charges.Where(c => ids.Contains(c.Id)))
+        {
             charge.MarkInvoiced(invoiceId);
+            count++;
+        }
+
+        if (count > 0)
+            Record(BookingEventType.ChargesInvoiced, actor, details: $"{count} charge(s) invoiced", relatedId: invoiceId);
     }
 
-    public void ReleaseChargesFromInvoice(Guid invoiceId)
+    public void ReleaseChargesFromInvoice(Guid invoiceId, string? actor = null)
     {
+        var count = 0;
         foreach (var charge in _charges.Where(c => c.InvoiceId == invoiceId))
+        {
             charge.MarkUnbilled(invoiceId);
+            count++;
+        }
+
+        if (count > 0)
+            Record(BookingEventType.ChargesReleased, actor, details: $"{count} charge(s) released", relatedId: invoiceId);
     }
 
     // ── Documents ────────────────────────────────────────────────────────────
 
-    public BookingDocument AddDocument(BookingDocumentType type, string? reference = null, DateTimeOffset? expiresAt = null)
+    public BookingDocument AddDocument(BookingDocumentType type, string? reference = null, DateTimeOffset? expiresAt = null, string? addedBy = null)
     {
         EnsureNotClosed();
 
         var doc = BookingDocument.Create(Id, type, BookingDocumentStatus.Submitted, reference, expiresAt);
         _documents.Add(doc);
+        Record(BookingEventType.DocumentAdded, addedBy, details: type.ToString(), relatedId: doc.Id);
         return doc;
     }
 
     public void VerifyDocument(Guid documentId, string verifiedBy)
     {
         EnsureNotClosed();
-        GetDocument(documentId).Verify(verifiedBy);
+        var doc = GetDocument(documentId);
+        doc.Verify(verifiedBy);
         DomainEvents.Add(new BookingDocumentVerified(Id, documentId));
+        Record(BookingEventType.DocumentVerified, verifiedBy, details: doc.Type.ToString(), relatedId: documentId);
     }
 
     public void RejectDocument(Guid documentId, string rejectedBy, string reason)
     {
         EnsureNotClosed();
-        GetDocument(documentId).Reject(rejectedBy, reason);
+        var doc = GetDocument(documentId);
+        doc.Reject(rejectedBy, reason);
+        Record(BookingEventType.DocumentRejected, rejectedBy, details: $"{doc.Type}: {reason}", relatedId: documentId);
     }
 
     public void WaiveDocument(Guid documentId, string waivedBy, string reason)
     {
         EnsureNotClosed();
-        GetDocument(documentId).Waive(waivedBy, reason);
+        var doc = GetDocument(documentId);
+        doc.Waive(waivedBy, reason);
+        Record(BookingEventType.DocumentWaived, waivedBy, details: $"{doc.Type}: {reason}", relatedId: documentId);
     }
 
     private BookingDocument GetDocument(Guid id) =>
@@ -455,6 +500,7 @@ public partial class Booking : AuditableEntity, ITenantEntity
         CreditCheckedBy = checkedBy;
         CreditCheckedAt = DateTimeOffset.UtcNow;
         CreditCheckNotes = notes;
+        Record(BookingEventType.CreditApproved, checkedBy, details: notes);
     }
 
     public void RejectCredit(string checkedBy, string reason)
@@ -465,6 +511,7 @@ public partial class Booking : AuditableEntity, ITenantEntity
         CreditCheckedBy = checkedBy;
         CreditCheckedAt = DateTimeOffset.UtcNow;
         CreditCheckNotes = reason;
+        Record(BookingEventType.CreditRejected, checkedBy, details: reason);
     }
 
     // ── Lifecycle ────────────────────────────────────────────────────────────
@@ -501,33 +548,43 @@ public partial class Booking : AuditableEntity, ITenantEntity
         if (blockers.Count > 0)
             throw new InvalidOperationException("Booking cannot be confirmed: " + string.Join(" ", blockers));
 
+        var from = Status;
         Status = BookingStatus.Confirmed;
         ConfirmedAt = DateTimeOffset.UtcNow;
         ConfirmedBy = confirmedBy;
 
         DomainEvents.Add(new BookingConfirmed(Id, CustomerId, QuotationId, BookingNumber));
+        Record(BookingEventType.Confirmed, confirmedBy, from);
     }
 
     /// <summary>Called by the Trips module when the first trip is dispatched.</summary>
-    public void MarkInProgress()
+    public void MarkInProgress(string? startedBy = null)
     {
         if (Status == BookingStatus.InProgress) return;
         if (Status != BookingStatus.Confirmed)
             throw new InvalidOperationException("Only Confirmed bookings can move to InProgress.");
 
+        var from = Status;
         Status = BookingStatus.InProgress;
         DomainEvents.Add(new BookingStarted(Id));
+        Record(BookingEventType.Started, startedBy, from);
     }
 
     /// <summary>Called by the Trips module when all trips are delivered.</summary>
-    public void Complete()
+    public void Complete(string? completedBy = null)
     {
-        if (Status != BookingStatus.InProgress)
-            throw new InvalidOperationException("Only InProgress bookings can be completed.");
+        var expectedStatus = FreightMode is FreightMode.Reefer or FreightMode.Trucking
+            ? BookingStatus.InProgress
+            : BookingStatus.Confirmed;
 
+        if (Status != expectedStatus)
+            throw new InvalidOperationException($"Only {expectedStatus} bookings can be completed.");
+
+        var from = Status;
         Status = BookingStatus.Completed;
         CompletedAt = DateTimeOffset.UtcNow;
         DomainEvents.Add(new BookingCompleted(Id, CustomerId));
+        Record(BookingEventType.Completed, completedBy, from);
     }
 
     public void Cancel(string cancelledBy, string reason)
@@ -541,14 +598,15 @@ public partial class Booking : AuditableEntity, ITenantEntity
             throw new InvalidOperationException("An in-progress booking cannot be cancelled. Cancel its trips first.");
 
         var wasConfirmed = Status == BookingStatus.Confirmed;
+        var from = Status;
 
         Status = BookingStatus.Cancelled;
         CancelledAt = DateTimeOffset.UtcNow;
         CancelledBy = cancelledBy;
         CancellationReason = reason;
 
-        // Billing/Trips only need to react if the booking had already been confirmed.
         DomainEvents.Add(new BookingCancelled(Id, reason, wasConfirmed));
+        Record(BookingEventType.Cancelled, cancelledBy, from, reason);
     }
 
     // ── Guards ───────────────────────────────────────────────────────────────

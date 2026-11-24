@@ -1,4 +1,5 @@
 using Trackwise.Application.Abstractions;
+using Trackwise.Application.Abstractions.CurrentUser;
 using Trackwise.Domain.Entities;
 using Trackwise.Domain.Persistence;
 using Trackwise.Domain.Primitives.Enums;
@@ -7,7 +8,7 @@ using Trackwise.Shared.Models;
 
 namespace Trackwise.Application.Modules.Operations.FreightForwarding.Commands.BookingCommands.CancelBooking;
 
-internal sealed class CancelBookingHandler(ITenantUnitOfWork tenantUow)
+internal sealed class CancelBookingHandler(ITenantUnitOfWork tenantUow, ICurrentUserService currentUserService)
     : IAppRequestHandler<CancelBookingCommand, Result>
 {
     public async Task<Result> Handle(CancelBookingCommand req, CancellationToken ct)
@@ -29,7 +30,7 @@ internal sealed class CancelBookingHandler(ITenantUnitOfWork tenantUow)
 
         try
         {
-            booking.Cancel(req.CancelledBy, reason);
+            booking.Cancel(currentUserService.GetUserName(), reason);
         }
         catch (InvalidOperationException ex)
         {
