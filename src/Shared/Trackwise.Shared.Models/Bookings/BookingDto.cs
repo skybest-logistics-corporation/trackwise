@@ -1,4 +1,5 @@
 using Trackwise.Domain.Primitives.Enums;
+using Trackwise.Domain.Primitives.Enums.BookingEvents;
 using Trackwise.Domain.Primitives.Enums.FreightForwarding;
 using Trackwise.Domain.Primitives.Enums.FreightForwarding.BookingEnums;
 using Trackwise.Domain.Primitives.Enums.Invoice;
@@ -77,6 +78,9 @@ public class BookingDto
     public List<BookingChargeDto> Charges { get; set; } = [];
     public List<BookingInvoiceSummaryDto> BillingInvoices { get; set; } = [];
     public List<BookingDocumentDto> Documents { get; set; } = [];
+
+    /// <summary>Audit timeline, newest first. Straight from Booking.Events.</summary>
+    public List<BookingEventDto> Events { get; set; } = [];
 
     /// <summary>Why Confirm() would fail right now (empty = ready). Straight from Booking.GetConfirmationBlockers().</summary>
     public List<string> ConfirmationBlockers { get; set; } = [];
@@ -223,6 +227,20 @@ public class ConvertQuotationToBookingRequest
     public DateTime? RequestedDeliveryDate { get; set; }
     public string? Notes { get; set; }
     public bool Repeat { get; set; }
+}
+
+public class BookingEventDto
+{
+    public Guid Id { get; set; }
+    public BookingEventType Type { get; set; }
+    public BookingStatus? FromStatus { get; set; }
+    public BookingStatus ToStatus { get; set; }
+    public string Actor { get; set; } = default!;
+    public DateTimeOffset OccurredAt { get; set; }
+    public string? Details { get; set; }
+
+    /// <summary>Charge, document, invoice or quotation id, depending on Type, so the UI can link to it.</summary>
+    public Guid? RelatedId { get; set; }
 }
 
 /// <summary>

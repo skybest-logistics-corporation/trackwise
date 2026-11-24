@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using Trackwise.Application.Abstractions;
+using Trackwise.Application.Abstractions.CurrentUser;
 using Trackwise.Domain.Entities;
 using Trackwise.Domain.Persistence;
 using Trackwise.Domain.Primitives.Enums;
@@ -12,7 +13,7 @@ namespace Trackwise.Application.Modules.Operations.FreightForwarding.Commands.Bo
 
 /// <summary>Removes an ADDITIONAL charge that has not been invoiced. Quoted charges are locked.</summary>
 
-internal sealed class RemoveBookingChargeHandler(ITenantUnitOfWork tenantUow)
+internal sealed class RemoveBookingChargeHandler(ITenantUnitOfWork tenantUow, ICurrentUserService currentUserService)
     : IAppRequestHandler<RemoveBookingChargeCommand, Result>
 {
     public async Task<Result> Handle(RemoveBookingChargeCommand req, CancellationToken ct)
@@ -36,7 +37,7 @@ internal sealed class RemoveBookingChargeHandler(ITenantUnitOfWork tenantUow)
                     i => i.Id == invoiceId && i.BookingId == booking.Id,
                     ct)
                 : null;
-            booking.RemoveAdditionalCharge(req.ChargeId, linkedInvoice?.Status == InvoiceStatus.Draft);
+            booking.RemoveAdditionalCharge(req.ChargeId, linkedInvoice?.Status == InvoiceStatus.Draft, currentUserService.GetUserName());
         }
         catch (InvalidOperationException ex)
         {

@@ -1,10 +1,12 @@
 using Trackwise.Application.Tests.TestKit;
 using Trackwise.Domain.Entities;
 using Trackwise.Domain.Primitives.Enums;
+using Trackwise.Domain.Primitives.Enums.BookingEvents;
 using Trackwise.Domain.Primitives.Enums.FreightForwarding;
 using Trackwise.Domain.Primitives.Enums.FreightForwarding.BookingEnums;
 using Trackwise.Domain.Primitives.ValueObjects;
 using Xunit;
+using Trackwise.Mappings;
 
 namespace Trackwise.Application.Tests.FreightForwarding;
 
@@ -862,4 +864,92 @@ public class BookingTests
     }
 
     #endregion
+
+    [Fact]
+    public void CreateDraftFromQuotation_RecordsCreatedEvent()
+    {
+        var quotation = AcceptedQuotation();
+
+        var booking = Booking.CreateDraftFromQuotation(quotation, 1, createdBy: "sales");
+
+        var evt = Assert.Single(booking.Events);
+        Assert.Equal(BookingEventType.Created, evt.Type);
+        Assert.Null(evt.FromStatus);
+        Assert.Equal(BookingStatus.Draft, evt.ToStatus);
+        Assert.Equal("sales", evt.Actor);
+        Assert.Equal(quotation.Id, evt.RelatedId);
+    }
+
+    [Fact]
+    public void Confirm_RecordsTransitionFromDraftToConfirmed()
+    {
+        var booking = NewDraft();
+
+        booking.Confirm("ops");
+
+        var evt = Assert.Single(booking.Events, e => e.Type == BookingEventType.Confirmed);
+        Assert.Equal(BookingStatus.Draft, evt.FromStatus);
+        Assert.Equal(BookingStatus.Confirmed, evt.ToStatus);
+        Assert.Equal("ops", evt.Actor);
+    }
+
+    [Fact]
+    public void Cancel_RecordsReasonAndPreviousStatus()
+    {
+        var booking = NewDraft();
+        booking.Confirm("ops");
+
+        booking.Cancel("ops", "Shipper withdrew");
+
+        var evt = Assert.Single(booking.Events, e => e.Type == BookingEventType.Cancelled);
+        Assert.Equal(BookingStatus.Confirmed, evt.FromStatus);
+        Assert.Equal(BookingStatus.Cancelled, evt.ToStatus);
+        Assert.Equal("Shipper withdrew", evt.Details);
+    }
+
+    [Fact]
+    public void MarkInProgress_CalledTwice_RecordsOneStartedEvent()
+    {
+        var booking = NewDraft();
+        booking.Confirm("ops");
+        booking.MarkInProgress();
+        booking.MarkInProgress();
+
+        Assert.Single(booking.Events, e => e.Type == BookingEventType.Started);
+    }
+
+    [Fact]
+    public void AddAdditionalCharge_RecordsChargeAddedEvent()
+    {
+        var booking = NewDraft();
+
+        var charge = booking.AddAdditionalCharge(NewChargeCode(), 1m, 10m, 15m, "Late pickup", addedBy: "ops");
+
+        var evt = Assert.Single(booking.Events, e => e.Type == BookingEventType.ChargeAdded);
+        Assert.Equal(charge.Id, evt.RelatedId);
+        Assert.Equal("ops", evt.Actor);
+    }
+
+    [Fact]
+    public void Operation_WithoutActor_FallsBackToSystem()
+    {
+        var booking = NewDraft();
+        booking.Confirm("ops");
+        booking.MarkInProgress();
+
+        Assert.Equal("System", booking.Events.Last().Actor);
+    }
+
+    [Fact]
+    public void ToDto_MapsEventsNewestFirst()
+    {
+        var booking = NewDraft();
+        booking.Confirm("ops");
+
+        var dto = booking.ToDto("Acme");
+
+        Assert.Equal(booking.Events.Count, dto.Events.Count);
+        Assert.Equal(BookingEventType.Confirmed, dto.Events[0].Type);
+        Assert.Equal(BookingEventType.Created, dto.Events[^1].Type);
+    }
 }

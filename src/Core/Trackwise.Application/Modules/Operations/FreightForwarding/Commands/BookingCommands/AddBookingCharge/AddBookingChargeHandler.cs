@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using Trackwise.Application.Abstractions;
+using Trackwise.Application.Abstractions.CurrentUser;
 using Trackwise.Domain.Entities;
 using Trackwise.Domain.Persistence;
 using Trackwise.Mappings;
@@ -10,7 +11,7 @@ using Trackwise.Shared.Models;
 
 namespace Trackwise.Application.Modules.Operations.FreightForwarding.Commands.BookingCommands.AddBookingCharge;
 
-internal sealed class AddBookingChargeHandler(ITenantUnitOfWork tenantUow)
+internal sealed class AddBookingChargeHandler(ITenantUnitOfWork tenantUow, ICurrentUserService currentUserService)
     : IAppRequestHandler<AddBookingChargeCommand, Result<BookingChargeDto>>
 {
     public async Task<Result<BookingChargeDto>> Handle(AddBookingChargeCommand req, CancellationToken ct)
@@ -34,7 +35,7 @@ internal sealed class AddBookingChargeHandler(ITenantUnitOfWork tenantUow)
         try
         {
             charge = booking.AddAdditionalCharge(
-                chargeCode, req.Quantity, req.UnitBuying, req.UnitSelling, req.Reason);
+                chargeCode, req.Quantity, req.UnitBuying, req.UnitSelling, req.Reason, currentUserService.GetUserName());
         }
         catch (InvalidOperationException ex)
         {
