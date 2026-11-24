@@ -1160,6 +1160,10 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
                         .HasColumnType("text")
                         .HasColumnName("category");
 
+                    b.Property<Guid?>("ChargeCodeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("charge_code_id");
+
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -1235,6 +1239,9 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
 
                     b.HasKey("Id")
                         .HasName("pk_booking_charge_lines");
+
+                    b.HasIndex("ChargeCodeId")
+                        .HasDatabaseName("ix_booking_charge_lines_charge_code_id");
 
                     b.HasIndex("InvoiceId")
                         .HasDatabaseName("ix_booking_charge_lines_invoice_id");
@@ -11950,7 +11957,14 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
                         .IsRequired()
                         .HasConstraintName("fk_booking_charge_lines_booking_booking_id");
 
+                    b.HasOne("Trackwise.Domain.Entities.ChargeCode", "ChargeCode")
+                        .WithMany()
+                        .HasForeignKey("ChargeCodeId")
+                        .HasConstraintName("fk_booking_charge_lines_charge_code_charge_code_id");
+
                     b.Navigation("Booking");
+
+                    b.Navigation("ChargeCode");
                 });
 
             modelBuilder.Entity("Trackwise.Domain.Entities.BookingDocument", b =>

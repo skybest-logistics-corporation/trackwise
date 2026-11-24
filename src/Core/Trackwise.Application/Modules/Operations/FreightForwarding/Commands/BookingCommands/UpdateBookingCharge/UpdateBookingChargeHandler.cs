@@ -33,7 +33,7 @@ internal sealed class UpdateBookingChargeHandler(ITenantUnitOfWork tenantUow)
         try
         {
             booking.UpdateAdditionalCharge(
-                req.ChargeId, req.Description, req.Quantity, req.UnitBuying, req.UnitSelling,
+                req.ChargeId, req.Quantity, req.UnitBuying, req.UnitSelling,
                 req.Reason, linkedInvoice?.Status == InvoiceStatus.Draft);
         }
         catch (InvalidOperationException ex)

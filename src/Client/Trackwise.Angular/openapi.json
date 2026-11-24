@@ -36735,12 +36735,9 @@
       "AddAdditionalChargeRequest": {
         "type": "object",
         "properties": {
-          "category": {
-            "$ref": "#/components/schemas/ChargeCategory"
-          },
-          "description": {
+          "chargeCodeId": {
             "type": "string",
-            "nullable": true
+            "format": "uuid"
           },
           "quantity": {
             "type": "number",

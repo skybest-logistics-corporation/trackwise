@@ -319,8 +319,7 @@ public partial class Booking : AuditableEntity, ITenantEntity
     /// Allowed until the booking is Completed, so Billing can bill them later.
     /// </summary>
     public BookingChargeLine AddAdditionalCharge(
-        ChargeCategory category,
-        string description,
+        ChargeCode ChargeCode,
         decimal quantity,
         decimal unitBuying,
         decimal unitSelling,
@@ -331,7 +330,7 @@ public partial class Booking : AuditableEntity, ITenantEntity
 
         ArgumentException.ThrowIfNullOrWhiteSpace(reason);
 
-        var charge = BookingChargeLine.CreateAdditional(Id, category, description, quantity, unitBuying, unitSelling, Currency, reason);
+        var charge = BookingChargeLine.CreateAdditional(Id, ChargeCode, quantity, unitBuying, unitSelling, Currency, reason);
         _charges.Add(charge);
         DomainEvents.Add(new BookingChargeAdded(Id, charge.Id));
         return charge;
@@ -356,7 +355,6 @@ public partial class Booking : AuditableEntity, ITenantEntity
 
     public void UpdateAdditionalCharge(
         Guid chargeId,
-        string description,
         decimal quantity,
         decimal unitBuying,
         decimal unitSelling,
@@ -371,7 +369,7 @@ public partial class Booking : AuditableEntity, ITenantEntity
         if (charge.BillingStatus == BillingStatus.Invoiced && !allowInvoicedDraft)
             throw new InvalidOperationException("An invoiced charge cannot be changed.");
 
-        charge.Update(description, quantity, unitBuying, unitSelling, reason);
+        charge.Update(quantity, unitBuying, unitSelling, reason);
         DomainEvents.Add(new BookingChargeUpdated(Id, chargeId));
     }
 
@@ -585,7 +583,9 @@ public class BookingChargeLine : AuditableEntity, ITenantEntity
     public Guid? QuotationLineId { get; private set; }
     public Guid? TariffRateId { get; private set; }
 
-    public ChargeCategory Category { get; private set; }
+    public Guid? ChargeCodeId { get; set; }
+    public virtual ChargeCode ChargeCode { get; private set; }
+    public ChargeCategory? Category { get; private set; }
     public OperationalServiceType ServiceType { get; private set; }
     public string Description { get; private set; } = default!;
     public decimal Quantity { get; private set; }
@@ -627,23 +627,23 @@ public class BookingChargeLine : AuditableEntity, ITenantEntity
     }
 
     internal static BookingChargeLine CreateAdditional(
-        Guid bookingId, ChargeCategory category, string description,
+        Guid bookingId, ChargeCode chargeCode,
         decimal quantity, decimal unitBuying, decimal unitSelling, string currency, string reason)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(description);
         if (quantity <= 0m) throw new ArgumentOutOfRangeException(nameof(quantity));
         if (unitBuying < 0m || unitSelling < 0m) throw new ArgumentOutOfRangeException(nameof(unitSelling), "Unit amounts cannot be negative.");
 
         // Discounts reduce both sides, same convention as QuotationLine.Price()
-        var sign = category == ChargeCategory.Discount ? -1m : 1m;
+        var sign = chargeCode.Category == ChargeCategory.Discount ? -1m : 1m;
 
         return new BookingChargeLine
         {
             BookingId = bookingId,
             Source = BookingChargeSource.Additional,
-            Category = category,
+            Category = chargeCode.Category,
+            ChargeCodeId = chargeCode.Id,
             ServiceType = default,
-            Description = description.Trim(),
+            Description = $"{chargeCode.Code}-{chargeCode.Name}",
             Quantity = quantity,
             Currency = currency,
             BuyingAmount = sign * unitBuying * quantity,
@@ -671,15 +671,13 @@ public class BookingChargeLine : AuditableEntity, ITenantEntity
         InvoiceId = null;
     }
 
-    internal void Update(string description, decimal quantity, decimal unitBuying, decimal unitSelling, string reason)
+    internal void Update(decimal quantity, decimal unitBuying, decimal unitSelling, string reason)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(description);
         ArgumentException.ThrowIfNullOrWhiteSpace(reason);
         if (quantity <= 0m) throw new ArgumentOutOfRangeException(nameof(quantity));
         if (unitBuying < 0m || unitSelling < 0m) throw new ArgumentOutOfRangeException(nameof(unitSelling));
 
         var sign = Category == ChargeCategory.Discount ? -1m : 1m;
-        Description = description.Trim();
         Quantity = quantity;
         BuyingAmount = sign * unitBuying * quantity;
         SellingAmount = sign * unitSelling * quantity;

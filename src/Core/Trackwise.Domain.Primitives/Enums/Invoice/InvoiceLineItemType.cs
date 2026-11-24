@@ -20,4 +20,5 @@ public enum InvoiceLineItemType
     Adjustment,
 
     Surcharge,
+    Base
 }

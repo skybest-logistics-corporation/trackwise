@@ -65,7 +65,7 @@ internal static class BookingInvoiceDraftBuilder
                     InvoiceId = invoice.Id,
                     BookingChargeId = charge.Id,
                     Description = charge.Description,
-                    Type = ToLineType(charge.Category),
+                    Type = ToLineType(charge.Category ?? charge.ChargeCode.Category),
                     Amount = new Money { Amount = charge.SellingAmount, Currency = charge.Currency },
                     Quantity = 1,
                     Order = invoice.LineItems.Count == 0 ? 0 : invoice.LineItems.Max(l => l.Order) + 1,
@@ -77,7 +77,7 @@ internal static class BookingInvoiceDraftBuilder
             else
             {
                 line.Description = charge.Description;
-                line.Type = ToLineType(charge.Category);
+                line.Type = ToLineType(charge.Category ?? charge.ChargeCode.Category);
                 line.Amount = new Money { Amount = charge.SellingAmount, Currency = charge.Currency };
                 line.Notes = ChargeNotes(charge);
             }

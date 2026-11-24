@@ -22,11 +22,19 @@ internal sealed class AddBookingChargeHandler(ITenantUnitOfWork tenantUow)
         if (booking is null)
             return Result<BookingChargeDto>.Fail($"Booking with ID '{req.BookingId}' not found.", ErrorCodes.NotFound);
 
+        var chargeCode = await tenantUow.Repository<ChargeCode>().Query()
+            .FirstOrDefaultAsync(c => c.Id == req.ChargeCodeId, ct);
+
+        if(chargeCode is null)
+        {
+            return Result<BookingChargeDto>.Fail($"ChargeCode with ID '{req.ChargeCodeId}' not found.", ErrorCodes.NotFound);
+        }
+
         BookingChargeLine charge;
         try
         {
             charge = booking.AddAdditionalCharge(
-                req.Category, req.Description, req.Quantity, req.UnitBuying, req.UnitSelling, req.Reason);
+                chargeCode, req.Quantity, req.UnitBuying, req.UnitSelling, req.Reason);
         }
         catch (InvalidOperationException ex)
         {

@@ -424,7 +424,7 @@ public class BookingController(IMediator mediator) : ControllerBase
         Guid id, [FromBody] AddAdditionalChargeRequest request, CancellationToken ct)
     {
         var result = await mediator.Send(new AddBookingChargeCommand(
-            id, request.Category, request.Description, request.Quantity,
+            id, request.ChargeCodeId, request.Quantity,
             request.UnitBuying, request.UnitSelling, request.Reason), ct);
 
         return ToActionResult(result);

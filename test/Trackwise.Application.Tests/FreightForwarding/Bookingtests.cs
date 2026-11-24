@@ -449,8 +449,9 @@ public class BookingTests
     public void AddAdditionalCharge_StoresAmountsAsQuantityTimesUnit()
     {
         var booking = NewDraft();
+        var chargeCode = NewChargeCode(ChargeCategory.Accessorial, "ACC");
 
-        var charge = booking.AddAdditionalCharge(ChargeCategory.Accessorial, "Extra Accessorial", 2m, 100m, 150m, "Customer request");
+        var charge = booking.AddAdditionalCharge(chargeCode, 2m, 100m, 150m, "Customer request");
 
         Assert.Equal(BookingChargeSource.Additional, charge.Source);
         Assert.Equal(200m, charge.BuyingAmount);
@@ -460,11 +461,27 @@ public class BookingTests
     }
 
     [Fact]
+    public void AddAdditionalCharge_LinksChargeCodeAndPrefixesDescription()
+    {
+        var booking = NewDraft();
+        var chargeCode = NewChargeCode(ChargeCategory.Accessorial, "dem");   // Create() upper-cases
+
+        var charge = booking.AddAdditionalCharge(chargeCode, 1m, 10m, 15m, "Reason");
+
+        Assert.Equal(chargeCode.Id, charge.ChargeCodeId);
+        Assert.Equal(ChargeCategory.Accessorial, charge.Category);
+        Assert.Equal(booking.Currency, charge.Currency);
+        Assert.Equal(BillingStatus.Unbilled, charge.BillingStatus);
+        Assert.Equal("Reason", charge.Reason);
+    }
+
+    [Fact]
     public void AddAdditionalCharge_Discount_IsStoredNegative()
     {
         var booking = NewDraft();
+        var discount = NewChargeCode(ChargeCategory.Discount, "DISC");
 
-        var charge = booking.AddAdditionalCharge(ChargeCategory.Discount, "Goodwill", 1m, 50m, 80m, "Service recovery");
+        var charge = booking.AddAdditionalCharge(discount, 1m, 50m, 80m, "Service recovery");
 
         Assert.Equal(-50m, charge.BuyingAmount);
         Assert.Equal(-80m, charge.SellingAmount);
@@ -474,14 +491,23 @@ public class BookingTests
     public void AddAdditionalCharge_BlankReason_Throws()
     {
         Assert.ThrowsAny<ArgumentException>(() =>
-            NewDraft().AddAdditionalCharge(ChargeCategory.Accessorial, "Extra", 1m, 1m, 1m, " "));
+            NewDraft().AddAdditionalCharge(NewChargeCode(), 1m, 1m, 1m, " "));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void AddAdditionalCharge_NonPositiveQuantity_Throws(double quantity)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            NewDraft().AddAdditionalCharge(NewChargeCode(), (decimal)quantity, 1m, 1m, "Reason"));
     }
 
     [Fact]
-    public void AddAdditionalCharge_ZeroQuantity_Throws()
+    public void AddAdditionalCharge_NegativeUnitAmount_Throws()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            NewDraft().AddAdditionalCharge(ChargeCategory.Accessorial, "Extra", 0m, 1m, 1m, "Reason"));
+            NewDraft().AddAdditionalCharge(NewChargeCode(), 1m, -1m, 1m, "Reason"));
     }
 
     [Fact]
@@ -492,8 +518,16 @@ public class BookingTests
         booking.MarkInProgress();
         booking.Complete();
 
-        Assert.Throws<InvalidOperationException>(() =>
-            booking.AddAdditionalCharge(ChargeCategory.Accessorial, "Late", 1m, 1m, 1m, "Reason"));
+        Assert.Throws<InvalidOperationException>(() => AddExtraCharge(booking));
+    }
+
+    [Fact]
+    public void AddAdditionalCharge_CancelledBooking_Throws()
+    {
+        var booking = NewDraft();
+        booking.Cancel("ops", "Duplicate");
+
+        Assert.Throws<InvalidOperationException>(() => AddExtraCharge(booking));
     }
 
     [Fact]
@@ -509,7 +543,7 @@ public class BookingTests
     public void RemoveAdditionalCharge_AdditionalCharge_RemovesIt()
     {
         var booking = NewDraft();
-        var charge = booking.AddAdditionalCharge(ChargeCategory.Accessorial, "Extra", 1m, 10m, 15m, "Reason");
+        var charge = AddExtraCharge(booking);
 
         booking.RemoveAdditionalCharge(charge.Id);
 
@@ -532,7 +566,7 @@ public class BookingTests
     public void RemoveAdditionalCharge_Invoiced_ThrowsUnlessAllowed()
     {
         var booking = NewDraft();
-        var charge = booking.AddAdditionalCharge(ChargeCategory.Accessorial, "Extra", 1m, 10m, 15m, "Reason");
+        var charge = AddExtraCharge(booking);
         booking.MarkChargesInvoiced(Guid.NewGuid(), [charge.Id]);
 
         Assert.Throws<InvalidOperationException>(() => booking.RemoveAdditionalCharge(charge.Id));
@@ -548,27 +582,53 @@ public class BookingTests
         var quoted = booking.Charges.First(c => c.Source == BookingChargeSource.Quoted);
 
         Assert.Throws<InvalidOperationException>(() =>
-            booking.UpdateAdditionalCharge(quoted.Id, "Changed", 1m, 1m, 1m, "Reason", allowInvoicedDraft: false));
+            booking.UpdateAdditionalCharge(quoted.Id, 1m, 1m, 1m, "Reason", allowInvoicedDraft: false));
     }
 
     [Fact]
     public void UpdateAdditionalCharge_Additional_RecalculatesAmounts()
     {
         var booking = NewDraft();
-        var charge = booking.AddAdditionalCharge(ChargeCategory.Accessorial, "Extra", 1m, 10m, 15m, "Reason");
+        var charge = AddExtraCharge(booking);
 
-        booking.UpdateAdditionalCharge(charge.Id, "Extra v2", 3m, 20m, 30m, "Corrected", allowInvoicedDraft: false);
+        booking.UpdateAdditionalCharge(charge.Id, 3m, 20m, 30m, "Corrected", allowInvoicedDraft: false);
 
-        Assert.Equal("Extra v2", charge.Description);
         Assert.Equal(60m, charge.BuyingAmount);
         Assert.Equal(90m, charge.SellingAmount);
+        Assert.Single(booking.DomainEvents.OfType<BookingChargeUpdated>());
+    }
+
+    [Fact]
+    public void UpdateAdditionalCharge_Discount_KeepsNegativeSign()
+    {
+        var booking = NewDraft();
+        var charge = booking.AddAdditionalCharge(
+            NewChargeCode(ChargeCategory.Discount, "DISC"), 1m, 50m, 80m, "Recovery");
+
+        booking.UpdateAdditionalCharge(charge.Id, 2m, 50m, 80m, "Adjusted", allowInvoicedDraft: false);
+
+        Assert.Equal(-100m, charge.BuyingAmount);
+        Assert.Equal(-160m, charge.SellingAmount);
+    }
+
+    [Fact]
+    public void UpdateAdditionalCharge_Invoiced_ThrowsUnlessAllowed()
+    {
+        var booking = NewDraft();
+        var charge = AddExtraCharge(booking);
+        booking.MarkChargesInvoiced(Guid.NewGuid(), [charge.Id]);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            booking.UpdateAdditionalCharge(charge.Id, 1m, 1m, 1m, "Reason", allowInvoicedDraft: false));
+
+        booking.UpdateAdditionalCharge(charge.Id, 1m, 1m, 1m, "Reason", allowInvoicedDraft: true);
     }
 
     [Fact]
     public void UpdateAdditionalCharge_UnknownId_Throws()
     {
         Assert.Throws<InvalidOperationException>(() =>
-            NewDraft().UpdateAdditionalCharge(Guid.NewGuid(), "X", 1m, 1m, 1m, "Reason", allowInvoicedDraft: false));
+            NewDraft().UpdateAdditionalCharge(Guid.NewGuid(), 1m, 1m, 1m, "Reason", allowInvoicedDraft: false));
     }
 
     [Fact]
@@ -577,7 +637,7 @@ public class BookingTests
         var booking = NewDraft();
         var baseline = booking.GetTotals();
 
-        booking.AddAdditionalCharge(ChargeCategory.Accessorial, "Extra", 1m, 100m, 150m, "Reason");
+        AddExtraCharge(booking, unitBuying: 100m, unitSelling: 150m);
         var totals = booking.GetTotals();
 
         Assert.Equal(baseline.Buying + 100m, totals.Buying);
@@ -595,7 +655,7 @@ public class BookingTests
     public void MarkChargesInvoiced_ThenRelease_ReturnsChargesToUnbilled()
     {
         var booking = NewDraft();
-        var charge = booking.AddAdditionalCharge(ChargeCategory.Accessorial, "Extra", 1m, 10m, 15m, "Reason");
+        var charge = AddExtraCharge(booking);
         var invoiceId = Guid.NewGuid();
 
         booking.MarkChargesInvoiced(invoiceId, [charge.Id]);
@@ -611,7 +671,7 @@ public class BookingTests
     public void MarkChargesInvoiced_AlreadyInvoiced_Throws()
     {
         var booking = NewDraft();
-        var charge = booking.AddAdditionalCharge(ChargeCategory.Accessorial, "Extra", 1m, 10m, 15m, "Reason");
+        var charge = AddExtraCharge(booking);
         booking.MarkChargesInvoiced(Guid.NewGuid(), [charge.Id]);
 
         Assert.Throws<InvalidOperationException>(() => booking.MarkChargesInvoiced(Guid.NewGuid(), [charge.Id]));
@@ -712,6 +772,25 @@ public class BookingTests
     #endregion
 
     #region Helpers
+
+    private static ChargeCode NewChargeCode(
+    ChargeCategory category = ChargeCategory.Accessorial,
+    string code = "ACC") =>
+    ChargeCode.Create(
+        code: code,
+        name: $"{code} charge",
+        category: category,
+        modes: [FreightMode.Trucking],
+        defaultUnit: "per shipment");
+
+    /// <summary>Adds an Accessorial additional charge with sensible defaults; override only what the test cares about.</summary>
+    private static BookingChargeLine AddExtraCharge(
+        Booking booking,
+        decimal quantity = 1m,
+        decimal unitBuying = 10m,
+        decimal unitSelling = 15m,
+        string reason = "Reason") =>
+        booking.AddAdditionalCharge(NewChargeCode(), quantity, unitBuying, unitSelling, reason);
 
     private static Booking NewDraft(bool creditCheckRequired = false) =>
         Booking.CreateDraftFromQuotation(AcceptedQuotation(), 1, customerCreditCheckRequired: creditCheckRequired);

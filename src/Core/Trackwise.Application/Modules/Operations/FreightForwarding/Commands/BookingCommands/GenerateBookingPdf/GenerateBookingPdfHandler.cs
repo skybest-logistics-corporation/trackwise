@@ -24,6 +24,8 @@ internal sealed class GenerateBookingPdfHandler(
         var booking = await tenantUow.Repository<Booking>().Query()
             .Include(b => b.Charges)
             .Include(b => b.Documents)
+            .Include(b => b.Pol)
+            .Include(b => b.Pod)
             .AsNoTracking()
             .FirstOrDefaultAsync(b => b.Id == req.BookingId, ct);
 
