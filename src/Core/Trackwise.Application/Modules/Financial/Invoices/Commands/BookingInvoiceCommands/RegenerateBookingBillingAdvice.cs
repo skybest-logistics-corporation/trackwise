@@ -19,6 +19,7 @@ internal sealed class RegenerateBookingBillingAdviceHandler(ITenantUnitOfWork te
     {
         var booking = await tenantUow.Repository<Booking>().Query()
             .Include(b => b.Charges)
+                .ThenInclude(ch => ch.ChargeCode)
             .FirstOrDefaultAsync(b => b.Id == req.BookingId, ct);
 
         if (booking is null)

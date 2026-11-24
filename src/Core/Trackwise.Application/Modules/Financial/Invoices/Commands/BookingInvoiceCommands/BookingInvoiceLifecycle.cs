@@ -167,6 +167,7 @@ internal sealed class ReopenBookingInvoiceHandler : BookingInvoiceTransitionHand
     {
         var booking = await tenantUow.Repository<Booking>().Query()
             .Include(b => b.Charges)
+                .ThenInclude(ch => ch.ChargeCode)
             .FirstOrDefaultAsync(b => b.Id == invoice.BookingId, ct)
             ?? throw new InvalidOperationException($"Booking '{invoice.BookingId}' for invoice '{invoice.Id}' was not found.");
 

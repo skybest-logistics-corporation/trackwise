@@ -163,7 +163,7 @@ public class BookingChargeDto
 {
     public Guid Id { get; set; }
     public BookingChargeSource Source { get; set; }
-    public ChargeCategory Category { get; set; }
+    public ChargeCategory? Category { get; set; }
     public OperationalServiceType ServiceType { get; set; }
     public string Description { get; set; } = default!;
     public decimal Quantity { get; set; }
@@ -190,8 +190,7 @@ public record RescheduleBookingRequest(List<BookingStopWindowDto> Stops, string 
 
 /// <summary>Maps to Booking.AddAdditionalCharge (detention, extra handling, ...).</summary>
 public record AddAdditionalChargeRequest(
-    ChargeCategory Category,
-    string Description,
+    Guid ChargeCodeId,
     decimal Quantity,
     decimal UnitBuying,
     decimal UnitSelling,

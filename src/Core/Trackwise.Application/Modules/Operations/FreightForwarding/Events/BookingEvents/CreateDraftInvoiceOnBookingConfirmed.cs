@@ -26,6 +26,7 @@ internal sealed class CreateDraftInvoiceOnBookingConfirmed(ITenantUnitOfWork ten
     {
         var booking = await tenantUow.Repository<Booking>().Query()
             .Include(b => b.Charges)
+                .ThenInclude(ch => ch.ChargeCode)
             .FirstOrDefaultAsync(b => b.Id == bookingId, ct)
             ?? throw new InvalidOperationException($"Booking '{bookingId}' was not found.");
 
