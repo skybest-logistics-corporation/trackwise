@@ -10,13 +10,7 @@ import {
   signal,
   untracked,
 } from "@angular/core";
-import {
-  addBookingCharge,
-  Api,
-  getChargeCodes,
-  type ChargeCategory,
-  type ChargeCodeDto,
-} from "@trackwise/shared/api";
+import { addBookingCharge, Api, getChargeCodes, type ChargeCodeDto } from "@trackwise/shared/api";
 import {
   UiButton,
   UiDialog,
@@ -24,7 +18,6 @@ import {
   UiNumberField,
   UiSelectField,
   UiTextareaField,
-  UiTextField,
 } from "@trackwise/shared/ui";
 import { ToastService } from "@/core/services";
 import { CreateChargeCodeDialog } from "@/shared/components/dialog/create-charge-code-dialog";
