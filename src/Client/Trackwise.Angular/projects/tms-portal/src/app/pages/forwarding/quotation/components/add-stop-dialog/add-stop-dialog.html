@@ -19,6 +19,9 @@
         optionLabel="label"
         optionValue="value"
         filter
+        [serverSide]="true"
+        [loading]="loading()"
+        (filterChange)="searchChange.emit($event)"
         filterPlaceholder="Search location"
         createLabel="Create new location"
         (createNew)="onCreateLocation($event)"

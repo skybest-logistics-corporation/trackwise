@@ -474,7 +474,7 @@
           intent="success"
           label="Accept Quotation"
           [disabled]="isBusy()"
-          (click)="accept()"
+          (click)="openAcceptDialog()"
         />
         @if (canApprove()) {
           <ui-button
@@ -530,7 +530,7 @@
   [resizable]="false"
 >
   @if (openQuotationPdfViewer()) {
-    <app-pdf-viewer
+    <ui-app-pdf-viewer
       [documentId]="quotation()?.id!"
       [loader]="loadQuotationPdf"
       [fileName]="quotation()?.referenceNumber + '.pdf'"
@@ -616,6 +616,33 @@
   </ng-template>
 </ui-dialog>
 
+<!-- Accept Quotation Dialog -->
+<ui-dialog header="Accept Quotation" [(open)]="acceptDialogVisible" [modal]="true" width="450px">
+  <div class="flex flex-col gap-4">
+    <p class="text-subtle-foreground">
+      Mark this quotation as accepted by {{ quotation()?.customerName }}. You can record a note
+      about how the acceptance was received.
+    </p>
+    <ui-textarea-field
+      [(value)]="acceptMessage"
+      [rows]="4"
+      class="block w-full"
+      placeholder="Message (optional), e.g. Accepted by phone, PO to follow"
+    />
+    <span class="text-muted-foreground text-right text-xs">{{ acceptMessage().length }}/1000</span>
+  </div>
+  <ng-template #footer>
+    <ui-button appearance="text" label="Cancel" (click)="acceptDialogVisible.set(false)" />
+    <ui-button
+      intent="success"
+      label="Accept"
+      icon="check"
+      [disabled]="isBusy() || acceptMessage().length > 1000"
+      (click)="confirmAccept()"
+    />
+  </ng-template>
+</ui-dialog>
+
 <!-- Booking creation dialog -->
 <ui-dialog
   [header]="repeatBooking() ? 'Create Another Booking' : 'Convert to Booking'"
@@ -632,7 +659,7 @@
       }}
     </p>
 
-    <ui-form-field label="Container Type" for="convertContainerTypeId">
+    <!-- <ui-form-field label="Container Type" for="convertContainerTypeId">
       <ui-select-field
         id="convertContainerTypeId"
         [(value)]="convertContainerTypeId"
@@ -641,17 +668,21 @@
         optionValue="value"
         placeholder="Select container type (optional)"
       />
-    </ui-form-field>
+    </ui-form-field> -->
 
     <ui-grid container spacing="3">
       <ui-grid [size]="{ xs: 12, md: 6 }">
-        <ui-form-field label="Requested Pickup Date" for="convertPickupDate">
-          <ui-date-field id="convertPickupDate" [(value)]="convertPickupDate" />
+        <ui-form-field label="Requested Pickup Date & Time" for="convertPickupDate">
+          <ui-date-field id="convertPickupDate" [(value)]="convertPickupDate" [showTime]="true" />
         </ui-form-field>
       </ui-grid>
       <ui-grid [size]="{ xs: 12, md: 6 }">
-        <ui-form-field label="Requested Delivery Date" for="convertDeliveryDate">
-          <ui-date-field id="convertDeliveryDate" [(value)]="convertDeliveryDate" />
+        <ui-form-field label="Requested Delivery Date & Time" for="convertDeliveryDate">
+          <ui-date-field
+            id="convertDeliveryDate"
+            [(value)]="convertDeliveryDate"
+            [showTime]="true"
+          />
         </ui-form-field>
       </ui-grid>
     </ui-grid>

@@ -5,37 +5,43 @@
       handling. The charge joins the next invoice.
     </p>
 
-    <ui-form-field label="Category" for="chargeCategory" [required]="true">
+    <ui-form-field label="Charge Code" for="chargeCode" [required]="true">
       <ui-select-field
-        id="chargeCategory"
-        [(value)]="category"
-        [options]="chargeCategoryOptions"
+        id="chargeCode"
+        [(value)]="chargeCode"
+        [options]="chargeCodeOptions()"
         optionLabel="label"
         optionValue="value"
-      />
-    </ui-form-field>
-
-    <ui-form-field label="Description" for="chargeDescription" [required]="true">
-      <ui-text-field
-        id="chargeDescription"
-        [(value)]="description"
-        class="block w-full"
-        placeholder="e.g. Container detention, 3 extra days"
+        placeholder="Select charge code"
+        filter
+        filterPlaceholder="Search charge code"
+        [createLabel]="createLabel()"
+        (filterChange)="searchText.set($event)"
+        (createNew)="openCreate($event)"
       />
     </ui-form-field>
 
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
       <ui-form-field label="Quantity" for="chargeQty" [required]="true">
-        <ui-number-field id="chargeQty" [(value)]="quantity" />
+        <ui-number-field id="chargeQty" [(value)]="quantity" [min]="0" />
       </ui-form-field>
 
-      <ui-form-field label="Unit price ({{ currency() }})" for="chargeSelling" [required]="true">
-        <ui-number-field id="chargeSelling" [(value)]="unitSelling" />
+      <ui-form-field
+        label="Selling price ({{ currency() }})"
+        for="chargeSelling"
+        [required]="true"
+        [hint]="unitLabel() ?? ''"
+      >
+        <ui-number-field id="chargeSelling" [(value)]="unitSelling" [min]="0" />
       </ui-form-field>
 
       @if (showCosts()) {
-        <ui-form-field label="Unit cost ({{ currency() }})" for="chargeBuying" hint="Internal">
-          <ui-number-field id="chargeBuying" [(value)]="unitBuying" />
+        <ui-form-field
+          label="Buying cost ({{ currency() }})"
+          for="chargeBuying"
+          [hint]="unitLabel() ? 'Internal · ' + unitLabel() : 'Internal'"
+        >
+          <ui-number-field id="chargeBuying" [(value)]="unitBuying" [min]="0" />
         </ui-form-field>
       }
     </div>
@@ -67,8 +73,23 @@
           <span>Cost</span>
           <span>{{ buyingTotal() | number: "1.2-2" }} {{ currency() }}</span>
         </div>
+        <div class="mt-1 flex justify-between border-t pt-1">
+          <span class="text-subtle-foreground">Margin</span>
+          <span [class.text-danger]="margin() < 0">
+            {{ margin() | number: "1.2-2" }} {{ currency() }}
+            @if (!isDiscount()) {
+              ({{ marginPercent() | number: "1.0-1" }}%)
+            }
+          </span>
+        </div>
       }
     </div>
+
+    @if (isBelowCost()) {
+      <p class="text-danger text-sm">
+        The unit price is below the unit cost, so this charge will lose money.
+      </p>
+    }
   </div>
 
   <ng-template #footer>
@@ -82,3 +103,9 @@
     />
   </ng-template>
 </ui-dialog>
+
+<app-create-charge-code-dialog
+  [(open)]="createOpen"
+  [seed]="createSeed()"
+  (created)="onChargeCodeCreated($event)"
+/>

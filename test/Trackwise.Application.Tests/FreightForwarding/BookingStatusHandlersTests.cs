@@ -1,9 +1,10 @@
-using Trackwise.Application.Tests.TestKit;
 using MockQueryable;
 using NSubstitute;
+using Trackwise.Application.Abstractions.CurrentUser;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Commands;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.BookingCommands.CancelBooking;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.BookingCommands.ConfirmBooking;
+using Trackwise.Application.Tests.TestKit;
 using Trackwise.Domain.Entities;
 using Trackwise.Domain.Persistence;
 using Trackwise.Domain.Primitives.Enums;
@@ -17,6 +18,7 @@ namespace Trackwise.Application.Tests.FreightForwarding;
 public class BookingStatusHandlersTests
 {
     private readonly ITenantUnitOfWork tenantUow = Substitute.For<ITenantUnitOfWork>();
+    private readonly ICurrentUserService currentUserService = Substitute.For<ICurrentUserService>();
     private readonly ITenantRepository<Booking, Guid> bookingRepo =
         Substitute.For<ITenantRepository<Booking, Guid>>();
 
@@ -63,7 +65,7 @@ public class BookingStatusHandlersTests
     [Fact]
     public async Task Confirm_PendingBooking_Confirms()
     {
-        var sut = new ConfirmBookingHandler(tenantUow);
+        var sut = new ConfirmBookingHandler(tenantUow, currentUserService);
 
         var result = await sut.Handle(
             new ConfirmBookingCommand { Id = booking.Id, ConfirmedBy = "ops@test.com", CarrierReference = "CARR-1" },
@@ -79,7 +81,7 @@ public class BookingStatusHandlersTests
     public async Task Confirm_NonPendingBooking_Fails()
     {
         booking.Confirm("ops@test.com");
-        var sut = new ConfirmBookingHandler(tenantUow);
+        var sut = new ConfirmBookingHandler(tenantUow, currentUserService);
 
         var result = await sut.Handle(
             new ConfirmBookingCommand { Id = booking.Id, ConfirmedBy = "ops2@test.com" },
@@ -123,7 +125,7 @@ public class BookingStatusHandlersTests
     {
         booking.Confirm("ops@test.com");
         booking.MarkInProgress();
-        var sut = new CompleteBookingHandler(tenantUow);
+        var sut = new CompleteBookingHandler(tenantUow, currentUserService);
 
         var result = await sut.Handle(new CompleteBookingCommand { Id = booking.Id }, CancellationToken.None);
 
@@ -136,7 +138,7 @@ public class BookingStatusHandlersTests
     public async Task Complete_ConfirmedButNotStartedBooking_Fails()
     {
         booking.Confirm("ops@test.com");
-        var sut = new CompleteBookingHandler(tenantUow);
+        var sut = new CompleteBookingHandler(tenantUow, currentUserService);
 
         var result = await sut.Handle(new CompleteBookingCommand { Id = booking.Id }, CancellationToken.None);
 
@@ -157,7 +159,7 @@ public class BookingStatusHandlersTests
             booking.Confirm("ops@test.com");
         }
 
-        var sut = new CancelBookingHandler(tenantUow);
+        var sut = new CancelBookingHandler(tenantUow, currentUserService);
 
         var result = await sut.Handle(
             new CancelBookingCommand { Id = booking.Id, CancelledBy = "ops@test.com", Reason = "Carrier fell through" },
@@ -173,7 +175,7 @@ public class BookingStatusHandlersTests
     {
         booking.Confirm("ops@test.com");
         booking.MarkInProgress();
-        var sut = new CancelBookingHandler(tenantUow);
+        var sut = new CancelBookingHandler(tenantUow, currentUserService);
 
         var result = await sut.Handle(
             new CancelBookingCommand { Id = booking.Id, CancelledBy = "ops@test.com", Reason = "Too late" },

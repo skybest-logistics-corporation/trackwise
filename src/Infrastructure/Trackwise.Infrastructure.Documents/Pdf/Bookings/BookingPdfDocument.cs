@@ -6,6 +6,8 @@ using Trackwise.Domain.Entities;
 using Trackwise.Domain.Primitives.Enums.FreightForwarding.BookingEnums;
 using Trackwise.Domain.Primitives.ValueObjects;
 using Trackwise.Infrastructure.Documents.Pdf.Shared;
+using Trackwise.Domain.Primitives.Enums;
+using Trackwise.Domain.Primitives.Enums.FreightForwarding;
 
 namespace Trackwise.Infrastructure.Documents.Pdf.Bookings;
 
@@ -29,6 +31,8 @@ public sealed class BookingPdfDocument : IDocument
     private readonly TimeSpan _offset;
     private readonly IReadOnlyList<ChargeRow> _charges;
     private readonly BookingTotals _totals;
+    /// <summary>Reefer / Trucking: routed by lane. Everything else: routed by POL / POD.</summary>
+    private readonly bool _isLaneMode;
 
     private sealed record ChargeRow(
         string Description,
@@ -49,6 +53,7 @@ public sealed class BookingPdfDocument : IDocument
         _logo = PdfLogo.TryDecode(request.LogoBytes);
         _charges = BuildCharges();
         _totals = _booking.GetTotals();
+        _isLaneMode = _booking.FreightMode is FreightMode.Reefer or FreightMode.Trucking;
     }
 
     // ── Data shaping ─────────────────────────────────────────────────────────
@@ -71,15 +76,22 @@ public sealed class BookingPdfDocument : IDocument
 
     private static string DescribeCharge(BookingChargeLine charge)
     {
-        var parts = new List<string> { PdfFormatting.Display(charge.Category) + $": {charge.Reason}" };
+        var parts = new List<string>();
+
+        if (charge.Category is { } category)
+        {
+            parts.Add(PdfFormatting.Display(category));
+        }
 
         if (charge.Source == BookingChargeSource.Additional)
         {
             parts.Add("Additional charge");
-            if (!string.IsNullOrWhiteSpace(charge.Reason))
-            {
-                parts.Add(charge.Reason!);
-            }
+        }
+
+        // Quoted lines store "origin - destination" here; additional lines store why they were added.
+        if (!string.IsNullOrWhiteSpace(charge.Reason))
+        {
+            parts.Add(charge.Reason!);
         }
 
         return string.Join(" | ", parts);
@@ -222,6 +234,24 @@ public sealed class BookingPdfDocument : IDocument
                     Spec(row, "Currency", _booking.Currency);
                 });
 
+                var truckType = _booking.TruckType is { } tt ? PdfFormatting.Display(tt) : null;
+                var tonnage = _booking.TonnageClass is { } tc
+                    ? PdfLabels.NumberWordsToDigits(PdfFormatting.Display(tc))
+                    : null;
+                var containerType = string.IsNullOrWhiteSpace(_booking.ContainerType)
+                    ? null
+                    : _booking.ContainerType.Trim();
+
+                if (truckType is not null || tonnage is not null || containerType is not null)
+                {
+                    specs.Item().PaddingTop(6).Row(row =>
+                    {
+                        if (truckType is not null) Spec(row, "Truck Type", truckType);
+                        if (tonnage is not null) Spec(row, "Tonnage Class", tonnage);
+                        if (containerType is not null) Spec(row, "Container Type", containerType);
+                    });
+                }
+
                 specs.Item().PaddingTop(6).Row(row =>
                 {
                     Spec(row, "Freight Mode", PdfFormatting.Display(_booking.FreightMode));
@@ -231,7 +261,14 @@ public sealed class BookingPdfDocument : IDocument
                 });
             });
 
-            ComposeRouting(col);
+            if (_isLaneMode)
+            {
+                ComposeRouting(col);
+            }
+            else
+            {
+                ComposePorts(col);
+            }
             ComposeCargo(col);
             ComposeColdChain(col);
             ComposeHandling(col);
@@ -245,18 +282,23 @@ public sealed class BookingPdfDocument : IDocument
     private void ComposeRouting(ColumnDescriptor col)
     {
         var stops = (_booking.Lane?.Stops ?? []).OrderBy(s => s.Sequence).ToList();
+        if (stops.Count == 0)
+        {
+            return;
+        }
 
         col.Item().PaddingTop(14).Text("ROUTING & SCHEDULE")
             .Bold().FontSize(9).FontColor(Colors.Blue.Darken3);
 
         col.Item().PaddingTop(4).Column(c =>
         {
-            if (stops.Count > 0)
-            {
-                c.Item().Text($"• Route: {LocationName(stops.First().LocationId)} to {LocationName(stops.Last().LocationId)} ({stops.Count} stop(s))");
-            }
+            c.Item().Text($"• Route: {LocationName(stops.First().LocationId)} to {LocationName(stops.Last().LocationId)} ({stops.Count} stop(s))");
 
-            c.Item().Text($"• Distance: {(_booking.Lane?.TotalDistanceKm ?? 0m):N2} km");
+            var distanceKm = _booking.Lane?.TotalDistanceKm ?? 0m;
+            if (distanceKm > 0m)
+            {
+                c.Item().Text($"• Distance: {distanceKm:N2} km");
+            }
 
             if (_booking.RequestedPickupStart is { } pickup)
             {
@@ -281,6 +323,24 @@ public sealed class BookingPdfDocument : IDocument
                     c.Item().PaddingLeft(14).Text(stop.Instructions!).FontSize(8).FontColor(Colors.Grey.Darken1);
                 }
             }
+        });
+    }
+
+    /// <summary>
+    /// Non-lane modes (Domestic / Import / Export / Triangular): Port of Loading to Port of Discharge.
+    /// Requires Booking.Pol / Booking.Pod to be loaded (Include) by whoever builds the request.
+    /// </summary>
+    private void ComposePorts(ColumnDescriptor col)
+    {
+        var isAir = _booking.Mode == TransportMode.Air;
+
+        col.Item().PaddingTop(14).Text("PORT ROUTING")
+            .Bold().FontSize(9).FontColor(Colors.Blue.Darken3);
+
+        col.Item().PaddingTop(4).Column(c =>
+        {
+            c.Item().Text($"• {(isAir ? "Airport of Departure" : "Port of Loading")} (POL): {PdfLabels.TerminalName(_booking.Pol)}");
+            c.Item().Text($"• {(isAir ? "Airport of Destination" : "Port of Discharge")} (POD): {PdfLabels.TerminalName(_booking.Pod)}");
         });
     }
 

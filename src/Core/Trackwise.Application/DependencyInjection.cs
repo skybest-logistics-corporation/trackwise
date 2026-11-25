@@ -13,6 +13,7 @@ public static class DependencyInjection
         services.AddScoped<ITariffRateResolver, TariffRateResolver>();
         services.AddScoped<IQuotationRatingEngine, QuotationRatingEngine>();
         services.AddScoped<IQuotationReferenceGenerator, QuotationReferenceGenerator>();
+        services.AddScoped<QuotationPdfBuilder>();
 
         return services;
     }

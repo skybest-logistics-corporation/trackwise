@@ -108,7 +108,7 @@ export class BillingDetailsComponent implements OnInit {
 
   // ── Display ────────────────────────────────────────────────────────────────
   protected readonly pageTitle = computed(
-    () => `${"Invoice " + (this.billing()?.number ?? "Billing Details")}`,
+    () => `${"Biling Advise " + (this.billing()?.number ?? "Billing Advise Details")}`,
   );
 
   protected readonly subtitle = computed(() => {

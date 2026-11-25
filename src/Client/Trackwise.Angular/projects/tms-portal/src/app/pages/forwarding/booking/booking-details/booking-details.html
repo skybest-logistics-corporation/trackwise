@@ -65,7 +65,7 @@
           </span>
         }
 
-        @if (isInProgress()) {
+        @if (isColdChainOrTrucking() ? isInProgress() : isConfirmed()) {
           <ui-button
             icon="check"
             intent="success"
@@ -75,7 +75,7 @@
           />
         }
 
-        @if (isConfirmed() && isColdChain()) {
+        @if (isConfirmed() && isColdChainOrTrucking()) {
           <ui-button
             icon="truck"
             intent="primary"
@@ -194,9 +194,39 @@
                 </tbody>
               </table>
             </div>
+          } @else if (b.pol || b.pod) {
+            <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              @if (b.pol; as pol) {
+                <div class="bg-muted/40 rounded-lg p-3">
+                  <span class="text-muted-foreground block text-xs">Port of Loading (POL)</span>
+                  <span class="text-sm font-medium">
+                    {{ pol.name || pol.code || "Unknown POL" }}
+                  </span>
+                  @if (pol.code || pol.countryCode) {
+                    <span class="text-muted-foreground mt-0.5 block text-xs">
+                      {{ pol.code }} {{ pol.countryCode ? "(" + pol.countryCode + ")" : "" }}
+                    </span>
+                  }
+                </div>
+              }
+
+              @if (b.pod; as pod) {
+                <div class="bg-muted/40 rounded-lg p-3">
+                  <span class="text-muted-foreground block text-xs">Port of Discharge (POD)</span>
+                  <span class="text-sm font-medium">
+                    {{ pod.name || pod.code || "Unknown POD" }}
+                  </span>
+                  @if (pod.code || pod.countryCode) {
+                    <span class="text-muted-foreground mt-0.5 block text-xs">
+                      {{ pod.code }} {{ pod.countryCode ? "(" + pod.countryCode + ")" : "" }}
+                    </span>
+                  }
+                </div>
+              }
+            </div>
           } @else {
             <p class="text-muted-foreground py-6 text-center text-sm">
-              No stops assigned to this route.
+              No route or terminal information assigned to this booking.
             </p>
           }
         </ui-surface>
@@ -479,6 +509,63 @@
             </div>
           } @else {
             <p class="text-muted-foreground py-6 text-center text-sm">No documents attached.</p>
+          }
+        </ui-surface>
+
+        <!-- Activity Timeline -->
+        <ui-surface variant="elevated" [border]="true">
+          <div class="border-b pb-3">
+            <h3 class="text-base font-semibold">Activity</h3>
+            <p class="text-muted-foreground text-xs">
+              Everything that has happened to this booking
+            </p>
+          </div>
+
+          @if (events().length) {
+            <ol class="mt-4 space-y-4">
+              @for (e of events(); track e.id; let last = $last) {
+                <li class="relative flex gap-3">
+                  <!-- Rail + dot -->
+                  <div class="flex flex-col items-center">
+                    <span
+                      class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
+                      [class]="eventDotClass(e)"
+                    ></span>
+                    @if (!last) {
+                      <span class="bg-border mt-1 w-px flex-1"></span>
+                    }
+                  </div>
+
+                  <div class="min-w-0 flex-1 pb-1">
+                    <div class="flex flex-wrap items-baseline justify-between gap-x-3">
+                      <span class="text-sm font-medium">{{ label(e.type) }}</span>
+                      <span class="text-muted-foreground text-xs whitespace-nowrap">
+                        {{ e.occurredAt | date: "medium" }}
+                      </span>
+                    </div>
+
+                    @if (eventTransition(e); as transition) {
+                      <div class="text-muted-foreground text-xs">{{ transition }}</div>
+                    }
+
+                    @if (e.details) {
+                      <p class="text-muted-foreground mt-0.5 text-xs break-words">
+                        {{ e.details }}
+                      </p>
+                    }
+
+                    <div class="text-muted-foreground mt-0.5 flex items-center gap-2 text-xs">
+                      <span>by {{ e.actor }}</span>
+                      @if (eventLink(e); as link) {
+                        <a class="text-primary hover:underline" [routerLink]="link">View</a>
+                      }
+                    </div>
+                  </div>
+                </li>
+              }
+            </ol>
+          } @else {
+            <p class="text-muted-foreground py-6 text-center text-sm">No activity recorded yet.</p>
           }
         </ui-surface>
       </div>
@@ -799,7 +886,7 @@
   [resizable]="false"
 >
   @if (openBookingPdfViewer()) {
-    <app-pdf-viewer
+    <ui-app-pdf-viewer
       [documentId]="booking()?.id!"
       [loader]="loadBookingPdf"
       [fileName]="booking()?.bookingNumber + '.pdf'"
@@ -840,9 +927,10 @@
 </ui-dialog>
 
 @if (booking(); as b) {
-  @if (isColdChain()) {
+  @if (isColdChainOrTrucking()) {
     <app-create-trip-dialog
       [bookingId]="b.id!"
+      [tripDate]="tripDate()"
       [dropCount]="b.stops?.length ?? 0"
       [bookedSize]="b.tonnageClass"
       [truckType]="b.truckType"

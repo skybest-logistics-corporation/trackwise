@@ -13,23 +13,19 @@ namespace Trackwise.Application.Modules.Operations.FreightForwarding.Commands.Bo
 /// </summary>
 public sealed record AddBookingChargeCommand(
     Guid BookingId,
-    ChargeCategory Category,
-    string Description,
+    Guid ChargeCodeId,
     decimal Quantity,
     decimal UnitBuying,
     decimal UnitSelling,
-    string Reason) : ICommand<Result<BookingChargeDto>>;   // same base interface as your other commands
+    string Reason) : ICommand<Result<BookingChargeDto>>;
 
 public sealed class AddBookingChargeCommandValidator : AbstractValidator<AddBookingChargeCommand>
 {
     public AddBookingChargeCommandValidator()
     {
         RuleFor(x => x.BookingId).NotEmpty();
-        RuleFor(x => x.Category).IsInEnum();
+        RuleFor(x => x.ChargeCodeId).NotEmpty();
 
-        // Lengths and precision match BookingChargeLineConfiguration so the database never rejects
-        // what validation let through.
-        RuleFor(x => x.Description).NotEmpty().MaximumLength(250);
         RuleFor(x => x.Reason).NotEmpty().MaximumLength(500)
             .WithMessage("Say why the charge is being added; it appears on the booking and the invoice trail.");
 

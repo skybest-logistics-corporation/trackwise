@@ -2,7 +2,7 @@ import { DatePipe, DecimalPipe, TitleCasePipe } from "@angular/common";
 import { Component, computed, DestroyRef, inject, signal, type OnInit } from "@angular/core";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { ActivatedRoute, Router } from "@angular/router";
-import { PermissionService } from "@trackwise/shared";
+import { PdfViewerComponent, PermissionService, type PdfLoader } from "@trackwise/shared";
 import {
   acceptQuotation,
   addQuotationLines,
@@ -47,10 +47,6 @@ import {
 import { distinctUntilChanged, map } from "rxjs";
 import { ContainerTypeOptionsService, ToastService } from "@/core/services";
 import { PageHeader } from "@/shared/components";
-import {
-  PdfViewerComponent,
-  type PdfLoader,
-} from "@/shared/components/pdf-viewer/pdf-viewer.component";
 import {
   QuotationLineForm,
   type QuotationLineFormValue,
@@ -134,6 +130,9 @@ export class QuotationDetailsComponent implements OnInit {
   protected readonly lineToDelete = signal<QuotationLineDto | null>(null);
 
   private readonly currentPermissions = inject(PermissionService);
+
+  protected readonly acceptDialogVisible = signal(false);
+  protected readonly acceptMessage = signal("");
 
   protected readonly canApprove = computed(() =>
     this.currentPermissions.hasPermission("Permission.Quotation.Approve"),
@@ -370,26 +369,31 @@ export class QuotationDetailsComponent implements OnInit {
     }
   }
 
-  protected accept(): void {
-    const id = this.quotation()?.id;
-    if (!id) return;
+  protected openAcceptDialog(): void {
+    this.acceptMessage.set("");
+    this.acceptDialogVisible.set(true);
+  }
 
-    this.toastService.confirm({
-      header: "Accept Quotation",
-      message: "Mark this quotation as accepted by the customer?",
-      accept: async () => {
-        this.isBusy.set(true);
-        try {
-          await this.api.invoke(acceptQuotation, { id });
-          this.toastService.showSuccess("Quotation accepted.");
-          await this.load();
-        } catch {
-          this.toastService.showError("Failed to accept quotation.");
-        } finally {
-          this.isBusy.set(false);
-        }
-      },
-    });
+  protected async confirmAccept(): Promise<void> {
+    const id = this.quotation()?.id;
+    if (!id || this.isBusy()) return;
+
+    const message = this.acceptMessage().trim();
+
+    this.isBusy.set(true);
+    try {
+      await this.api.invoke(acceptQuotation, {
+        id,
+        body: { message: message || null },
+      });
+      this.acceptDialogVisible.set(false);
+      this.toastService.showSuccess("Quotation accepted.");
+      await this.load();
+    } catch {
+      this.toastService.showError("Failed to accept quotation.");
+    } finally {
+      this.isBusy.set(false);
+    }
   }
 
   protected expire(): void {

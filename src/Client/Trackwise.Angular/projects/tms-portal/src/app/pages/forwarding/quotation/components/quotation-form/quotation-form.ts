@@ -8,6 +8,7 @@ import {
   signal,
   untracked,
 } from "@angular/core";
+import { toObservable, toSignal } from "@angular/core/rxjs-interop";
 import {
   form,
   FormField,
@@ -51,10 +52,12 @@ import {
   UiCheckboxField,
   UiDialog,
   UiFormField,
+  UiNumberField,
   UiSelectField,
   UiTextareaField,
   UiTextField,
 } from "@trackwise/shared/ui";
+import { debounceTime, distinctUntilChanged, map } from "rxjs";
 import {
   LocationForm,
   type LocationFormValue,
@@ -91,9 +94,9 @@ export interface QuotationFormModel {
 
   // Cargo Specs
   commodity: string;
-  palletCount: string;
-  totalWeightKg: string;
-  declaredCargoValueAmount: string;
+  palletCount: number | null;
+  totalWeightKg: number | null;
+  declaredCargoValueAmount: number | null;
   declaredCargoValueCurrency: string;
 
   // Temperature Control
@@ -128,9 +131,9 @@ const EMPTY_FORM: QuotationFormModel = {
   pod: null,
 
   commodity: "",
-  palletCount: "",
-  totalWeightKg: "",
-  declaredCargoValueAmount: "",
+  palletCount: 0,
+  totalWeightKg: 0,
+  declaredCargoValueAmount: 0,
   declaredCargoValueCurrency: "PHP",
 
   temperatureZone: "ambient",
@@ -194,6 +197,7 @@ const SHIPMENT_TYPES_BY_MODE: Record<TransportMode, { label: string; value: Ship
     UiSelectField,
     UiTextareaField,
     UiTextField,
+    UiNumberField,
     RouteStopDialog,
     EmptyState,
     UiDialog,
@@ -204,6 +208,8 @@ const SHIPMENT_TYPES_BY_MODE: Record<TransportMode, { label: string; value: Ship
 export class QuotationForm {
   protected readonly selectedCustomerLocationsStore = inject(CustomerLocationsStore);
   protected readonly branchesStore = inject(BranchesStore);
+
+  protected readonly locationSearch = signal("");
 
   public readonly isLoading = input(false);
 
@@ -237,12 +243,26 @@ export class QuotationForm {
   protected readonly customerLocations = computed(() => {
     const loaded = this.selectedCustomerLocationsStore.data();
     const loadedIds = new Set(loaded.map((l) => l.id));
-    return [...loaded, ...this.createdLocations().filter((l) => !loadedIds.has(l.id))];
+    const q = this.debouncedLocationSearch().toLowerCase();
+    const created = this.createdLocations().filter(
+      (l) =>
+        !loadedIds.has(l.id) && (!q || `${l.code ?? ""} ${l.name ?? ""}`.toLowerCase().includes(q)),
+    );
+    return [...loaded, ...created];
   });
 
   protected readonly createLocationOpen = signal(false);
   protected readonly newLocationName = signal("");
   protected readonly isCreatingLocation = signal(false);
+
+  private readonly debouncedLocationSearch = toSignal(
+    toObservable(this.locationSearch).pipe(
+      map((s) => s.trim()),
+      debounceTime(300),
+      distinctUntilChanged(),
+    ),
+    { initialValue: "" },
+  );
 
   protected readonly branchOptions = computed(() =>
     this.branchesStore.data().map((b) => ({
@@ -399,6 +419,8 @@ export class QuotationForm {
     },
   );
 
+  private previousCustomerId: string | undefined;
+
   constructor() {
     // 0. Edit mode -> hydrate the form from an existing quotation
     effect(() => {
@@ -410,13 +432,26 @@ export class QuotationForm {
 
     // 1. Customer location query sync
     effect(() => {
-      const customerId = this.model().customer?.id;
+      const customer = this.model().customer;
+      const search = this.debouncedLocationSearch();
+
       untracked(() => {
-        this.createdLocations.set([]);
+        // New customer -> drop the old query and the old customer's created locations.
+        if (customer?.id !== this.previousCustomerId) {
+          this.previousCustomerId = customer?.id;
+          this.createdLocations.set([]);
+          if (this.locationSearch() !== "") {
+            this.locationSearch.set("");
+            return; // the debounced value will re-run this effect with search = ""
+          }
+        }
+
+        if (!customer) return;
         this.selectedCustomerLocationsStore.setFilters(
-          { CustomerId: customerId },
-          { reload: true },
+          { CustomerId: customer.id },
+          { reload: false },
         );
+        this.selectedCustomerLocationsStore.setSearch(search);
       });
     });
 
@@ -506,9 +541,9 @@ export class QuotationForm {
       pod: q.pod ?? null,
 
       commodity: q.commodity ?? "",
-      palletCount: q.palletCount?.toString() ?? "",
-      totalWeightKg: q.totalWeightKg?.toString() ?? "",
-      declaredCargoValueAmount: q.declaredCargoValueAmount?.toString() ?? "",
+      palletCount: q.palletCount ?? 0,
+      totalWeightKg: q.totalWeightKg ?? 0,
+      declaredCargoValueAmount: q.declaredCargoValueAmount ?? 0,
       declaredCargoValueCurrency: q.declaredCargoValueCurrency ?? "",
 
       temperatureZone: zone,
@@ -663,15 +698,17 @@ export class QuotationForm {
       cargo: hasCargoData
         ? {
             commodity: v.commodity?.trim() || null,
-            palletCount: this.parseOptionalNumber(v.palletCount),
-            totalWeightKg: this.parseOptionalNumber(v.totalWeightKg),
-            declaredCargoValueAmount: this.parseOptionalNumber(v.declaredCargoValueAmount),
+            palletCount: v.palletCount ?? undefined,
+            totalWeightKg: v.totalWeightKg ?? undefined,
+            declaredCargoValueAmount: v.declaredCargoValueAmount ?? undefined,
             declaredCargoValueCurrency:
               v.declaredCargoValueCurrency?.trim().toUpperCase() || v.currency.trim().toUpperCase(),
             requiresActiveRefrigeration: isReefer,
           }
         : undefined,
     };
+
+    console.log(command);
 
     // Key off the flag only, so leftover setpoint values never leak into the
     // command when the user has switched cold chain off.

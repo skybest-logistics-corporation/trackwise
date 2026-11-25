@@ -1160,6 +1160,10 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
                         .HasColumnType("text")
                         .HasColumnName("category");
 
+                    b.Property<Guid?>("ChargeCodeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("charge_code_id");
+
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -1235,6 +1239,9 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
 
                     b.HasKey("Id")
                         .HasName("pk_booking_charge_lines");
+
+                    b.HasIndex("ChargeCodeId")
+                        .HasDatabaseName("ix_booking_charge_lines_charge_code_id");
 
                     b.HasIndex("InvoiceId")
                         .HasDatabaseName("ix_booking_charge_lines_invoice_id");
@@ -3616,6 +3623,61 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
                     b.HasDiscriminator<string>("Type");
 
                     b.UseTphMappingStrategy();
+                });
+
+            modelBuilder.Entity("Trackwise.Domain.Entities.FreightForwarding.BookingEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Actor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("actor");
+
+                    b.Property<Guid>("BookingId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("booking_id");
+
+                    b.Property<string>("Details")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("details");
+
+                    b.Property<string>("FromStatus")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("from_status");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<Guid?>("RelatedId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("related_id");
+
+                    b.Property<string>("ToStatus")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("to_status");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("type");
+
+                    b.HasKey("Id")
+                        .HasName("pk_bookingevents");
+
+                    b.HasIndex("BookingId", "OccurredAt")
+                        .HasDatabaseName("ix_bookingevents_booking_id_occurred_at");
+
+                    b.ToTable("bookingevents", (string)null);
                 });
 
             modelBuilder.Entity("Trackwise.Domain.Entities.FreightForwarding.QuotationEvent", b =>
@@ -7586,6 +7648,79 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
                         .HasDatabaseName("ix_quotation_lines_tariff_rate_id");
 
                     b.ToTable("quotation_lines", (string)null);
+                });
+
+            modelBuilder.Entity("Trackwise.Domain.Entities.QuotationLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("AccessCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("access_count");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("created_by");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<DateTime?>("LastAccessedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_accessed_at");
+
+                    b.Property<Guid>("QuotationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("quotation_id");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("token");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_quotation_links");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasDatabaseName("ix_quotation_links_expires_at");
+
+                    b.HasIndex("QuotationId")
+                        .HasDatabaseName("ix_quotation_links_quotation_id");
+
+                    b.HasIndex("Token")
+                        .IsUnique()
+                        .HasDatabaseName("ix_quotation_links_token");
+
+                    b.ToTable("quotation_links", (string)null);
                 });
 
             modelBuilder.Entity("Trackwise.Domain.Entities.RateAgreement", b =>
@@ -11877,7 +12012,14 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
                         .IsRequired()
                         .HasConstraintName("fk_booking_charge_lines_booking_booking_id");
 
+                    b.HasOne("Trackwise.Domain.Entities.ChargeCode", "ChargeCode")
+                        .WithMany()
+                        .HasForeignKey("ChargeCodeId")
+                        .HasConstraintName("fk_booking_charge_lines_charge_code_charge_code_id");
+
                     b.Navigation("Booking");
+
+                    b.Navigation("ChargeCode");
                 });
 
             modelBuilder.Entity("Trackwise.Domain.Entities.BookingDocument", b =>
@@ -12212,6 +12354,16 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
                     b.Navigation("Branch");
 
                     b.Navigation("Role");
+                });
+
+            modelBuilder.Entity("Trackwise.Domain.Entities.FreightForwarding.BookingEvent", b =>
+                {
+                    b.HasOne("Trackwise.Domain.Entities.Booking", null)
+                        .WithMany("Events")
+                        .HasForeignKey("BookingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_bookingevents_bookings_booking_id");
                 });
 
             modelBuilder.Entity("Trackwise.Domain.Entities.FreightForwarding.QuotationEvent", b =>
@@ -12880,6 +13032,18 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
                     b.Navigation("Quotation");
 
                     b.Navigation("TariffRate");
+                });
+
+            modelBuilder.Entity("Trackwise.Domain.Entities.QuotationLink", b =>
+                {
+                    b.HasOne("Trackwise.Domain.Entities.Quotation", "Quotation")
+                        .WithMany()
+                        .HasForeignKey("QuotationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_quotation_links_quotations_quotation_id");
+
+                    b.Navigation("Quotation");
                 });
 
             modelBuilder.Entity("Trackwise.Domain.Entities.RateAgreement", b =>
@@ -13718,6 +13882,8 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
                     b.Navigation("Documents");
 
                     b.Navigation("Drops");
+
+                    b.Navigation("Events");
                 });
 
             modelBuilder.Entity("Trackwise.Domain.Entities.CashFund", b =>

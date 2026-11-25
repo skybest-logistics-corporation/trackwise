@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Trackwise.Application.Abstractions;
+using Trackwise.Application.Abstractions.CurrentUser;
 using Trackwise.Domain.Entities;
 using Trackwise.Domain.Persistence;
 using Trackwise.Domain.Primitives.Enums;
@@ -8,7 +9,7 @@ using Trackwise.Shared.Models;
 
 namespace Trackwise.Application.Modules.Operations.FreightForwarding.Commands.BookingCommands.UpdateBookingCharge;
 
-internal sealed class UpdateBookingChargeHandler(ITenantUnitOfWork tenantUow)
+internal sealed class UpdateBookingChargeHandler(ITenantUnitOfWork tenantUow, ICurrentUserService currentUserService)
     : IAppRequestHandler<UpdateBookingChargeCommand, Result<BookingChargeDto>>
 {
     public async Task<Result<BookingChargeDto>> Handle(UpdateBookingChargeCommand req, CancellationToken ct)
@@ -33,8 +34,8 @@ internal sealed class UpdateBookingChargeHandler(ITenantUnitOfWork tenantUow)
         try
         {
             booking.UpdateAdditionalCharge(
-                req.ChargeId, req.Description, req.Quantity, req.UnitBuying, req.UnitSelling,
-                req.Reason, linkedInvoice?.Status == InvoiceStatus.Draft);
+                req.ChargeId, req.Quantity, req.UnitBuying, req.UnitSelling,
+                req.Reason, linkedInvoice?.Status == InvoiceStatus.Draft, currentUserService.GetUserName());
         }
         catch (InvalidOperationException ex)
         {

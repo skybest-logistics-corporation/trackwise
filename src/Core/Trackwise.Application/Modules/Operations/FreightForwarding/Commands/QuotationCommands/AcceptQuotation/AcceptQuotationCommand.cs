@@ -8,4 +8,5 @@ namespace Trackwise.Application.Modules.Operations.FreightForwarding.Commands.Qu
 public class AcceptQuotationCommand : ICommand<Result>
 {
     public Guid Id { get; set; }
+    public string? Message { get; set; }
 }

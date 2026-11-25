@@ -1,5 +1,6 @@
 using Riok.Mapperly.Abstractions;
 using Trackwise.Domain.Entities;
+using Trackwise.Domain.Entities.FreightForwarding;
 using Trackwise.Domain.Primitives.Enums.FreightForwarding.BookingEnums;
 using Trackwise.Domain.Primitives.ValueObjects;
 using Trackwise.Shared.Models;
@@ -27,8 +28,8 @@ public static partial class BookingMapper
     [MapperIgnoreTarget(nameof(BookingDto.Charges))]
     [MapperIgnoreTarget(nameof(BookingDto.BillingInvoices))]
     [MapperIgnoreTarget(nameof(BookingDto.Documents))]
+    [MapperIgnoreTarget(nameof(BookingDto.Events))]
     [MapperIgnoreTarget(nameof(BookingDto.ConfirmationBlockers))]
-    [MapperIgnoreTarget(nameof(BookingDto.Trips))]
     private static partial BookingDto ToDtoCore(this Booking entity);
 
     /// <summary>
@@ -61,6 +62,10 @@ public static partial class BookingMapper
         dto.Charges = entity.Charges.Select(c => c.ToChargeDto()).ToList();
         dto.BillingInvoices = billingInvoices ?? [];
         dto.Documents = entity.Documents.Select(d => d.ToDocumentDto()).ToList();
+        dto.Events = entity.Events
+            .OrderByDescending(e => e.OccurredAt)
+            .Select(e => e.ToEventDto())
+            .ToList();
 
         // Logistics
         dto.TotalDistanceKm = entity.Lane?.TotalDistanceKm ?? 0m;
@@ -100,6 +105,18 @@ public static partial class BookingMapper
         dto.Trips = trips ?? [];
         return dto;
     }
+
+    public static BookingEventDto ToEventDto(this BookingEvent entity) => new()
+    {
+        Id = entity.Id,
+        Type = entity.Type,
+        FromStatus = entity.FromStatus,
+        ToStatus = entity.ToStatus,
+        Actor = entity.Actor,
+        OccurredAt = entity.OccurredAt,
+        Details = entity.Details,
+        RelatedId = entity.RelatedId
+    };
 
     // ── Summary (for places that already hold a loaded entity) ───────────────
     // The list endpoint projects BookingSummaryDto straight from SQL (see GetBookingsHandler);

@@ -27,6 +27,10 @@ internal sealed class GenerateQuotationPdfHandler(
             .Include(q => q.Lines)
                 .ThenInclude(l => l.TariffRate)
                     .ThenInclude(tr => tr!.Tariff)
+            .Include(q => q.Lines)
+                .ThenInclude(l => l.TariffRate)
+                    .ThenInclude(tr => tr!.Tariff)
+                        .ThenInclude(t => t!.ContainerType)
             .AsNoTracking()
             .FirstOrDefaultAsync(q => q.Id == req.QuotationId, ct);
 

@@ -260,7 +260,7 @@ internal class QuotationSeeder(ILogger<QuotationSeeder> logger) : SeederBase(log
 
         triangularQuotation.Approve("Seed Data");
         triangularQuotation.Issue(TimeSpan.FromDays(14), "System");
-        triangularQuotation.Accept("System");
+        triangularQuotation.Accept("System", "");
         await Save(triangularQuotation);
 
         // =========================================================================

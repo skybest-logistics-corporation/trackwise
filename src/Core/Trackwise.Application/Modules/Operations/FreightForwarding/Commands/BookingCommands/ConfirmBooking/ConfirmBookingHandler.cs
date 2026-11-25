@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Trackwise.Application.Abstractions;
+using Trackwise.Application.Abstractions.CurrentUser;
 using Trackwise.Domain.Entities;
 using Trackwise.Domain.Persistence;
 using Trackwise.Domain.Primitives.Enums.FreightForwarding.BookingEnums;
@@ -7,7 +8,7 @@ using Trackwise.Shared.Models;
 
 namespace Trackwise.Application.Modules.Operations.FreightForwarding.Commands.BookingCommands.ConfirmBooking;
 
-internal sealed class ConfirmBookingHandler(ITenantUnitOfWork tenantUow)
+internal sealed class ConfirmBookingHandler(ITenantUnitOfWork tenantUow, ICurrentUserService currentUserService)
     : IAppRequestHandler<ConfirmBookingCommand, Result>
 {
     public async Task<Result> Handle(ConfirmBookingCommand req, CancellationToken ct)
@@ -27,7 +28,7 @@ internal sealed class ConfirmBookingHandler(ITenantUnitOfWork tenantUow)
             return Result.Fail("Only Pending bookings can be confirmed.");
         }
 
-        booking.Confirm(req.ConfirmedBy);
+        booking.Confirm(currentUserService.GetUserName());
 
         tenantUow.Repository<Booking>().Update(booking);
         await tenantUow.SaveChangesAsync(ct);

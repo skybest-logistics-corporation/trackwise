@@ -172,6 +172,9 @@
                           optionLabel="label"
                           optionValue="value"
                           [filter]="!!model().customer"
+                          [serverSide]="true"
+                          [loading]="selectedCustomerLocationsStore.isLoading()"
+                          (filterChange)="locationSearch.set($event)"
                           filterPlaceholder="Search locations"
                           placeholder="Select a location"
                           [createLabel]="model().customer ? 'Create new location' : undefined"
@@ -193,6 +196,9 @@
                           optionLabel="label"
                           optionValue="value"
                           [filter]="!!model().customer"
+                          [serverSide]="true"
+                          [loading]="selectedCustomerLocationsStore.isLoading()"
+                          (filterChange)="locationSearch.set($event)"
                           filterPlaceholder="Search locations"
                           placeholder="Select a location"
                           [createLabel]="model().customer ? 'Create new location' : undefined"
@@ -368,7 +374,7 @@
 
                 <ui-grid [size]="{ xs: 12, md: 3 }">
                   <ui-form-field label="Pallet / Package Count" for="palletCount">
-                    <ui-text-field
+                    <ui-number-field
                       id="palletCount"
                       [formField]="form.palletCount"
                       placeholder="0"
@@ -378,7 +384,7 @@
 
                 <ui-grid [size]="{ xs: 12, md: 3 }">
                   <ui-form-field label="Total Gross Weight (kg)" for="totalWeightKg">
-                    <ui-text-field
+                    <ui-number-field
                       id="totalWeightKg"
                       [formField]="form.totalWeightKg"
                       placeholder="0"
@@ -392,7 +398,7 @@
                     for="declaredCargoValueAmount"
                     hint="Basis for CIF insurance & ad-valorem surcharges"
                   >
-                    <ui-text-field
+                    <ui-number-field
                       id="declaredCargoValueAmount"
                       [formField]="form.declaredCargoValueAmount"
                       placeholder="0.00"
@@ -531,9 +537,12 @@
 
 <app-add-stop-dialog
   [(isOpen)]="isAddingRouteStop"
-  [locations]="selectedCustomerLocationsStore.data()"
-  (submitted)="handleAddStop($event)"
+  [locations]="customerLocations()"
+  [loading]="selectedCustomerLocationsStore.isLoading()"
   [initialCustomer]="model().customer"
+  (searchChange)="locationSearch.set($event)"
+  (locationCreated)="addCreatedLocation($event)"
+  (submitted)="handleAddStop($event)"
 />
 
 <ui-dialog

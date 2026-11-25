@@ -27,7 +27,7 @@ internal sealed class AcceptQuotationHandler(ITenantUnitOfWork tenantUow, ICurre
         try
         {
             // Validates against ValidUntil TTL; raises QuotationAccepted domain event
-            quotation.Accept(currentUserService.GetUserName());
+            quotation.Accept(currentUserService.GetUserName(), req.Message);
         }
         catch (InvalidOperationException ex)
         {

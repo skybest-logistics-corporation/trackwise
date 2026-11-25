@@ -149,3 +149,5 @@ public record CargoSpecificationDto(
 /// differs from its command (Id comes from the route, RejectedBy from the authenticated user).
 /// </summary>
 public record RejectQuotationRequest(string Reason);
+
+public sealed record AcceptQuotationRequest(string? Message);

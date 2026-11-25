@@ -1,7 +1,7 @@
 import { DatePipe, DecimalPipe } from "@angular/common";
 import { Component, computed, inject, signal, type OnInit } from "@angular/core";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
-import { Permission } from "@trackwise/shared";
+import { PdfViewerComponent, Permission, type PdfLoader } from "@trackwise/shared";
 import {
   Api,
   cancelBooking,
@@ -16,6 +16,7 @@ import {
   type BillIndicator,
   type BookingChargeDto,
   type BookingDto,
+  type BookingEventDto,
   type FreightMode,
   type ReportCategory,
   type TruckingVariant,
@@ -43,10 +44,6 @@ import {
 import { PermissionService } from "@/core/auth";
 import { ToastService } from "@/core/services";
 import { CreateTripDialog, PageHeader } from "@/shared/components";
-import {
-  PdfViewerComponent,
-  type PdfLoader,
-} from "@/shared/components/pdf-viewer/pdf-viewer.component";
 import { truckTonnageClassLabels, truckTypeLabels } from "@/shared/constants/truck-options";
 import { EnumLabelPipe } from "@/shared/pipes";
 import { AddBookingChargeDialog } from "../components/add-booking-charge-dialog/add-booking-charge-dialog";
@@ -108,6 +105,21 @@ export class BookingDetailsComponent implements OnInit {
   protected readonly truckTypeLabels = truckTypeLabels;
   protected readonly tonnageClassLabels = truckTonnageClassLabels;
 
+  protected readonly tripDate = computed(() => {
+    const first = this.booking()?.stops?.[0]?.windowStart;
+    if (!first) {
+      return null;
+    }
+
+    const d = new Date(first);
+    if (Number.isNaN(d.getTime())) {
+      return null;
+    }
+
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; // yyyy-MM-dd
+  });
+
   protected readonly canManage = computed(() =>
     this.permissionService.hasPermission(Permission.Booking.Manage),
   );
@@ -136,7 +148,9 @@ export class BookingDetailsComponent implements OnInit {
   protected readonly isCancelled = computed(() => this.status() === "cancelled");
 
   protected readonly createTripDialogVisible = signal(false);
-  protected readonly isColdChain = computed(() => !!this.booking()?.temperature);
+  protected readonly isColdChainOrTrucking = computed(
+    () => this.booking()?.freightMode === "reefer" || this.booking()?.freightMode === "trucking",
+  );
 
   protected readonly canCancel = computed(() => this.isDraft() || this.isConfirmed());
   protected readonly canOpenWorkfile = computed(() => this.isConfirmed() || this.isInProgress());
@@ -221,6 +235,46 @@ export class BookingDetailsComponent implements OnInit {
       b.requiresCustomsBrokerage ? "Customs brokerage" : null,
     ].filter((flag): flag is string => !!flag);
   });
+
+  // ── Activity timeline ──────────────────────────────────────────────────────
+
+  /** Newest first, as returned by the server. */
+  protected readonly events = computed(() => this.booking()?.events ?? []);
+
+  /** Dot colour: green for progress, red for cancellations and rejections, neutral otherwise. */
+  protected eventDotClass(event: BookingEventDto): string {
+    const key = statusKey(event.type);
+    if (key === "cancelled" || key.endsWith("rejected")) return "bg-red-500";
+    if (
+      ["confirmed", "completed", "documentverified", "documentwaived", "creditapproved"].includes(
+        key,
+      )
+    ) {
+      return "bg-emerald-500";
+    }
+    return "bg-muted-foreground/50";
+  }
+
+  /** Where `relatedId` leads, for the event types that point at a page. Null = plain text. */
+  protected eventLink(event: BookingEventDto): string[] | null {
+    if (!event.relatedId) return null;
+
+    switch (statusKey(event.type)) {
+      case "chargesinvoiced":
+      case "chargesreleased":
+        return ["/billing-invoicing", event.relatedId];
+      case "created":
+        return ["/quotations", event.relatedId];
+      default:
+        return null;
+    }
+  }
+
+  /** "Draft → Confirmed" only when the status actually changed. */
+  protected eventTransition(event: BookingEventDto): string | null {
+    if (!event.fromStatus || event.fromStatus === event.toStatus) return null;
+    return `${this.statusLabel(event.fromStatus)} → ${this.statusLabel(event.toStatus)}`;
+  }
 
   // ── Open Workfile dialog ───────────────────────────────────────────────────
 

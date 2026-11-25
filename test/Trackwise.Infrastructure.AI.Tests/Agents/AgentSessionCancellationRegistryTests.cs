@@ -24,7 +24,13 @@ public class AgentSessionCancellationRegistryTests
         Assert.False(token.IsCancellationRequested);
 
         // The per-request HTTP timeout bounds one call; this bounds the whole session.
-        await Task.Delay(300);
+        var cancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+
+        await using var _ = token.Register(() => cancelled.TrySetResult());
+        await using var __ = timeoutCts.Token.Register(() => cancelled.TrySetCanceled());
+
+        await cancelled.Task;
         Assert.True(token.IsCancellationRequested);
     }
 
