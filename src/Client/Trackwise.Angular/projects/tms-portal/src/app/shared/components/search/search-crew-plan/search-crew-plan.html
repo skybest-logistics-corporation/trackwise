@@ -1,0 +1,45 @@
+<ui-select-field
+  class="w-full"
+  placeholder="Select a truck from the crew plan"
+  filterPlaceholder="Type a driver name or truck number"
+  optionLabel="label"
+  optionValue="row"
+  optionDisabled="disabled"
+  [options]="options()"
+  [filter]="true"
+  [showClear]="true"
+  [loading]="loading()"
+  [disabled]="disabled()"
+  [(value)]="value"
+  (touch)="markTouched()"
+>
+  <ng-template #item let-option>
+    <div class="flex items-center gap-2" [class.opacity-50]="option.disabled">
+      <span class="font-bold">{{ option.row.truckNumber }}</span>
+      @if (option.row.driverName) {
+        <span class="text-muted-foreground text-sm">- {{ option.row.driverName }}</span>
+        @if (option.row.helperName) {
+          <span class="text-muted-foreground text-sm">
+            with {{ option.row.helperName }}
+            @if (option.row.secondHelperName) {
+              and {{ option.row.secondHelperName }}
+            }
+          </span>
+        }
+      } @else if (option.disabled) {
+        <span class="text-muted-foreground text-sm italic">- No driver planned</span>
+      }
+      <span class="text-muted-foreground text-sm">
+        ({{ option.row.truckType | enumLabel: truckTypeLabels }}) -
+        {{ option.row.tonnageClass | enumLabel: tonnageClassLabels }}
+      </span>
+    </div>
+  </ng-template>
+
+  <ng-template #selectedItem let-option>
+    <span class="font-bold">{{ option.row.truckNumber }}</span>
+    @if (option.row.driverName) {
+      <span class="text-muted-foreground text-sm">- {{ option.row.driverName }}</span>
+    }
+  </ng-template>
+</ui-select-field>

@@ -1,5 +1,14 @@
-import { Component, computed, inject, input, model, output, signal } from "@angular/core";
-import { FormBuilder } from "@angular/forms";
+import {
+  booleanAttribute,
+  Component,
+  computed,
+  effect,
+  inject,
+  input,
+  model,
+  output,
+  signal,
+} from "@angular/core";
 import { form, FormField, FormRoot, required } from "@angular/forms/signals";
 import {
   Api,
@@ -24,6 +33,8 @@ import {
 export interface FormModel {
   stopType: StopType;
   locationId: string;
+  /** The full location behind `locationId`, so the parent doesn't have to look it up. */
+  location?: LocationDto;
 }
 
 const STOP_TYPE_LABELS: Record<StopType, string> = {
@@ -56,16 +67,27 @@ const STOP_TYPE_OPTIONS: SelectOption<StopType>[] = (
 })
 export class RouteStopDialog {
   isOpen = model<boolean>(false);
-  locations = input<LocationDto[]>([]);
-  closed = output<void>();
-  submitted = output<FormModel>();
-  private readonly fb = inject(FormBuilder).nonNullable;
 
-  private readonly api = inject(Api);
-  private readonly toast = inject(ToastService);
+  /** Locations from the parent's server-side search for the current query. */
+  locations = input<LocationDto[]>([]);
+
+  /** True while the parent is fetching locations for the current search. */
+  loading = input(false, { transform: booleanAttribute });
 
   /** The client these stops belong to; new locations are created under them. */
   public readonly initialCustomer = input<CustomerDto | null>(null);
+
+  /** Raised as the user types in the location select; the parent runs the server search. */
+  searchChange = output<string>();
+
+  /** Raised after a location is created here, so the parent can add it to its own lists. */
+  locationCreated = output<LocationDto>();
+
+  closed = output<void>();
+  submitted = output<FormModel>();
+
+  private readonly api = inject(Api);
+  private readonly toast = inject(ToastService);
 
   protected readonly isLoading = signal(false);
 
@@ -74,13 +96,21 @@ export class RouteStopDialog {
 
   protected readonly createdLocations = signal<LocationDto[]>([]);
 
+  /** Every location seen so far, so a pick survives the next server response replacing the list. */
+  private readonly seenLocations = new Map<string, LocationDto>();
+
   protected readonly stopTypeOptions = STOP_TYPE_OPTIONS;
-  protected readonly locationOptions = computed<SelectOption<string>[]>(() =>
-    [...this.locations(), ...this.createdLocations()].map((d) => ({
-      label: d.name!,
+
+  protected readonly locationOptions = computed<SelectOption<string>[]>(() => {
+    const merged = new Map<string, LocationDto>();
+    for (const loc of [...this.locations(), ...this.createdLocations()]) {
+      if (loc.id) merged.set(loc.id, loc);
+    }
+    return [...merged.values()].map((d) => ({
+      label: d.code ? `${d.code} — ${d.name}` : (d.name ?? ""),
       value: d.id!,
-    })),
-  );
+    }));
+  });
 
   protected readonly stopModel = signal<FormModel>({
     stopType: "pickup",
@@ -92,14 +122,25 @@ export class RouteStopDialog {
     required(s.locationId);
   });
 
+  constructor() {
+    // Remember every location the server has returned.
+    effect(() => {
+      for (const loc of this.locations()) {
+        if (loc.id) this.seenLocations.set(loc.id, loc);
+      }
+    });
+  }
+
   protected onCreateLocation(searchText: string): void {
     this.newLocationName.set(searchText); // prefill the new-location form
     this.createLocationOpen.set(true);
   }
 
   protected onLocationCreated(location: LocationDto): void {
+    this.seenLocations.set(location.id!, location);
     this.createdLocations.update((list) => [...list, location]);
     this.stopModel.update((m) => ({ ...m, locationId: location.id! }));
+    this.locationCreated.emit(location);
   }
 
   close() {
@@ -115,6 +156,7 @@ export class RouteStopDialog {
     this.submitted.emit({
       stopType: val.stopType!,
       locationId: val.locationId,
+      location: this.seenLocations.get(val.locationId),
     });
 
     this.close();

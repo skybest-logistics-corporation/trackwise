@@ -537,9 +537,12 @@
 
 <app-add-stop-dialog
   [(isOpen)]="isAddingRouteStop"
-  [locations]="selectedCustomerLocationsStore.data()"
-  (submitted)="handleAddStop($event)"
+  [locations]="customerLocations()"
+  [loading]="selectedCustomerLocationsStore.isLoading()"
   [initialCustomer]="model().customer"
+  (searchChange)="locationSearch.set($event)"
+  (locationCreated)="addCreatedLocation($event)"
+  (submitted)="handleAddStop($event)"
 />
 
 <ui-dialog

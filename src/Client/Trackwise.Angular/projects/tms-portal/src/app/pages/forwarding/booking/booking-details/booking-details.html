@@ -930,6 +930,7 @@
   @if (isColdChainOrTrucking()) {
     <app-create-trip-dialog
       [bookingId]="b.id!"
+      [tripDate]="tripDate()"
       [dropCount]="b.stops?.length ?? 0"
       [bookedSize]="b.tonnageClass"
       [truckType]="b.truckType"

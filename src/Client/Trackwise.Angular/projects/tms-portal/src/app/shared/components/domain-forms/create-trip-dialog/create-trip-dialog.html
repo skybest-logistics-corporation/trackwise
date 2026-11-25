@@ -11,6 +11,14 @@
       day's crew plan for the truck - change it on the trip if needed.
     </ui-typography>
 
+    <ui-form-field label="Trip date" hint="Taken from the first stop's pickup window">
+      @if (tripDateLabel(); as label) {
+        <ui-typography variant="body">{{ label }}</ui-typography>
+      } @else {
+        <ui-typography variant="body" color="muted">Not set</ui-typography>
+      }
+    </ui-form-field>
+
     <ui-form-field
       label="Truck"
       for="truck"
@@ -20,12 +28,13 @@
           : 'Pick later on the trip if not known yet'
       "
     >
-      <app-search-truck
+      <app-search-crew-plan
         id="truck"
-        [(value)]="truck"
+        [(value)]="crewRow"
+        [date]="tripDate()"
         [truckType]="truckType()"
         [tonnageClass]="sizeFilter()"
-        [requireMainDriver]="true"
+        [requireDriver]="true"
       />
       @if (bookedSizeLabel() && !showAllSizes()) {
         <ui-button appearance="text" label="Show other sizes" (click)="showAllSizes.set(true)" />
