@@ -105,6 +105,21 @@ export class BookingDetailsComponent implements OnInit {
   protected readonly truckTypeLabels = truckTypeLabels;
   protected readonly tonnageClassLabels = truckTonnageClassLabels;
 
+  protected readonly tripDate = computed(() => {
+    const first = this.booking()?.stops?.[0]?.windowStart;
+    if (!first) {
+      return null;
+    }
+
+    const d = new Date(first);
+    if (Number.isNaN(d.getTime())) {
+      return null;
+    }
+
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; // yyyy-MM-dd
+  });
+
   protected readonly canManage = computed(() =>
     this.permissionService.hasPermission(Permission.Booking.Manage),
   );

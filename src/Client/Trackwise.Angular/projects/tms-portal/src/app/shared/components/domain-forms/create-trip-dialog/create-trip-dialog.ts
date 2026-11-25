@@ -3,6 +3,7 @@ import { getApiErrorMessage } from "@trackwise/shared";
 import {
   Api,
   createTripFromBooking,
+  type CrewPlanRowDto,
   type TruckDto,
   type TruckTonnageClass,
   type TruckType,
@@ -19,6 +20,7 @@ import {
 } from "@trackwise/shared/ui";
 import { ToastService } from "@/core/services";
 import { SearchTruck } from "@/shared/components/search";
+import { SearchCrewPlan } from "../../search/search-crew-plan/search-crew-plan";
 
 /**
  * Makes the trip for a confirmed Cold Chain booking: one load per drop from the pickup warehouse,
@@ -28,15 +30,19 @@ import { SearchTruck } from "@/shared/components/search";
 @Component({
   selector: "app-create-trip-dialog",
   templateUrl: "./create-trip-dialog.html",
-  imports: [Alert, SearchTruck, Stack, Typography, UiButton, UiDialog, UiFormField, UiSelectField],
+  imports: [Alert, Stack, Typography, UiButton, UiDialog, UiFormField, SearchCrewPlan],
 })
 export class CreateTripDialog {
   private readonly api = inject(Api);
   private readonly toast = inject(ToastService);
 
   public readonly bookingId = input.required<string>();
+  // public readonly branchId = input.required<string>();
+  public readonly tripDate = input<string | null | undefined>(null); // yyyy-MM-dd
   public readonly bookedSize = input<TruckTonnageClass | null | undefined>(null);
   public readonly truckType = input<TruckType | null | undefined>(null);
+
+  protected readonly crewRow = signal<CrewPlanRowDto | null>(null);
 
   public readonly dropCount = input(0);
   // public readonly containerType = input<TruckTonnageClass | null | undefined>(null);
@@ -53,7 +59,7 @@ export class CreateTripDialog {
 
   /** A different size is allowed - a 4T can cover a 2T job - and is billed at the booked size. */
   protected readonly sizeMismatch = computed(() => {
-    const truckSize = this.truck()?.tonnageClass;
+    const truckSize = this.crewRow()?.tonnageClass;
     const booked = this.bookedSize();
     return !!truckSize && !!booked && truckSize !== booked;
   });
@@ -61,7 +67,7 @@ export class CreateTripDialog {
   protected readonly truckSizeLabel = computed(() => sizeLabel(this.truck()?.tonnageClass));
 
   protected onOpened(): void {
-    this.truck.set(null);
+    this.crewRow.set(null);
   }
 
   protected async create(): Promise<void> {
@@ -73,7 +79,7 @@ export class CreateTripDialog {
     try {
       const result = await this.api.invoke(createTripFromBooking, {
         id: this.bookingId(),
-        body: { truckId: this.truck()?.id ?? null },
+        body: { truckId: this.crewRow()?.truckId ?? null },
       });
 
       if (result.pricingError) {
@@ -90,6 +96,20 @@ export class CreateTripDialog {
       this.isBusy.set(false);
     }
   }
+
+  protected readonly tripDateLabel = computed(() => {
+    const date = this.tripDate();
+    if (!date) {
+      return "";
+    }
+    const [year, month, day] = date.split("-").map(Number);
+    return new Date(year, month - 1, day).toLocaleDateString("en-PH", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  });
 }
 
 function sizeLabel(size: string | null | undefined): string {
