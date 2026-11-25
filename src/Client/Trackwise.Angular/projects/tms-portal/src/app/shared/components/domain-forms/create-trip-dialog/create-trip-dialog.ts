@@ -9,17 +9,8 @@ import {
   type TruckType,
 } from "@trackwise/shared/api";
 import { truckTonnageClassOptions } from "@trackwise/shared/api/enums";
-import {
-  Alert,
-  Stack,
-  Typography,
-  UiButton,
-  UiDialog,
-  UiFormField,
-  UiSelectField,
-} from "@trackwise/shared/ui";
+import { Alert, Stack, Typography, UiButton, UiDialog, UiFormField } from "@trackwise/shared/ui";
 import { ToastService } from "@/core/services";
-import { SearchTruck } from "@/shared/components/search";
 import { SearchCrewPlan } from "../../search/search-crew-plan/search-crew-plan";
 
 /**
