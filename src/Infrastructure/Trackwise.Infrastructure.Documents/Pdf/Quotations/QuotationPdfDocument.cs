@@ -46,7 +46,9 @@ public sealed class QuotationPdfDocument : IDocument
     private readonly IReadOnlyList<string> _lanes;
     private readonly bool _isMatrix;
 
-    private readonly record struct VehicleSpec(TruckType? Type, TruckTonnageClass? Tonnage, ContainerType? ContainerType);
+    // 1) VehicleSpec: no entity reference
+    private readonly record struct VehicleSpec(
+        TruckType? Type, TruckTonnageClass? Tonnage, Guid? ContainerTypeId, string? ContainerLabel);
 
     private sealed record PricedLine(
         string Code,
@@ -85,7 +87,7 @@ public sealed class QuotationPdfDocument : IDocument
             .Distinct()
             .OrderBy(v => v.Type)
             .ThenBy(v => v.Tonnage)
-            .ThenBy(v => v.ContainerType?.Code)
+            .ThenBy(v => v.ContainerLabel)
             .ToList();
 
         _lanes = _tariffLines.Select(l => l.Lane ?? "—").Distinct().ToList(); // keeps first-seen order
@@ -127,8 +129,12 @@ public sealed class QuotationPdfDocument : IDocument
 
             // Any one of truck type / tonnage / container type is enough to make the line an "option".
             VehicleSpec? vehicle = tariff is not null
-                && (tariff.TruckType is not null || tariff.TonnageClass is not null || tariff.ContainerType is not null)
-                    ? new VehicleSpec(tariff.TruckType, tariff.TonnageClass, tariff.ContainerType)
+                && (tariff.TruckType is not null || tariff.TonnageClass is not null || tariff.ContainerTypeId is not null)
+                    ? new VehicleSpec(
+                        tariff.TruckType,
+                        tariff.TonnageClass,
+                        tariff.ContainerTypeId,
+                        ContainerTypeLabel(tariff.ContainerType))
                     : null;
 
             result.Add(new PricedLine(
@@ -550,10 +556,9 @@ public sealed class QuotationPdfDocument : IDocument
             parts.Add(NumberWordsToDigits(PdfFormatting.Display(tonnage)));
         }
 
-        var container = ContainerTypeLabel(spec.ContainerType);
-        if (container is not null)
+        if (!string.IsNullOrWhiteSpace(spec.ContainerLabel))
         {
-            parts.Add(container);
+            parts.Add(spec.ContainerLabel);
         }
 
         return string.Join(" ", parts).ToUpperInvariant();
@@ -733,8 +738,8 @@ public sealed class QuotationPdfDocument : IDocument
     private string? ContainerTypeSummary()
     {
         var values = _columns
-            .Select(c => ContainerTypeLabel(c.ContainerType))
-            .Where(l => l is not null)
+            .Select(c => c.ContainerLabel)
+            .Where(l => !string.IsNullOrWhiteSpace(l))
             .Distinct()
             .ToList();
 

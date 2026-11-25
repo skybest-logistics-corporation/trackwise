@@ -27,7 +27,7 @@
       </ui-form-field>
 
       <ui-form-field
-        label="Unit price ({{ currency() }})"
+        label="Selling price ({{ currency() }})"
         for="chargeSelling"
         [required]="true"
         [hint]="unitLabel() ?? ''"
@@ -37,7 +37,7 @@
 
       @if (showCosts()) {
         <ui-form-field
-          label="Unit cost ({{ currency() }})"
+          label="Buying cost ({{ currency() }})"
           for="chargeBuying"
           [hint]="unitLabel() ? 'Internal · ' + unitLabel() : 'Internal'"
         >

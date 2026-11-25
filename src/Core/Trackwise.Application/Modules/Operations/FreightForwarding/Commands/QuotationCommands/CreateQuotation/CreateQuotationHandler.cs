@@ -165,18 +165,18 @@ internal sealed class CreateQuotationHandler(
                 //     here, server-side. Never accept it from the client, or approval can be bypassed.
                 //     (USD cargo is derived by the domain; zero-value cargo needs no conversion.)
                 var declared = cargoSpec.DeclaredCargoValue;
-                if (declared.Amount > 0m &&
-                    !string.Equals(declared.Currency, "PHP", StringComparison.OrdinalIgnoreCase))
-                {
-                    var rate = await fxRateService.GetRateAsync(declared.Currency, "PHP", ct);
-                    if (rate is null or <= 0m)
-                    {
-                        return Result<Guid>.Fail(
-                            $"No {declared.Currency} to PHP exchange rate is available, so the cargo value cannot be assessed for approval.");
-                    }
+                //if (declared.Amount > 0m &&
+                //    !string.Equals(declared.Currency, "PHP", StringComparison.OrdinalIgnoreCase))
+                //{
+                //    var rate = await fxRateService.GetRateAsync(declared.Currency, "PHP", ct);
+                //    if (rate is null or <= 0m)
+                //    {
+                //        return Result<Guid>.Fail(
+                //            $"No {declared.Currency} to PHP exchange rate is available, so the cargo value cannot be assessed for approval.");
+                //    }
 
-                    cargoValuePhp = Math.Round(declared.Amount * rate.Value, 2);
-                }
+                //    cargoValuePhp = Math.Round(declared.Amount * rate.Value, 2);
+                //}
             }
 
             TemperatureControl? tempSpec = null;

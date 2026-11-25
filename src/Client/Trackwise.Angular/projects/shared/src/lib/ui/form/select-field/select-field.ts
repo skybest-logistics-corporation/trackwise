@@ -63,8 +63,22 @@ export class UiSelectField<T = unknown> implements FormValueControl<T | null> {
 
   public readonly filterChange = output<string>();
 
+  private readonly optionCache = new Map<unknown, unknown>();
+
   constructor() {
     effect(() => this.filterChange.emit(this.filterText()));
+
+    // Remember every option we've seen so the trigger can still render a selection
+    // that the latest server response no longer contains.
+    effect(() => {
+      for (const opt of this.options()) this.optionCache.set(this.resolveValue(opt), opt);
+    });
+  }
+
+  private findOption(value: unknown): unknown | undefined {
+    return (
+      this.options().find((opt) => this.resolveValue(opt) === value) ?? this.optionCache.get(value)
+    );
   }
 
   protected onCreateNew(): void {
@@ -131,13 +145,17 @@ export class UiSelectField<T = unknown> implements FormValueControl<T | null> {
   public readonly filterBy = input<string | undefined>(undefined);
   public readonly loading = input(false, { transform: booleanAttribute });
 
+  /** When true, `filterChange` drives the search and options are shown as given (no local filtering). */
+  public readonly serverSide = input(false, { transform: booleanAttribute });
+
   /** Free-text filter over the visible options, active only when `filter` is set. */
   protected readonly filterText = signal("");
 
   protected readonly displayOptions = computed(() => {
     const opts = this.options();
+    if (!this.filter() || this.serverSide()) return opts;
     const query = this.filterText().trim().toLowerCase();
-    if (!this.filter() || !query) return opts;
+    if (!query) return opts;
     return opts.filter((opt) => this.resolveLabel(opt).toLowerCase().includes(query));
   });
 
@@ -175,10 +193,9 @@ export class UiSelectField<T = unknown> implements FormValueControl<T | null> {
   });
 
   /** The full option object behind the current value - the context for `#selectedItem`. */
-  protected readonly selectedOption = computed(() => {
-    if (!this.hasValue()) return undefined;
-    return this.options().find((opt) => this.resolveValue(opt) === this.value());
-  });
+  protected readonly selectedOption = computed(() =>
+    this.hasValue() ? this.findOption(this.value()) : undefined,
+  );
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
@@ -195,7 +212,7 @@ export class UiSelectField<T = unknown> implements FormValueControl<T | null> {
 
   /** Maps a stored value back to its label so `hlm-select-value` renders the selection. */
   protected readonly itemToString = (value: unknown): string => {
-    const option = this.options().find((opt) => this.resolveValue(opt) === value);
+    const option = this.findOption(value);
     if (option !== undefined) return this.resolveLabel(option);
     return value == null ? "" : String(value);
   };
@@ -204,7 +221,7 @@ export class UiSelectField<T = unknown> implements FormValueControl<T | null> {
     const value = next ?? null;
 
     if (value !== null) {
-      const option = this.options().find((opt) => this.resolveValue(opt) === value);
+      const option = this.findOption(value);
       if (option !== undefined && this.isOptionDisabled(option)) {
         return;
       }

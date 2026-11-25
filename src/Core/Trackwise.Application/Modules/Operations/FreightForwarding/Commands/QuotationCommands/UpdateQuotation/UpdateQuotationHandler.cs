@@ -169,7 +169,7 @@ internal sealed class UpdateQuotationHandler(
                     req.TemperatureSpec.RequiresContinuousTelematics);
 
             // Clear first: UpdateDetails refuses a currency change while lines exist.
-            quotation.ClearLines();
+            //quotation.ClearLines();
             // ASSUMED domain method: revalidates invariants and replaces the editable details.
 
             quotation.UpdateDetails(
