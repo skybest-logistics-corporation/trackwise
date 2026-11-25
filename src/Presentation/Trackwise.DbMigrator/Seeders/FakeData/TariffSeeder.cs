@@ -111,7 +111,12 @@ internal class TariffSeeder(ILogger<TariffSeeder> logger) : SeederBase(logger)
 
 internal sealed record ChargeCodeDef(
     string Code, string Name, ChargeCategory Category, FreightMode[] Modes,
-    string Unit, string Currency, bool RequiresApproval = false, string? Description = null);
+    string Unit, string? Currency, bool RequiresApproval = false, string? Description = null);   // string? (was string)
+
+internal sealed record TariffDef(
+    string Name, FreightMode FreightMode, string Currency,
+    string? OriginPort, string DestinationPort, bool UsesContainerType,                         // string? OriginPort (was string)
+    IReadOnlyList<RateDef> Rates);
 
 internal sealed record RateDef(
     string Code, PricingModel Model, decimal BaseAmount, string Unit,
@@ -120,11 +125,6 @@ internal sealed record RateDef(
     decimal? Percentage = null, string? PercentageBase = null,
     string? BreakpointJson = null, BreakpointMode BreakpointMode = BreakpointMode.AllUnits);
 
-internal sealed record TariffDef(
-    string Name, FreightMode FreightMode, string Currency,
-    string OriginPort, string DestinationPort, bool UsesContainerType,
-    IReadOnlyList<RateDef> Rates);
-
 /// <summary>Per-tariff rate lists, split back out of <c>CreatedTariffRates</c>.</summary>
 internal sealed record SeededTariffRates(
     IReadOnlyList<TariffRate> DomesticTrucking,
@@ -132,7 +132,13 @@ internal sealed record SeededTariffRates(
     IReadOnlyList<TariffRate> ImportSeaFcl,
     IReadOnlyList<TariffRate> ExportAir,
     IReadOnlyList<TariffRate> TriangularSea,
-    IReadOnlyList<TariffRate> DomesticTrucking40Ft);
+    IReadOnlyList<TariffRate> DomesticTrucking40Ft,
+    IReadOnlyList<TariffRate> DomManilaCebuFcl,
+    IReadOnlyList<TariffRate> ImpShanghaiManilaOcean,
+    IReadOnlyList<TariffRate> ImpManilaLocal,
+    IReadOnlyList<TariffRate> ExpManilaLaxAir,
+    IReadOnlyList<TariffRate> TruckingManilaBatangas,
+    IReadOnlyList<TariffRate> ReeferManilaDavao);
 
 internal static class SeedCodes
 {
@@ -179,6 +185,32 @@ internal static class SeedCodes
     public const string IsfFiling = "ISF-FEE";
     public const string TriThcOrigin = "TRI-THCO";
     public const string TriDiscount = "TRI-DISC";
+
+    // Sample set (currency-less codes: each tariff's currency decides)
+    public const string FfOfr = "FF-OFR";
+    public const string FfAfr = "FF-AFR";
+    public const string FfLhl = "FF-LHL";
+    public const string FfBaf = "FF-BAF";
+    public const string FfPss = "FF-PSS";
+    public const string FfFsc = "FF-FSC";
+    public const string FfSsc = "FF-SSC";
+    public const string FfThcOrg = "FF-THCO";
+    public const string FfThcDst = "FF-THCD";
+    public const string FfArr = "FF-ARR";
+    public const string FfDoc = "FF-DOC";
+    public const string FfAwb = "FF-AWB";
+    public const string FfDof = "FF-DOF";
+    public const string FfHdl = "FF-HDL";
+    public const string FfCci = "FF-CCI";
+    public const string FfCec = "FF-CEC";
+    public const string FfTrk = "FF-TRK";
+    public const string FfDrp = "FF-DRP";
+    public const string FfWait = "FF-WAIT";
+    public const string FfRgs = "FF-RGS";
+    public const string FfTlm = "FF-TLM";
+    public const string FfDet = "FF-DET";
+    public const string FfIns = "FF-INS";
+    public const string FfDisc = "FF-DISC";
 }
 
 internal static class TariffCatalog
@@ -188,6 +220,15 @@ internal static class TariffCatalog
     private static readonly FreightMode[] Exp = [FreightMode.Export];
     private static readonly FreightMode[] Tri = [FreightMode.Triangular];
     private static readonly FreightMode[] Intl = [FreightMode.Import, FreightMode.Export, FreightMode.Triangular];
+    // add next to the existing mode arrays
+    private static readonly FreightMode[] Truck = [FreightMode.Trucking];
+    private static readonly FreightMode[] Reefer = [FreightMode.Reefer];
+    private static readonly FreightMode[] Lane = [FreightMode.Trucking, FreightMode.Reefer];
+    private static readonly FreightMode[] DomImpExp = [FreightMode.Domestic, FreightMode.Import, FreightMode.Export];
+    private static readonly FreightMode[] DomImpExpTri = [FreightMode.Domestic, FreightMode.Import, FreightMode.Export, FreightMode.Triangular];
+    private static readonly FreightMode[] ImpExp = [FreightMode.Import, FreightMode.Export];
+    private static readonly FreightMode[] ImpExpLane = [FreightMode.Import, FreightMode.Export, FreightMode.Trucking, FreightMode.Reefer];
+    private static readonly FreightMode[] AllModes = Enum.GetValues<FreightMode>();
 
     public static readonly IReadOnlyList<ChargeCodeDef> ChargeCodes =
     [
@@ -236,6 +277,32 @@ internal static class TariffCatalog
         new(SeedCodes.IsfFiling,   "ISF 10+2 Filing",                     ChargeCategory.Accessorial, Tri, "per filing",    "USD"),
         new(SeedCodes.TriThcOrigin,"Terminal Handling - Origin",          ChargeCategory.Accessorial, Tri, "per container", "USD"),
         new(SeedCodes.TriDiscount, "Volume Discount",                     ChargeCategory.Discount,    Tri, "per shipment",  "USD"),
+
+                // ── Sample set: currency-less so each tariff's currency decides ──
+        new(SeedCodes.FfOfr,    "Ocean Freight",                    ChargeCategory.Base,        DomImpExpTri, "per container",     null),
+        new(SeedCodes.FfAfr,    "Air Freight",                      ChargeCategory.Base,        ImpExp,       "per kg",            null),
+        new(SeedCodes.FfLhl,    "Linehaul (Trucking/Reefer)",       ChargeCategory.Base,        Lane,         "per trip",          null),
+        new(SeedCodes.FfBaf,    "Bunker Adjustment Factor",         ChargeCategory.Surcharge,   DomImpExpTri, "per container",     null),
+        new(SeedCodes.FfPss,    "Peak Season Surcharge",            ChargeCategory.Surcharge,   ImpExp,       "per container",     null),
+        new(SeedCodes.FfFsc,    "Fuel Surcharge",                   ChargeCategory.Surcharge,   ImpExpLane,   "per kg / % of base", null),
+        new(SeedCodes.FfSsc,    "Security Surcharge",               ChargeCategory.Surcharge,   ImpExp,       "per kg",            null),
+        new(SeedCodes.FfThcOrg, "Terminal Handling - Origin",       ChargeCategory.Accessorial, [FreightMode.Domestic, FreightMode.Export], "per container", null),
+        new(SeedCodes.FfThcDst, "Terminal Handling - Destination",  ChargeCategory.Accessorial, [FreightMode.Domestic, FreightMode.Import], "per container", null),
+        new(SeedCodes.FfArr,    "Arrastre & Wharfage",              ChargeCategory.Accessorial, DomImpExp,    "per container",     null),
+        new(SeedCodes.FfDoc,    "Documentation Fee",                ChargeCategory.Accessorial, DomImpExp,    "per shipment",      null),
+        new(SeedCodes.FfAwb,    "Air Waybill Fee",                  ChargeCategory.Accessorial, Exp,          "per shipment",      null),
+        new(SeedCodes.FfDof,    "Delivery Order Fee",               ChargeCategory.Accessorial, Imp,          "per shipment",      null),
+        new(SeedCodes.FfHdl,    "Origin Cargo Handling",            ChargeCategory.Accessorial, ImpExp,       "per kg",            null),
+        new(SeedCodes.FfCci,    "Customs Clearance - Import",       ChargeCategory.Accessorial, Imp,          "per shipment",      null),
+        new(SeedCodes.FfCec,    "Customs Clearance - Export",       ChargeCategory.Accessorial, Exp,          "per shipment",      null),
+        new(SeedCodes.FfTrk,    "Port-to-Door Trucking",            ChargeCategory.Accessorial, DomImpExp,    "per trip",          null),
+        new(SeedCodes.FfDrp,    "Additional Drop",                  ChargeCategory.Accessorial, Lane,         "per drop",          null),
+        new(SeedCodes.FfWait,   "Waiting Time",                     ChargeCategory.Accessorial, Lane,         "per hour",          null),
+        new(SeedCodes.FfRgs,    "Reefer Genset Rental",             ChargeCategory.Accessorial, Reefer,       "per trip",          null),
+        new(SeedCodes.FfTlm,    "Continuous Telematics",            ChargeCategory.Accessorial, Reefer,       "per trip",          null),
+        new(SeedCodes.FfDet,    "Detention",                        ChargeCategory.Accessorial, DomImpExp,    "per container-day", null),
+        new(SeedCodes.FfIns,    "Cargo Insurance",                  ChargeCategory.Accessorial, AllModes,     "% of CIF",          null),
+        new(SeedCodes.FfDisc,   "Volume Discount",                  ChargeCategory.Discount,    AllModes,     "per shipment",      null),
     ];
 
     // Chargeable-weight breakpoints (USD/kg), AllUnits mode: the matched tier prices the ENTIRE quantity.
@@ -246,6 +313,25 @@ internal static class TariffCatalog
           {"min":100, "max":299, "rate":4.30},
           {"min":300, "max":499, "rate":3.90},
           {"min":500,            "rate":3.50}
+        ]
+        """;
+
+    private const string ExportAirBreakpoints = """
+        [
+          {"min":0,   "rate":4.20},
+          {"min":45,  "rate":3.60},
+          {"min":100, "rate":3.20},
+          {"min":300, "rate":2.85},
+          {"min":500, "rate":2.60}
+        ]
+        """;
+
+    // Incremental: each band prices only the kg inside it.
+    private const string HandlingBreakpoints = """
+        [
+          {"min":0,   "rate":0.25},
+          {"min":100, "rate":0.18},
+          {"min":500, "rate":0.12}
         ]
         """;
 
@@ -323,6 +409,71 @@ internal static class TariffCatalog
             new(SeedCodes.TrkWarehouse,  PricingModel.PerUnit,    45m,    "per pallet"),
             new(SeedCodes.TrkAfterHours, PricingModel.Flat,       2_000m, "per trip"),
         ]),
+
+                // 6) Domestic FCL: Manila → Cebu (PHP)
+        new("Manila - Cebu Domestic FCL Q4 2026", FreightMode.Domestic, "PHP", "PHMNL", "PHCEB", true,
+        [
+            new(SeedCodes.FfOfr,    PricingModel.PerUnit,    42_000m, "per container"),
+            new(SeedCodes.FfBaf,    PricingModel.Percentage, 0m,      "% of base freight", Minimum: 1_500m, Percentage: 12m, PercentageBase: "BAS"),
+            new(SeedCodes.FfThcOrg, PricingModel.PerUnit,    5_200m,  "per container"),
+            new(SeedCodes.FfThcDst, PricingModel.PerUnit,    4_800m,  "per container"),
+            new(SeedCodes.FfDoc,    PricingModel.Flat,       1_200m,  "per BL"),
+            new(SeedCodes.FfDet,    PricingModel.PerUnit,    1_500m,  "per container-day", FreeDays: 5, RateAfterFreeDays: 1_500m),
+            new(SeedCodes.FfIns,    PricingModel.Percentage, 0m,      "% of CIF", Minimum: 500m, Percentage: 0.35m, PercentageBase: "CIF"),
+            new(SeedCodes.FfDisc,   PricingModel.Flat,       2_000m,  "per shipment"),
+        ]),
+
+        // 7) Import ocean: Shanghai → Manila (USD)
+        new("Shanghai - Manila Import FCL Ocean Q4 2026", FreightMode.Import, "USD", "CNSHA", "PHMNL", true,
+        [
+            new(SeedCodes.FfOfr, PricingModel.PerUnit, 1_650m, "per container"),
+            new(SeedCodes.FfBaf, PricingModel.PerUnit, 220m,   "per container"),
+            new(SeedCodes.FfPss, PricingModel.PerUnit, 300m,   "per container"),
+            new(SeedCodes.FfDet, PricingModel.PerUnit, 45m,    "per container-day", FreeDays: 7, RateAfterFreeDays: 45m),
+        ]),
+
+        // 8) Import local charges: Manila port (PHP). Mixed with tariff 7 on one quote via fxRate.
+        new("Manila Port Import Local Charges Q4 2026", FreightMode.Import, "PHP", null, "PHMNL", false,
+        [
+            new(SeedCodes.FfThcDst, PricingModel.PerUnit, 9_200m, "per container"),
+            new(SeedCodes.FfArr,    PricingModel.PerUnit, 2_900m, "per container"),
+            new(SeedCodes.FfDof,    PricingModel.Flat,    1_500m, "per shipment"),
+            new(SeedCodes.FfCci,    PricingModel.Flat,    4_500m, "per shipment"),
+            new(SeedCodes.FfTrk,    PricingModel.PerUnit, 9_500m, "per trip"),
+        ]),
+
+        // 9) Export air: Manila → Los Angeles (USD), AllUnits + Incremental breakpoints
+        new("Manila - Los Angeles Air Export Q4 2026", FreightMode.Export, "USD", "PHMNL", "USLAX", false,
+        [
+            new(SeedCodes.FfAfr, PricingModel.Breakpoint, 4.20m, "per chargeable kg", Minimum: 90m,
+                BreakpointJson: ExportAirBreakpoints, BreakpointMode: BreakpointMode.AllUnits),
+            new(SeedCodes.FfFsc, PricingModel.PerUnit,    0.55m, "per kg"),
+            new(SeedCodes.FfSsc, PricingModel.PerUnit,    0.15m, "per kg", Minimum: 15m),
+            new(SeedCodes.FfAwb, PricingModel.Flat,       35m,   "per shipment"),
+            new(SeedCodes.FfCec, PricingModel.Flat,       120m,  "per shipment"),
+            new(SeedCodes.FfHdl, PricingModel.Breakpoint, 0.25m, "per kg", Minimum: 20m,
+                BreakpointJson: HandlingBreakpoints, BreakpointMode: BreakpointMode.Incremental),
+            new(SeedCodes.FfIns, PricingModel.Percentage, 0m,    "% of CIF", Minimum: 10m, Percentage: 0.30m, PercentageBase: "CIF"),
+        ]),
+
+        // 10) Trucking (lane mode): Metro Manila → Batangas (PHP)
+        new("Metro Manila - Batangas Trucking (10W) Q4 2026", FreightMode.Trucking, "PHP", "PHMNL", "PHBTG", false,
+        [
+            new(SeedCodes.FfLhl,  PricingModel.PerUnit,    18_500m, "per trip"),
+            new(SeedCodes.FfFsc,  PricingModel.Percentage, 0m,      "% of base", Minimum: 500m, Percentage: 8m, PercentageBase: "BAS"),
+            new(SeedCodes.FfDrp,  PricingModel.PerUnit,    1_200m,  "per drop"),
+            new(SeedCodes.FfWait, PricingModel.PerUnit,    450m,    "per hour", FreeDays: 4, RateAfterFreeDays: 450m),
+        ]),
+
+        // 11) Reefer (lane mode): Metro Manila → Davao (PHP)
+        new("Metro Manila - Davao Reefer Q4 2026", FreightMode.Reefer, "PHP", "PHMNL", "PHDVO", false,
+        [
+            new(SeedCodes.FfLhl, PricingModel.PerUnit,    62_000m, "per trip"),
+            new(SeedCodes.FfFsc, PricingModel.Percentage, 0m,      "% of base", Percentage: 10m, PercentageBase: "BAS"),
+            new(SeedCodes.FfRgs, PricingModel.PerUnit,    7_500m,  "per trip"),
+            new(SeedCodes.FfTlm, PricingModel.PerUnit,    1_800m,  "per trip"),
+            new(SeedCodes.FfDrp, PricingModel.PerUnit,    1_500m,  "per drop"),
+        ]),
     ];
 
     /// <summary>Splits the flat <c>CreatedTariffRates</c> list back into per-tariff lists.</summary>
@@ -342,7 +493,9 @@ internal static class TariffCatalog
             return slice;
         }
 
-        return new SeededTariffRates(Next(0), Next(1), Next(2), Next(3), Next(4), Next(5));
+        return new SeededTariffRates(
+            Next(0), Next(1), Next(2), Next(3), Next(4), Next(5),
+            Next(6), Next(7), Next(8), Next(9), Next(10), Next(11));
     }
 
     /// <summary>Finds a rate by charge code inside one tariff's rate list (codes are unique per tariff).</summary>

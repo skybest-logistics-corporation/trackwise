@@ -72,6 +72,8 @@ internal static class BookingInvoiceDraftBuilder
                     Notes = ChargeNotes(charge)
                 };
                 await tenantUow.Repository<InvoiceLineItem>().AddAsync(line, ct);
+                if (!invoice.LineItems.Contains(line))
+                    invoice.LineItems.Add(line);
                 invoice.LineItems.Add(line);
             }
             else
@@ -85,7 +87,7 @@ internal static class BookingInvoiceDraftBuilder
 
         invoice.Subtotal = new Money
         {
-            Amount = invoice.LineItems.Sum(l => l.Total),
+            Amount = invoice.LineItems.DistinctBy(l => l.Id).Sum(l => l.Total),
             Currency = booking.Currency
         };
         invoice.TaxTotal = Money.Zero(booking.Currency);
