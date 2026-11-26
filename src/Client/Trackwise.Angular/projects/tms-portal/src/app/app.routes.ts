@@ -379,6 +379,13 @@ export const appRoutes: Routes = [
     },
   },
   {
+    path: "accounting",
+    data: { breadcrumb: "Accounting", feature: "bookings" },
+    canActivate: [featureGuardFromData],
+    loadChildren: () =>
+      import("./pages/accounting/accounting.routes").then((m) => m.accountingRoutes),
+  },
+  {
     path: "payroll",
     loadChildren: () => import("./pages/payroll/payroll.routes").then((m) => m.payrollRoutes),
     canActivate: [featureGuardFromData],

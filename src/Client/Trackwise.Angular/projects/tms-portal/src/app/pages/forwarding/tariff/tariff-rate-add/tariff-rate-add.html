@@ -118,7 +118,7 @@
 
             @case ("breakpoint") {
               <ui-grid container spacing="4">
-                <ui-grid [size]="{ xs: 12, md: 6 }">
+                <ui-grid [size]="{ xs: 12, md: 4 }">
                   <ui-form-field label="Unit of Measure" for="unit" [required]="true">
                     <ui-text-field
                       id="unit"
@@ -128,9 +128,22 @@
                   </ui-form-field>
                 </ui-grid>
 
-                <ui-grid [size]="{ xs: 12, md: 6 }">
+                <ui-grid [size]="{ xs: 12, md: 4 }">
                   <ui-form-field
-                    label="Base / Entry Fee"
+                    label="Est. Buying Base Fee"
+                    for="estimatedBuyingAmount"
+                    hint="Optional baseline vendor cost"
+                  >
+                    <ui-number-field
+                      id="estimatedBuyingAmount"
+                      [formField]="form.estimatedBuyingAmount"
+                    />
+                  </ui-form-field>
+                </ui-grid>
+
+                <ui-grid [size]="{ xs: 12, md: 4 }">
+                  <ui-form-field
+                    label="Selling Base / Entry Fee"
                     for="baseAmount"
                     hint="Optional base charge before tiers apply"
                   >
@@ -143,7 +156,7 @@
                     label="Breakpoints (JSON)"
                     for="breakpointJson"
                     [required]="true"
-                    hint="Define tier thresholds and amounts"
+                    hint="Define tier thresholds, selling rate, and optional buyingRate"
                   >
                     <div class="mb-1 flex justify-end">
                       <button
@@ -159,7 +172,7 @@
                       id="breakpointJson"
                       [formField]="form.breakpointJson"
                       [rows]="4"
-                      placeholder='[{"from": 0, "to": 500, "rate": 50}, {"from": 501, "rate": 40}]'
+                      placeholder='[{"min": 0, "max": 500, "rate": 50, "buyingRate": 40}, {"min": 501, "rate": 40, "buyingRate": 32}]'
                     />
                   </ui-form-field>
                 </ui-grid>
@@ -168,10 +181,22 @@
 
             @case ("per_unit") {
               <ui-grid container spacing="4">
-                <ui-grid [size]="{ xs: 12, md: 6 }">
-                  <!-- Per Unit -->
+                <ui-grid [size]="{ xs: 12, md: 4 }">
                   <ui-form-field
-                    label="Rate per Unit"
+                    label="Est. Buying per Unit"
+                    for="estimatedBuyingAmount"
+                    hint="Optional baseline vendor cost"
+                  >
+                    <ui-number-field
+                      id="estimatedBuyingAmount"
+                      [formField]="form.estimatedBuyingAmount"
+                    />
+                  </ui-form-field>
+                </ui-grid>
+
+                <ui-grid [size]="{ xs: 12, md: 4 }">
+                  <ui-form-field
+                    label="Selling Rate per Unit"
                     for="baseAmount"
                     [required]="true"
                     hint="Amount billed per specified unit"
@@ -180,7 +205,7 @@
                   </ui-form-field>
                 </ui-grid>
 
-                <ui-grid [size]="{ xs: 12, md: 6 }">
+                <ui-grid [size]="{ xs: 12, md: 4 }">
                   <ui-form-field
                     label="Unit of Measure"
                     for="unit"
@@ -196,9 +221,22 @@
             @default {
               <!-- Flat Fee Model -->
               <ui-grid container spacing="4">
-                <ui-grid [size]="{ xs: 12, md: 6 }">
+                <ui-grid [size]="{ xs: 12, md: 4 }">
                   <ui-form-field
-                    label="Flat Amount"
+                    label="Est. Buying Amount"
+                    for="estimatedBuyingAmount"
+                    hint="Optional baseline vendor cost"
+                  >
+                    <ui-number-field
+                      id="estimatedBuyingAmount"
+                      [formField]="form.estimatedBuyingAmount"
+                    />
+                  </ui-form-field>
+                </ui-grid>
+
+                <ui-grid [size]="{ xs: 12, md: 4 }">
+                  <ui-form-field
+                    label="Selling Flat Amount"
                     for="baseAmount"
                     [required]="true"
                     hint="Fixed fee applied in tariff currency"
@@ -207,7 +245,7 @@
                   </ui-form-field>
                 </ui-grid>
 
-                <ui-grid [size]="{ xs: 12, md: 6 }">
+                <ui-grid [size]="{ xs: 12, md: 4 }">
                   <ui-form-field
                     label="Unit"
                     for="unit"
@@ -219,6 +257,24 @@
                 </ui-grid>
               </ui-grid>
             }
+          }
+
+          <!-- Live Margin Indicator (Flat & Per Unit) -->
+          @if (estimatedMargin(); as margin) {
+            <div
+              class="bg-surface-alt border-border flex items-center justify-between rounded-lg border px-4 py-2.5 text-sm"
+            >
+              <span class="text-muted">Estimated Unit Margin (Selling − Est. Buying)</span>
+              <span
+                class="font-semibold"
+                [class.text-success]="margin.amount >= 0"
+                [class.text-danger]="margin.amount < 0"
+              >
+                {{ margin.amount >= 0 ? "+" : "" }}{{ margin.amount.toFixed(2) }} ({{
+                  margin.percent.toFixed(1)
+                }}%)
+              </span>
+            </div>
           }
 
           <!-- Floor & Ceiling (Applicable to Per Unit, Percentage, and Breakpoints) -->

@@ -28,6 +28,8 @@ public class QuotationLineDto
     public MarkupType MarkupType { get; set; }
     public decimal MarkupValue { get; set; }
 
+    public ChargeCategory Category { get; init; }
+
     // Computed Amounts
     public decimal BuyingAmount { get; set; }
     public decimal SellingAmount { get; set; }

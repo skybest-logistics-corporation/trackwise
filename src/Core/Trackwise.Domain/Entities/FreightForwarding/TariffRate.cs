@@ -18,7 +18,12 @@ public class TariffRate : AuditableEntity, ITenantEntity
 
     public PricingModel PricingModel { get; set; }
 
+    /// <summary>Client-facing Selling base rate.</summary>
     public decimal BaseAmount { get; set; }
+
+    /// <summary>Estimated baseline Buying cost per unit (used for quote margin estimation and booking accruals).</summary>
+    public decimal? EstimatedBuyingAmount { get; set; }
+
     public string Unit { get; set; } = string.Empty; // per kg, per cbm, per container, etc.
     public decimal? Minimum { get; set; }
     public decimal? Maximum { get; set; }
@@ -26,12 +31,13 @@ public class TariffRate : AuditableEntity, ITenantEntity
     // Demurrage / Detention / Storage dwell rules
     public int? FreeDays { get; set; }
     public decimal? RateAfterFreeDays { get; set; }
+    public decimal? BuyingRateAfterFreeDays { get; set; }
 
     // Percentage pricing rules
     public decimal? Percentage { get; set; }    // e.g., 2.5 for 2.5%
-    public string? PercentageBase { get; set; } // "BAS" (base freight buying), "CIF" (declared cargo value), or custom (needs explicit line BaseAmount)
+    public string? PercentageBase { get; set; } // "BAS" (base freight), "CIF" (declared cargo value), or custom
 
-    // Serialized tiers: [{"min":0,"rate":5},{"min":101,"rate":4},{"min":501,"rate":3}]
+    // Serialized tiers: [{"min":0,"rate":5,"buyingRate":4},{"min":101,"rate":4,"buyingRate":3.2}]
     public string? BreakpointJson { get; set; }
 
     /// <summary>FIX #5: AllUnits (default, previous behavior) or Incremental (marginal brackets).</summary>
@@ -39,11 +45,6 @@ public class TariffRate : AuditableEntity, ITenantEntity
 
     public virtual Tariff? Tariff { get; set; }
 
-    /// <summary>
-    /// The currency <see cref="BaseAmount"/> is in: the charge code's when it names one, otherwise the
-    /// tariff's. Charge codes are created without a currency, so reading only the code priced a PHP
-    /// tariff's rates as dollars.
-    /// </summary>
     public string SourceCurrency =>
         (ChargeCode?.Currency is { Length: > 0 } code ? code : Tariff?.Currency ?? "PHP").Trim().ToUpperInvariant();
 
@@ -53,29 +54,67 @@ public class TariffRate : AuditableEntity, ITenantEntity
     };
 
     /// <summary>
-    /// Applies the PricingModel to determine the buying amount, respects Min/Max, and converts currency.
+    /// Calculates the Selling Money amount (existing signature preserved for backward compatibility).
     /// </summary>
-    /// <param name="quantity">Billable units (weight, volume, count, or dwell days).</param>
-    /// <param name="fxRate">
-    /// Multiplier from <see cref="SourceCurrency"/> to <paramref name="targetCurrency"/>.
-    /// Required when the currencies differ; ignored when they match.
-    /// </param>
-    /// <param name="valuationBase">
-    /// Monetary base for Percentage rates, ALREADY expressed in <paramref name="targetCurrency"/>.
-    /// </param>
-    /// <param name="targetCurrency">Currency of the returned Money (usually the quotation currency).</param>
     public Money Apply(
         decimal quantity,
         decimal? fxRate = null,
         decimal? valuationBase = null,
         string? targetCurrency = null)
     {
+        return CalculateSide(
+            isBuying: false,
+            quantity: quantity,
+            fxRate: fxRate,
+            valuationBase: valuationBase,
+            targetCurrency: targetCurrency);
+    }
+
+    /// <summary>
+    /// Calculates the Estimated Buying Money amount using the same currency, dwell, and breakpoint rules.
+    /// </summary>
+    /// <summary>
+    /// Calculates the Estimated Buying Money amount directly from EstimatedBuyingAmount (or Breakpoint buying tiers).
+    /// </summary>
+    public Money ApplyBuying(
+        decimal quantity,
+        decimal? fxRate = null,
+        string? targetCurrency = null)
+    {
+        return CalculateSide(
+            isBuying: true,
+            quantity: quantity,
+            fxRate: fxRate,
+            valuationBase: null,
+            targetCurrency: targetCurrency);
+    }
+
+    /// <summary>
+    /// Evaluates both Selling and Estimated Buying amounts in one call for Quotation line generation.
+    /// </summary>
+    public (Money Selling, Money EstimatedBuying) ApplyBoth(
+        decimal quantity,
+        decimal? fxRate = null,
+        decimal? valuationBase = null,
+        string? targetCurrency = null)
+    {
+        var selling = Apply(quantity, fxRate, valuationBase, targetCurrency);
+        var buying = ApplyBuying(quantity, fxRate, targetCurrency);
+        return (selling, buying);
+    }
+
+    private Money CalculateSide(
+        bool isBuying,
+        decimal quantity,
+        decimal? fxRate,
+        decimal? valuationBase,
+        string? targetCurrency)
+    {
         var sourceCurrency = SourceCurrency;
         var currency = string.IsNullOrWhiteSpace(targetCurrency)
             ? sourceCurrency
             : targetCurrency.Trim().ToUpperInvariant();
 
-        // FIX #4: the returned Money is labeled with the currency the amount is actually in.
         decimal factor;
         if (!string.Equals(sourceCurrency, currency, StringComparison.Ordinal))
         {
@@ -86,42 +125,57 @@ public class TariffRate : AuditableEntity, ITenantEntity
         }
         else
         {
-            // A same-currency override is meaningless, and lines saved with one must still price.
             factor = 1m;
         }
 
+        var rawBase = isBuying ? (EstimatedBuyingAmount ?? 0m) : BaseAmount;
+
+        // If calculating Buying and no buying rate/tiers are configured, return 0 without applying Selling Min/Max clamps.
+        if (isBuying && EstimatedBuyingAmount is null && string.IsNullOrWhiteSpace(BreakpointJson))
+        {
+            return new Money { Amount = 0m, Currency = currency };
+        }
+
+        var unitRate = isBuying ? rawBase : (valuationBase ?? rawBase);
+
         decimal amount = PricingModel switch
         {
-            PricingModel.Flat => BaseAmount * factor,
-            PricingModel.PerUnit => CalculatePerUnit(quantity) * factor,
-            PricingModel.Breakpoint => CalculateBreakpoint(quantity) * factor,
-            // Percentage: valuationBase is already in the target currency, so no FX here.
+            PricingModel.Flat => unitRate * factor,
+            PricingModel.PerUnit => CalculatePerUnit(isBuying, quantity, unitRate, rawBase) * factor,
+            PricingModel.Breakpoint => CalculateBreakpoint(isBuying, quantity, unitRate, rawBase) * factor,
             PricingModel.Percentage => CalculatePercentage(valuationBase * quantity),
-            _ => BaseAmount * factor
+            _ => rawBase * factor
         };
 
-        // Min/Max are defined in the charge currency, so convert them before clamping.
-        if (Minimum.HasValue) amount = Math.Max(amount, Minimum.Value * factor);
-        if (Maximum.HasValue) amount = Math.Min(amount, Maximum.Value * factor);
+        // Min/Max clamps apply to Selling; for Buying, only clamp if a non-zero buying cost exists.
+        if (!isBuying || amount > 0m)
+        {
+            if (Minimum.HasValue && !isBuying) amount = Math.Max(amount, Minimum.Value * factor);
+            if (Maximum.HasValue && !isBuying) amount = Math.Min(amount, Maximum.Value * factor);
+        }
 
         return new Money { Amount = amount, Currency = currency };
     }
 
-    private decimal CalculatePerUnit(decimal quantity)
+    private decimal CalculatePerUnit(bool isBuying, decimal quantity, decimal unitRate, decimal fallbackBase)
     {
         if (FreeDays.HasValue)
         {
             var billable = Math.Max(0m, quantity - FreeDays.Value);
-            return billable * (RateAfterFreeDays ?? BaseAmount);
+            var dwellRate = isBuying
+                ? (BuyingRateAfterFreeDays ?? fallbackBase)
+                : (RateAfterFreeDays ?? fallbackBase);
+
+            return billable * dwellRate;
         }
 
-        return BaseAmount * quantity;
+        return unitRate * quantity;
     }
 
-    private decimal CalculateBreakpoint(decimal quantity)
+    private decimal CalculateBreakpoint(bool isBuying, decimal quantity, decimal unitRate, decimal fallbackBase)
     {
         if (string.IsNullOrWhiteSpace(BreakpointJson))
-            return BaseAmount * quantity;
+            return unitRate * quantity;
 
         List<BreakpointTier>? parsed;
         try
@@ -130,36 +184,31 @@ public class TariffRate : AuditableEntity, ITenantEntity
         }
         catch (JsonException ex)
         {
-            // Previously swallowed and silently priced at BaseAmount × qty. Bad tier data must be loud.
             throw new InvalidOperationException(
                 $"Rate '{ChargeCode?.Code ?? Id.ToString()}' has invalid BreakpointJson.", ex);
         }
 
         if (parsed is null || parsed.Count == 0)
-            return BaseAmount * quantity;
+            return unitRate * quantity;
 
         var tiers = parsed.OrderBy(t => t.Min).ToList();
 
         return BreakpointMode == BreakpointMode.Incremental
-            ? PriceIncremental(tiers, quantity)
-            : PriceAllUnits(tiers, quantity);
+            ? PriceIncremental(isBuying, tiers, quantity)
+            : PriceAllUnits(isBuying, tiers, quantity, fallbackBase);
     }
 
-    /// <summary>
-    /// Highest tier whose Min ≤ quantity prices every unit. Uses Min only, so gaps such as
-    /// max 44 / next min 45 can't drop a 44.5 kg shipment into a fallback.
-    /// </summary>
-    private decimal PriceAllUnits(List<BreakpointTier> tiers, decimal quantity)
+    private static decimal PriceAllUnits(bool isBuying, List<BreakpointTier> tiers, decimal quantity, decimal fallbackBase)
     {
         var matched = tiers.LastOrDefault(t => t.Min <= quantity);
-        return matched is null ? BaseAmount * quantity : matched.Rate * quantity;
+        if (matched is null)
+            return fallbackBase * quantity;
+
+        var tierRate = isBuying ? (matched.BuyingRate ?? 0m) : matched.Rate;
+        return tierRate * quantity;
     }
 
-    /// <summary>
-    /// Marginal brackets. Each tier runs from its Min up to the next tier's Min (Max is ignored),
-    /// and the first tier starts at 0 so every unit is priced exactly once.
-    /// </summary>
-    private static decimal PriceIncremental(List<BreakpointTier> tiers, decimal quantity)
+    private static decimal PriceIncremental(bool isBuying, List<BreakpointTier> tiers, decimal quantity)
     {
         decimal total = 0m;
 
@@ -169,15 +218,13 @@ public class TariffRate : AuditableEntity, ITenantEntity
             var upper = i + 1 < tiers.Count ? tiers[i + 1].Min : decimal.MaxValue;
 
             var units = Math.Max(0m, Math.Min(quantity, upper) - lower);
-            total += units * tiers[i].Rate;
+            var tierRate = isBuying ? (tiers[i].BuyingRate ?? 0m) : tiers[i].Rate;
+            total += units * tierRate;
         }
 
         return total;
     }
 
-    /// <summary>
-    /// FIX #1: no more silent fallback to quantity/BaseAmount. A percentage without a base is an error.
-    /// </summary>
     private decimal CalculatePercentage(decimal? valuationBase)
     {
         if (valuationBase is null)
@@ -215,4 +262,8 @@ public class BreakpointTier
 
     [JsonPropertyName("rate")]
     public decimal Rate { get; set; }
+
+    /// <summary>Optional estimated buying rate for this weight/volume bracket.</summary>
+    [JsonPropertyName("buyingRate")]
+    public decimal? BuyingRate { get; set; }
 }

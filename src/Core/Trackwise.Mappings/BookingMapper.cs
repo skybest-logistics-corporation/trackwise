@@ -170,6 +170,7 @@ public static partial class BookingMapper
         Currency = entity.Currency,
         SellingAmount = entity.SellingAmount,
         BuyingAmount = entity.BuyingAmount,
+        EstimatedBuyingAmount = entity.EstimatedBuyingAmount,
         IsBillable = entity.IsBillable,
         Reason = entity.Reason,
         BillingStatus = entity.BillingStatus,

@@ -6,27 +6,78 @@
       icon="list"
     />
   } @else {
-    <ui-data-table [value]="rows()" dataKey="key">
+    @if (selectedCount() > 0) {
+      <div class="bg-muted/50 mb-2 flex items-center justify-between rounded px-4 py-2">
+        <span class="text-sm font-medium">{{ selectedCount() }} selected</span>
+        <div class="flex items-center gap-2">
+          <ui-button
+            appearance="text"
+            [disabled]="disabled()"
+            (click)="clearSelection()"
+            label="Clear"
+          />
+          <!-- <ui-button
+            appearance="text"
+            icon="pencil"
+            ariaLabel="Edit selected lines"
+            [disabled]="disabled()"
+            (click)="editSelected()"
+          /> -->
+          <ui-button
+            appearance="text"
+            icon="trash"
+            intent="danger"
+            [disabled]="disabled()"
+            (click)="removeSelected()"
+          />
+        </div>
+      </div>
+    }
+    <ui-data-table
+      [value]="rows()"
+      dataKey="key"
+      selectionMode="multiple"
+      [(selection)]="selectedRows"
+    >
       <ng-template #header>
         <tr>
+          <th class="w-10">
+            <input
+              #all
+              type="checkbox"
+              aria-label="Select all lines"
+              [checked]="allState() === 'all'"
+              [indeterminate]="allState() === 'some'"
+              (change)="toggleAll(all.checked)"
+            />
+          </th>
           <th>Charge Code</th>
           <th>Category</th>
           <th>Service Type</th>
           <th>Charge Name</th>
           <th>Quantity</th>
-          <th>Buying</th>
+          <th>Est. Buying</th>
           <th>Markup</th>
           <th>Selling</th>
           <th>Notes</th>
-          <th class="w-12 text-right"></th>
         </tr>
       </ng-template>
 
       <ng-template #body let-row>
         @switch (row.kind) {
           @case ("group") {
-            <!-- Tariff heading with subtotals aligned under Buying / Selling -->
+            @let state = stateOf(row.lineKeys);
             <tr class="bg-muted/50 font-medium">
+              <td>
+                <input
+                  #groupBox
+                  type="checkbox"
+                  [attr.aria-label]="'Select all lines in ' + row.name"
+                  [checked]="state === 'all'"
+                  [indeterminate]="state === 'some'"
+                  (change)="toggleKeys(row.lineKeys, groupBox.checked)"
+                />
+              </td>
               <td colspan="5">
                 {{ row.name }}
                 <span class="text-muted-foreground ml-2 text-xs font-normal">
@@ -50,7 +101,8 @@
 
           @case ("line") {
             @let line = row.line;
-            <tr>
+            <tr [class.bg-muted]="isKeySelected(row.key)">
+              <td><ui-table-checkbox [value]="row" /></td>
               <td class="text-muted-foreground pl-6 font-medium">{{ line.chargeCode }}</td>
               <td>
                 <span
@@ -75,7 +127,7 @@
                 {{ line.sellingAmount | number: "1.2-2" }} {{ line.sellingCurrency }}
               </td>
               <td class="text-muted-foreground max-w-40 truncate">{{ line.notes }}</td>
-              <td class="text-right">
+              <!-- <td class="text-right">
                 <ui-button
                   appearance="text"
                   icon="trash"
@@ -83,12 +135,13 @@
                   ariaLabel="Remove line"
                   (click)="remove.emit(line.id)"
                 />
-              </td>
+              </td> -->
             </tr>
           }
 
           @case ("total") {
             <tr class="border-t-2 font-medium">
+              <td></td>
               <td colspan="5">Total</td>
               <td class="font-mono text-sm">
                 @for (m of row.buying; track m.currency) {
@@ -101,11 +154,22 @@
                   <div>{{ m.amount | number: "1.2-2" }} {{ m.currency }}</div>
                 }
               </td>
-              <td colspan="2"></td>
+              <td></td>
             </tr>
           }
         }
       </ng-template>
     </ui-data-table>
   }
+
+  <ui-dialog [header]="editHeader()" [(open)]="editVisible">
+    @if (editVisible()) {
+      <app-update-quotation-line-form
+        [lines]="editingLines()"
+        [busy]="saving()"
+        (save)="saveEdit($event)"
+        (dismiss)="editVisible.set(false)"
+      />
+    }
+  </ui-dialog>
 </ui-card>

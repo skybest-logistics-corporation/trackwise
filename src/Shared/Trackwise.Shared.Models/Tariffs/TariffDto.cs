@@ -62,6 +62,7 @@ public class TariffRateDto
     public Guid ChargeCodeId { get; set; }
     public ChargeCodeDto? ChargeCode { get; set; }
     public PricingModel PricingModel { get; set; }
+    public decimal? EstimatedBuyingAmount { get; set; }
     public decimal BaseAmount { get; set; }
     public string Unit { get; set; } = default!;
     public decimal? Minimum { get; set; }
