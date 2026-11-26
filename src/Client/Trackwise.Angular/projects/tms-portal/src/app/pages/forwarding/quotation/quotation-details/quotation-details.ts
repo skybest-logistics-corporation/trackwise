@@ -17,6 +17,7 @@ import {
   rejectQuotation,
   removeQuotationLine,
   submitQuotation,
+  updateQuotationLine,
   type ConvertQuotationToBookingRequest,
   type FreightMode,
   type QuotationDto,
@@ -52,6 +53,7 @@ import {
   type QuotationLineFormValue,
 } from "../components/quotation-line-form/quotation-line-form";
 import { QuotationLinesTable } from "../components/quotation-lines-table/quotation-lines-table";
+import type { LineUpdate } from "../components/update-quotation-line-form/update-quotation-line-form";
 
 interface TimelineMeta {
   label: string;
@@ -76,7 +78,6 @@ const LANE_FREIGHT_MODES: readonly FreightMode[] = ["reefer", "trucking"];
     Spinner,
     Stack,
     Surface,
-    TitleCasePipe,
     Typography,
     UiButton,
     UiTextField,
@@ -84,7 +85,6 @@ const LANE_FREIGHT_MODES: readonly FreightMode[] = ["reefer", "trucking"];
     UiDialog,
     UiFormField,
     UiNumberField,
-    UiSelectField,
     UiTextareaField,
     ConfirmDeleteDialog,
     PdfViewerComponent,
@@ -127,12 +127,28 @@ export class QuotationDetailsComponent implements OnInit {
   // Deletion dialog state
   protected readonly deleteLineDialogVisible = signal(false);
   protected readonly isDeletingLine = signal(false);
-  protected readonly lineToDelete = signal<QuotationLineDto | null>(null);
+  protected readonly linesToDelete = signal<QuotationLineDto[]>([]);
+
+  // Edit lines dialog state
+  protected readonly editLinesVisible = signal(false);
+  protected readonly isUpdatingLines = signal(false);
+
+  protected readonly deleteEntityLabel = computed(() =>
+    this.linesToDelete().length === 1 ? "Quotation Line" : "Quotation Lines",
+  );
+
+  protected readonly deleteEntityName = computed(() => {
+    const lines = this.linesToDelete();
+    return lines.length === 1 ? (lines[0].chargeName ?? "") : `${lines.length} lines`;
+  });
 
   private readonly currentPermissions = inject(PermissionService);
 
   protected readonly acceptDialogVisible = signal(false);
   protected readonly acceptMessage = signal("");
+
+  /** Lane-based (reefer / trucking) bookings can't be dispatched without a pickup date. */
+  protected readonly isPickupDateRequired = computed(() => this.isLaneBased());
 
   protected readonly canApprove = computed(() =>
     this.currentPermissions.hasPermission("Permission.Quotation.Approve"),
@@ -174,6 +190,10 @@ export class QuotationDetailsComponent implements OnInit {
         if (id) void this.load(id);
       });
   }
+
+  protected readonly pickupDateMissing = computed(
+    () => this.isPickupDateRequired() && !this.convertPickupDate(),
+  );
 
   /** Distinct truck type + tonnage combinations across the lines' tariffs. */
   private readonly vehicleSpecs = computed(() => {
@@ -228,39 +248,79 @@ export class QuotationDetailsComponent implements OnInit {
     this.quotation()?.mode === "air" ? "Airport of Destination (POD)" : "Port of Discharge (POD)",
   );
 
-  /**
-   * Triggered when the trash icon is clicked in the table.
-   * Finds the line to display its name in the confirmation modal.
-   */
-  protected promptDeleteLine(lineId: string): void {
-    const line = this.quotation()?.lines?.find((l) => l.id === lineId) ?? null;
-    if (!line) return;
+  protected promptDeleteLines(lineIds: string[]): void {
+    const ids = new Set(lineIds);
+    const lines = (this.quotation()?.lines ?? []).filter((l) => !!l.id && ids.has(l.id));
+    if (lines.length === 0) return;
 
-    this.lineToDelete.set(line);
+    this.linesToDelete.set(lines);
     this.deleteLineDialogVisible.set(true);
   }
 
-  /**
-   * Triggered after the user types the exact entity name and confirms.
-   */
-  protected async onConfirmDeleteLine(): Promise<void> {
+  protected async onConfirmDeleteLines(): Promise<void> {
     const quotationId = this.quotation()?.id;
-    const lineId = this.lineToDelete()?.id;
-
-    if (!quotationId || !lineId) return;
+    const lines = this.linesToDelete();
+    if (!quotationId || lines.length === 0 || this.isDeletingLine()) return;
 
     this.isDeletingLine.set(true);
+    let failed = 0;
     try {
-      await this.api.invoke(removeQuotationLine, {
-        id: quotationId,
-        lineId: lineId,
-      });
+      // Sequential: each delete changes the same quotation (totals), so parallel calls risk conflicts.
+      for (const line of lines) {
+        try {
+          await this.api.invoke(removeQuotationLine, { id: quotationId, lineId: line.id! });
+        } catch {
+          failed++;
+        }
+      }
+
+      const removed = lines.length - failed;
+      if (failed === 0) {
+        this.toastService.showSuccess(
+          `${removed} line${removed === 1 ? "" : "s"} removed from quotation.`,
+        );
+      } else {
+        this.toastService.showError(
+          `${removed} removed, ${failed} failed. The failed lines are still selected.`,
+        );
+      }
 
       this.deleteLineDialogVisible.set(false);
-      this.lineToDelete.set(null);
       await this.load();
     } finally {
       this.isDeletingLine.set(false);
+    }
+  }
+
+  protected async onUpdateLines(updates: LineUpdate[]): Promise<void> {
+    const id = this.quotation()?.id;
+    if (!id || updates.length === 0 || this.isUpdatingLines()) return;
+
+    this.isUpdatingLines.set(true);
+    let failed = 0;
+    try {
+      // Sequential, like the bulk delete: each update touches the same quotation.
+      for (const { lineId, body } of updates) {
+        try {
+          await this.api.invoke(updateQuotationLine, { id, lineId, body });
+        } catch {
+          failed++;
+        }
+      }
+
+      const updated = updates.length - failed;
+      if (failed === 0) {
+        this.toastService.showSuccess(`${updated} line${updated === 1 ? "" : "s"} updated.`);
+      } else {
+        this.toastService.showError(
+          `${updated} updated, ${failed} failed. The failed lines are still selected.`,
+        );
+      }
+
+      this.editLinesVisible.set(false);
+      await this.load();
+    } finally {
+      this.isUpdatingLines.set(false);
     }
   }
 
@@ -496,6 +556,11 @@ export class QuotationDetailsComponent implements OnInit {
   protected async confirmConvertToBooking(): Promise<void> {
     const quotationId = this.quotation()?.id;
     if (!quotationId || this.isBusy() || this.hasMixedVehicleSpecs()) return;
+
+    if (this.pickupDateMissing()) {
+      this.toastService.showWarning("Requested pickup date is required for this freight mode.");
+      return;
+    }
 
     const body: ConvertQuotationToBookingRequest = {
       containerTypeId: this.convertContainerTypeId() ?? undefined,

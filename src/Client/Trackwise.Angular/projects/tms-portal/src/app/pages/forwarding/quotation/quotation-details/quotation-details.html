@@ -83,7 +83,7 @@
         </ui-grid>
 
         <ui-grid [size]="{ xs: 6, sm: 4, md: 2 }">
-          <ui-typography variant="caption" color="muted">Total Selling</ui-typography>
+          <ui-typography variant="caption" color="muted">Est. Total Selling</ui-typography>
           <ui-typography
             variant="body"
             class="font-mono font-medium text-emerald-600 dark:text-emerald-400"
@@ -93,14 +93,14 @@
         </ui-grid>
 
         <ui-grid [size]="{ xs: 6, sm: 4, md: 2 }">
-          <ui-typography variant="caption" color="muted">Total Buying</ui-typography>
+          <ui-typography variant="caption" color="muted">Est. Total Buying</ui-typography>
           <ui-typography variant="body" class="font-mono font-medium">
             {{ q.totalBuyingAmount ?? 0 | number: "1.2-2" }} {{ q.currency }}
           </ui-typography>
         </ui-grid>
 
         <ui-grid [size]="{ xs: 6, sm: 4, md: 2 }">
-          <ui-typography variant="caption" color="muted">Net Margin</ui-typography>
+          <ui-typography variant="caption" color="muted">Est. Net Margin</ui-typography>
           <ui-typography variant="body" class="font-mono font-medium">
             {{ q.netMarginAmount ?? 0 | number: "1.2-2" }} {{ q.currency }}
             <span class="text-muted-foreground text-xs">
@@ -516,7 +516,11 @@
     <!-- Quotation Lines Table -->
     <app-quotation-lines-table
       [lines]="quotation()?.lines ?? []"
-      (remove)="promptDeleteLine($event)"
+      [disabled]="isBusy()"
+      [saving]="isUpdatingLines()"
+      [(editVisible)]="editLinesVisible"
+      (removeMany)="promptDeleteLines($event)"
+      (updateMany)="onUpdateLines($event)"
     />
   }
 </div>
@@ -672,7 +676,11 @@
 
     <ui-grid container spacing="3">
       <ui-grid [size]="{ xs: 12, md: 6 }">
-        <ui-form-field label="Requested Pickup Date & Time" for="convertPickupDate">
+        <ui-form-field
+          label="Requested Pickup Date & Time"
+          for="convertPickupDate"
+          [required]="isPickupDateRequired()"
+        >
           <ui-date-field id="convertPickupDate" [(value)]="convertPickupDate" [showTime]="true" />
         </ui-form-field>
       </ui-grid>
@@ -700,17 +708,16 @@
       intent="primary"
       [label]="repeatBooking() ? 'Create Another Booking' : 'Create Booking'"
       icon="calendar"
-      [disabled]="isBusy()"
+      [disabled]="isBusy() || hasMixedVehicleSpecs() || pickupDateMissing()"
       (click)="confirmConvertToBooking()"
     />
   </ng-template>
 </ui-dialog>
 
-<!-- Delete Line Confirmation Dialog -->
 <ui-confirm-delete-dialog
-  entityLabel="Quotation Line"
-  [entityName]="lineToDelete()?.chargeName ?? ''"
+  [entityLabel]="deleteEntityLabel()"
+  [entityName]="deleteEntityName()"
   [(visible)]="deleteLineDialogVisible"
   [deleting]="isDeletingLine()"
-  (confirm)="onConfirmDeleteLine()"
+  (confirm)="onConfirmDeleteLines()"
 />

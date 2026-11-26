@@ -16,7 +16,9 @@ using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.Quotat
 using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.RemoveQuotationLine;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.SubmitQuotation;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.UpdateQuotation;
+using Trackwise.Application.Modules.Operations.FreightForwarding.Commands.QuotationCommands.UpdateQuotationLine;
 using Trackwise.Application.Modules.Operations.FreightForwarding.Queries;
+using Trackwise.Domain.Primitives.Enums;
 using Trackwise.Shared.Identity.Policies;
 using Trackwise.Shared.Models;
 
@@ -127,6 +129,37 @@ public class QuotationController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(request, ct);
         return result.IsSuccess
             ? CreatedAtRoute("GetQuotationById", new { id }, result.Value)
+            : BadRequest(ErrorResponse.FromResult(result));
+    }
+
+    [HttpPut("{id:guid}/lines/{lineId:guid}", Name = "UpdateQuotationLine")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+    [Authorize(Policy = Permission.Quotation.Manage)]
+    public async Task<IActionResult> UpdateLine(
+    Guid id,
+    Guid lineId,
+    [FromBody] UpdateQuotationLineRequest request,
+    CancellationToken ct)
+    {
+        var result = await mediator.Send(new UpdateQuotationLineCommand(
+            id,
+            lineId,
+            request.Quantity,
+            request.BaseAmount,
+            request.MarkupType,
+            request.MarkupValue,
+            request.FxRate,
+            request.Notes), ct);
+
+        if (result.IsSuccess)
+            return NoContent();
+
+        return result.ErrorCode == ErrorCodes.NotFound
+            ? NotFound(ErrorResponse.FromResult(result))
             : BadRequest(ErrorResponse.FromResult(result));
     }
 
@@ -289,3 +322,11 @@ public class QuotationController(IMediator mediator) : ControllerBase
 
 public record RejectQuotationRequest(string Reason);
 public record IssueQuotationRequest(int ValidityDays = 14, string CustomerEmail = "");
+
+public record UpdateQuotationLineRequest(
+    decimal Quantity,
+    decimal? BaseAmount,
+    MarkupType MarkupType,
+    decimal MarkupValue,
+    decimal? FxRate,
+    string? Notes);

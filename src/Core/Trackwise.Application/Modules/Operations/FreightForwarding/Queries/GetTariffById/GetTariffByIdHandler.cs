@@ -56,6 +56,7 @@ internal sealed class GetTariffByIdHandler(ITenantUnitOfWork tenantUow)
                         IsActive = r.ChargeCode.IsActive
                     },
                     PricingModel = r.PricingModel,
+                    EstimatedBuyingAmount = r.EstimatedBuyingAmount,
                     BaseAmount = r.BaseAmount,
                     Unit = r.Unit,
                     Minimum = r.Minimum,

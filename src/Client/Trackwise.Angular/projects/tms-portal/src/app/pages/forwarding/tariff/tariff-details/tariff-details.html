@@ -104,6 +104,7 @@
                   <th>Charge Code</th>
                   <th>Pricing Model</th>
                   <th>Unit</th>
+                  <th class="text-right">Est. Buying</th>
                   <th class="text-right">Base Amount</th>
                   <th class="text-right">Minimum</th>
                   <th class="text-right">Maximum</th>
@@ -120,6 +121,9 @@
                   </td>
                   <td>{{ rate.pricingModel | titlecase }}</td>
                   <td>{{ rate.unit }}</td>
+                  <td class="text-right">
+                    {{ rate.estimatedBuyingAmount | currency: tariff.currency ?? "PHP" }}
+                  </td>
                   <td class="text-right">
                     {{ rate.baseAmount | currency: tariff.currency ?? "PHP" }}
                   </td>

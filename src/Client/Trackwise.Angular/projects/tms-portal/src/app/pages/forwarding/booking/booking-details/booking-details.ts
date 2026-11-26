@@ -57,6 +57,9 @@ import {
   statusKey,
 } from "../utils/booking-labels";
 
+type SelectionState = "none" | "some" | "all";
+type DisbursementKind = "rfp" | "cash-advance" | "petty-cash";
+
 @Component({
   selector: "app-booking-details",
   templateUrl: "./booking-details.html",
@@ -487,4 +490,106 @@ export class BookingDetailsComponent implements OnInit {
   // Internal copy (cost permission): a second loader, not a flag on the viewer
   protected readonly loadBookingPdfInternal: PdfLoader = (id) =>
     this.api.invoke(generateBookingPdf$Pdf, { id, includeInternalCosts: true });
+
+  // ── Multi-Select Buying Charges (RFP / Cash Advance / Petty Cash) ─────────
+
+  /** Raw selected BookingChargeDto IDs; filtered via `selectedChargeIds` so removed charges drop out. */
+  private readonly rawSelectedChargeIds = signal<Set<string>>(new Set());
+
+  /** Only charges with a positive buying amount require an OR / disbursement request. */
+  protected isChargeEligibleForDisbursement(charge: BookingChargeDto): boolean {
+    return !!charge.id && Number(charge.buyingAmount ?? 0) > 0;
+  }
+
+  protected readonly eligibleDisbursementCharges = computed(() =>
+    (this.booking()?.charges ?? []).filter((c) => this.isChargeEligibleForDisbursement(c)),
+  );
+
+  /** Show checkboxes when user can view costs, booking is active, and at least one charge has Buying > 0. */
+  protected readonly canSelectDisbursements = computed(
+    () =>
+      this.canViewCosts() &&
+      !this.isCancelled() &&
+      !this.isCompleted() &&
+      this.eligibleDisbursementCharges().length > 0,
+  );
+
+  protected readonly selectedChargeIds = computed(() => {
+    const validIds = new Set(this.eligibleDisbursementCharges().map((c) => c.id!));
+    const filtered = new Set<string>();
+    for (const id of this.rawSelectedChargeIds()) {
+      if (validIds.has(id)) filtered.add(id);
+    }
+    return filtered;
+  });
+
+  protected readonly selectedCharges = computed(() => {
+    const ids = this.selectedChargeIds();
+    return this.eligibleDisbursementCharges().filter((c) => ids.has(c.id!));
+  });
+
+  protected readonly selectedChargeCount = computed(() => this.selectedChargeIds().size);
+
+  protected readonly selectedBuyingTotal = computed(() =>
+    this.selectedCharges().reduce((sum, c) => sum + Number(c.buyingAmount ?? 0), 0),
+  );
+
+  protected readonly allChargesState = computed<SelectionState>(() => {
+    const eligible = this.eligibleDisbursementCharges();
+    if (eligible.length === 0) return "none";
+
+    const selected = this.selectedChargeIds();
+    const count = eligible.filter((c) => selected.has(c.id!)).length;
+    return count === 0 ? "none" : count === eligible.length ? "all" : "some";
+  });
+
+  protected isChargeSelected(chargeId?: string | null): boolean {
+    return !!chargeId && this.selectedChargeIds().has(chargeId);
+  }
+
+  protected toggleChargeSelection(chargeId: string | undefined, checked: boolean): void {
+    if (!chargeId) return;
+    this.rawSelectedChargeIds.update((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        next.add(chargeId);
+      } else {
+        next.delete(chargeId);
+      }
+      return next;
+    });
+  }
+
+  protected toggleAllCharges(checked: boolean): void {
+    if (!checked) {
+      this.clearChargeSelection();
+      return;
+    }
+    this.rawSelectedChargeIds.set(new Set(this.eligibleDisbursementCharges().map((c) => c.id!)));
+  }
+
+  protected clearChargeSelection(): void {
+    this.rawSelectedChargeIds.set(new Set());
+  }
+
+  protected async createBulkDisbursement(kind: DisbursementKind): Promise<void> {
+    const bookingId = this.booking()?.id;
+    const chargeIds = [...this.selectedChargeIds()];
+    if (!bookingId || chargeIds.length === 0 || this.isBusy()) {
+      return;
+    }
+
+    const routeMap: Record<DisbursementKind, string> = {
+      rfp: "/accounting/requests-for-payment/new",
+      "cash-advance": "/accounting/cash-advances/new",
+      "petty-cash": "/accounting/petty-cash/new",
+    };
+
+    await this.router.navigate([routeMap[kind]], {
+      queryParams: {
+        bookingId,
+        chargeIds: chargeIds.join(","),
+      },
+    });
+  }
 }

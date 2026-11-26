@@ -116,13 +116,15 @@ public class Tariff : AuditableEntity, ITenantEntity
         decimal? rateAfterFreeDays,
         decimal? percentage,
         string? percentageBase,
-        string? breakpointJson)
+        string? breakpointJson,
+        decimal? estimateBuying = null)
     {
         var rate = new TariffRate
         {
             TariffId = Id,
             ChargeCodeId = chargeCodeId,
             PricingModel = pricingModel,
+            EstimatedBuyingAmount = estimateBuying,
             BaseAmount = baseAmount,
             Unit = unit,
             Minimum = minimum,

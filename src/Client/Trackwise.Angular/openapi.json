@@ -25654,6 +25654,96 @@
       }
     },
     "/quotations/{id}/lines/{lineId}": {
+      "put": {
+        "tags": [
+          "Quotation"
+        ],
+        "operationId": "UpdateQuotationLine",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "lineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateQuotationLineRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateQuotationLineRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateQuotationLineRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
       "delete": {
         "tags": [
           "Quotation"
@@ -29153,6 +29243,20 @@
             "in": "query",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "TruckType",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/TruckType"
+            }
+          },
+          {
+            "name": "TonnageClass",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/TruckTonnageClass"
             }
           },
           {
@@ -36961,6 +37065,11 @@
           "pricingModel": {
             "$ref": "#/components/schemas/PricingModel"
           },
+          "estimatedBuyingAmount": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
           "baseAmount": {
             "type": "number",
             "format": "double"
@@ -38465,6 +38574,11 @@
             "type": "number",
             "format": "double"
           },
+          "estimatedBuyingAmount": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
           "isBillable": {
             "type": "boolean"
           },
@@ -38929,6 +39043,9 @@
           "charge_removed",
           "charges_invoiced",
           "charges_released",
+          "charges_buying_reconciled",
+          "charges_expense_released",
+          "charges_expense_requested",
           "document_added",
           "document_verified",
           "document_rejected",
@@ -53186,6 +53303,9 @@
             "type": "number",
             "format": "double"
           },
+          "category": {
+            "$ref": "#/components/schemas/ChargeCategory"
+          },
           "buyingAmount": {
             "type": "number",
             "format": "double"
@@ -55929,6 +56049,11 @@
           },
           "pricingModel": {
             "$ref": "#/components/schemas/PricingModel"
+          },
+          "estimatedBuyingAmount": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
           },
           "baseAmount": {
             "type": "number",
@@ -60184,6 +60309,37 @@
             "type": "boolean"
           },
           "dependencyReason": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateQuotationLineRequest": {
+        "type": "object",
+        "properties": {
+          "quantity": {
+            "type": "number",
+            "format": "double"
+          },
+          "baseAmount": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "markupType": {
+            "$ref": "#/components/schemas/MarkupType"
+          },
+          "markupValue": {
+            "type": "number",
+            "format": "double"
+          },
+          "fxRate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "notes": {
             "type": "string",
             "nullable": true
           }

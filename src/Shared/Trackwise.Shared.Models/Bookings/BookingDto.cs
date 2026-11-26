@@ -174,6 +174,7 @@ public class BookingChargeDto
     public string Currency { get; set; } = default!;
     public decimal SellingAmount { get; set; }
     public decimal BuyingAmount { get; set; }   // internal: hide from customer-facing endpoints
+    public decimal? EstimatedBuyingAmount { get; set; }
     public bool IsBillable { get; set; }
     public string? Reason { get; set; }
     public BillingStatus BillingStatus { get; set; }

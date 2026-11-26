@@ -11,20 +11,12 @@ namespace Trackwise.Domain.Entities;
 
 // ── Booking number ───────────────────────────────────────────────────────────
 
-/// <summary>
-/// Generates an independent booking reference. The quotation reference is stored separately
-/// so multiple bookings can retain traceability to the same accepted quotation.
-/// </summary>
 public static class BookingNumbering
 {
     public const string Prefix = "BK";
     private const string QuotationPrefix = "QT-";
     private const int SequenceWidth = 2;
 
-    /// <summary>
-    /// Derives a booking number from its quotation reference:
-    /// QT-26-DOMMAIN-001 + 1 => BK-26-DOMMAIN-001-01.
-    /// </summary>
     public static string FromQuotationReference(string quotationReference, int bookingSequence)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(quotationReference);
@@ -41,10 +33,6 @@ public static class BookingNumbering
         return $"{Prefix}-{body}-{bookingSequence.ToString($"D{SequenceWidth}")}";
     }
 
-    /// <summary>
-    /// Fallback for bookings with no originating quotation (e.g. legacy rate-agreement bookings).
-    /// Quotation-derived bookings must use <see cref="FromQuotationReference"/>.
-    /// </summary>
     public static string FromBookingId(Guid bookingId)
     {
         if (bookingId == Guid.Empty)
@@ -57,7 +45,7 @@ public static class BookingNumbering
 /// <summary>
 /// A confirmed-intent shipment order. Created as a Draft from an Accepted Quotation,
 /// carries a locked copy of the quoted charges, and is the source of truth for
-/// both Trips (operations) and Billing (invoicing).
+/// Trips (operations), Billing (AR invoicing), and Disbursements (AP / OR reconciliation).
 /// </summary>
 public partial class Booking : AuditableEntity, ITenantEntity
 {
@@ -67,36 +55,35 @@ public partial class Booking : AuditableEntity, ITenantEntity
     public Guid CustomerId { get; private set; }
     public virtual Customer? Customer { get; private set; }
     public string Currency { get; private set; } = default!;
-    public string? CustomerReference { get; private set; }   // customer PO / shipper ref
+    public string? CustomerReference { get; private set; }
     public string? Notes { get; private set; }
 
-    // Traceability to the originating quotation, when the booking was quoted.
+    // Traceability to the originating quotation
     public Guid? QuotationId { get; private set; }
-    public virtual Quotation? Quotation { get; set; }
+    public virtual Quotation? Quotation { get; private set; }
     public string? QuotationReference { get; private set; }
 
     public TruckType? TruckType { get; set; }
     public TruckTonnageClass? TonnageClass { get; set; }
     public string ContainerType { get; set; } = default!;
 
-    // Logistics context (snapshotted from quotation, editable while Draft)
+    // Logistics context
     public TransportMode Mode { get; private set; }
     public FreightMode FreightMode { get; private set; }
     public ShipmentType ShipmentType { get; private set; }
     public Incoterm Incoterm { get; private set; }
-    /// <summary>Route lane - populated for Reefer/Trucking bookings; null for POL/POD-based shipments.</summary>
     public LaneTransit? Lane { get; private set; }
-    /// <summary>Port of Loading - only applicable to the non-lane (Domestic / Import / Export / Triangular) modes.</summary>
     public Guid? PolId { get; private set; }
     public virtual Terminal? Pol { get; private set; }
-    /// <summary>Port of Discharge - only for the non-lane modes.</summary>
     public Guid? PodId { get; private set; }
     public virtual Terminal? Pod { get; private set; }
+
     public DateTimeOffset? RequestedPickupStart =>
         Lane?.Stops?.FirstOrDefault(s => s.Type == StopType.Pickup)?.WindowStart;
 
     public DateTimeOffset? RequestedDeliveryEnd =>
         Lane?.Stops?.LastOrDefault(s => s.Type == StopType.Dropoff)?.WindowEnd;
+
     public CargoSpecification? CargoSpec { get; private set; }
     public decimal? DeclaredCargoValuePhp { get; private set; }
 
@@ -106,7 +93,7 @@ public partial class Booking : AuditableEntity, ITenantEntity
     public bool IsHazardous { get; private set; }
     public bool RequiresCustomsBrokerage { get; private set; }
 
-    // Billing terms (used by the Billing module when generating the invoice)
+    // Billing terms
     public int PaymentTermsDays { get; private set; }
     public decimal? DepositRequiredPercent { get; private set; }
 
@@ -130,7 +117,6 @@ public partial class Booking : AuditableEntity, ITenantEntity
     private readonly List<BookingEvent> _events = [];
     public virtual IReadOnlyCollection<BookingEvent> Events => new ReadOnlyCollection<BookingEvent>(_events);
 
-    /// <summary>Call after the status change, so ToStatus is the new status.</summary>
     private void Record(BookingEventType type, string? actor, BookingStatus? from = null,
         string? details = null, Guid? relatedId = null) =>
         _events.Add(BookingEvent.Create(Id, type, from, Status, actor, details, relatedId));
@@ -142,11 +128,6 @@ public partial class Booking : AuditableEntity, ITenantEntity
 
     // ── Creation from quotation ──────────────────────────────────────────────
 
-    /// <summary>
-    /// Builds a Draft booking from an Accepted quotation. Quoted charges are copied from the
-    /// quotation's issued price snapshots, so later tariff/FX changes cannot alter the booking.
-    /// Quotation.Lines must be loaded.
-    /// </summary>
     public static Booking CreateDraftFromQuotation(
         Quotation quotation,
         int bookingSequence,
@@ -197,16 +178,12 @@ public partial class Booking : AuditableEntity, ITenantEntity
         foreach (var line in quotation.Lines)
             booking._charges.Add(BookingChargeLine.FromQuotationLine(booking.Id, line));
 
-        //booking.GenerateDocumentRequirements();
-
         booking.DomainEvents.Add(new BookingDraftCreated(booking.Id, quotation.Id, quotation.CustomerId));
         booking.Record(BookingEventType.Created, createdBy,
             details: $"From quotation {quotation.ReferenceNumber}", relatedId: quotation.Id);
         return booking;
     }
 
-    // Lane is only applicable to Reefer and Trucking freight modes; everything else quotes by
-    // POL/POD and carries no stop-by-stop route.
     private static bool IsLaneMode(FreightMode freightMode) =>
         freightMode == FreightMode.Reefer || freightMode == FreightMode.Trucking;
 
@@ -254,7 +231,6 @@ public partial class Booking : AuditableEntity, ITenantEntity
         Record(BookingEventType.Updated, updatedBy, details: "Header updated");
     }
 
-    /// <summary>Operational dates/stops can be refined on the booking (e.g. confirmed pickup window).</summary>
     public void UpdateLane(LaneTransit? lane, string? updatedBy = null)
     {
         EnsureDraft();
@@ -264,11 +240,6 @@ public partial class Booking : AuditableEntity, ITenantEntity
         Record(BookingEventType.Updated, updatedBy, details: "Route/schedule updated");
     }
 
-    /// <summary>
-    /// Moves the requested pickup/delivery windows after the booking is Confirmed.
-    /// The route itself (stops, order, locations) must stay the same; only the windows may change.
-    /// Raises BookingRescheduled so Trips can update its plan and Billing can react to pricing impact.
-    /// </summary>
     public void Reschedule(LaneTransit newLane, string reason, string requestedBy)
     {
         if (Status is not (BookingStatus.Confirmed or BookingStatus.InProgress))
@@ -284,12 +255,11 @@ public partial class Booking : AuditableEntity, ITenantEntity
         var oldPickup = RequestedPickupStart;
         var oldDelivery = RequestedDeliveryEnd;
 
-        // Any window change on any stop counts, not just the headline dates
-        var windowsChanged = !Lane.Stops.OrderBy(s => s.Sequence)
+        var windowsChanged = !Lane!.Stops.OrderBy(s => s.Sequence)
             .Select(s => (s.WindowStart, s.WindowEnd))
             .SequenceEqual(newLane.Stops.OrderBy(s => s.Sequence).Select(s => (s.WindowStart, s.WindowEnd)));
 
-        if (!windowsChanged) return;   // nothing to reschedule
+        if (!windowsChanged) return;
 
         Lane = newLane;
 
@@ -317,9 +287,6 @@ public partial class Booking : AuditableEntity, ITenantEntity
                 "Reschedule cannot change the route. Stops, order, and locations must remain the same.");
     }
 
-    /// <summary>
-    /// Cargo may be refined (actual weight, pallet count) but its declared value is tied to the quote.
-    /// </summary>
     public void UpdateCargo(CargoSpecification cargoSpec, string? updatedBy = null)
     {
         EnsureDraft();
@@ -329,12 +296,8 @@ public partial class Booking : AuditableEntity, ITenantEntity
         Record(BookingEventType.Updated, updatedBy, details: "Cargo updated");
     }
 
-    // ── Charges ──────────────────────────────────────────────────────────────
+    // ── Charges (Selling / Billing & Buying / OR Reconciliation) ─────────────
 
-    /// <summary>
-    /// Adds a charge that was not in the quotation (e.g. detention, extra handling).
-    /// Allowed until the booking is Completed, so Billing can bill them later.
-    /// </summary>
     public BookingChargeLine AddAdditionalCharge(
         ChargeCode ChargeCode,
         decimal quantity,
@@ -368,6 +331,8 @@ public partial class Booking : AuditableEntity, ITenantEntity
             throw new InvalidOperationException("Quoted charges are locked and cannot be removed.");
         if (charge.BillingStatus == BillingStatus.Invoiced && !allowInvoicedDraft)
             throw new InvalidOperationException("An invoiced charge cannot be removed.");
+        if (charge.BuyingStatus is BookingBuyingStatus.Requested or BookingBuyingStatus.Verified)
+            throw new InvalidOperationException("A charge with an active expense request or verified Official Receipt cannot be removed.");
 
         _charges.Remove(charge);
         DomainEvents.Add(new BookingChargeRemoved(Id, chargeId));
@@ -390,6 +355,8 @@ public partial class Booking : AuditableEntity, ITenantEntity
             throw new InvalidOperationException("Quoted charges are locked and cannot be changed.");
         if (charge.BillingStatus == BillingStatus.Invoiced && !allowInvoicedDraft)
             throw new InvalidOperationException("An invoiced charge cannot be changed.");
+        if (charge.BuyingStatus is BookingBuyingStatus.Requested or BookingBuyingStatus.Verified)
+            throw new InvalidOperationException("A charge with an active expense request or verified Official Receipt cannot be edited; reconcile its actual buying instead.");
 
         charge.Update(quantity, unitBuying, unitSelling, reason);
         DomainEvents.Add(new BookingChargeUpdated(Id, chargeId));
@@ -398,14 +365,23 @@ public partial class Booking : AuditableEntity, ITenantEntity
     }
 
     public BookingTotals GetTotals() =>
-        new(Currency,
-            _charges.Sum(c => c.BuyingAmount),
-            _charges.Sum(c => c.SellingAmount));
+        new(
+            Currency,
+            Buying: _charges.Sum(c => c.BuyingAmount),
+            Selling: _charges.Sum(c => c.SellingAmount),
+            EstimatedBuying: _charges.Sum(c => c.EstimatedBuyingAmount));
 
     public IReadOnlyList<BookingChargeLine> GetUnbilledCharges() =>
         _charges.Where(c => c.BillingStatus == BillingStatus.Unbilled && c.IsBillable).ToList();
 
-    /// <summary>Called by Billing after it creates the invoice, so charges are never billed twice.</summary>
+    public IReadOnlyList<BookingChargeLine> GetUnrequestedBuyingCharges() =>
+        _charges.Where(c => c.BuyingStatus == BookingBuyingStatus.Estimated).ToList();
+
+    public IReadOnlyList<BookingChargeLine> GetPendingReceiptCharges() =>
+        _charges.Where(c => !c.IsBuyingSatisfied).ToList();
+
+    // ── Selling / AR Invoicing Handoff ───────────────────────────────────────
+
     public void MarkChargesInvoiced(Guid invoiceId, IEnumerable<Guid> chargeIds, string? actor = null)
     {
         var ids = chargeIds.ToHashSet();
@@ -431,6 +407,90 @@ public partial class Booking : AuditableEntity, ITenantEntity
 
         if (count > 0)
             Record(BookingEventType.ChargesReleased, actor, details: $"{count} charge(s) released", relatedId: invoiceId);
+    }
+
+    // ── Buying / AP Disbursement & Official Receipt Reconciliation ───────────
+
+    /// <summary>
+    /// Called when one or more charges are bundled into an RFP, Cash Advance, or Petty Cash request.
+    /// Prevents duplicate disbursement requests on the same charge line.
+    /// </summary>
+    public void MarkChargesExpenseRequested(
+        Guid expenseRequestId,
+        string? disbursementReference,
+        IEnumerable<Guid> chargeIds,
+        string? actor = null)
+    {
+        EnsureNotClosed();
+        if (expenseRequestId == Guid.Empty)
+            throw new ArgumentException("Expense request ID is required.", nameof(expenseRequestId));
+
+        var ids = chargeIds.ToHashSet();
+        var matched = _charges.Where(c => ids.Contains(c.Id)).ToList();
+
+        if (matched.Count != ids.Count)
+            throw new InvalidOperationException("One or more selected charges do not belong to this booking.");
+
+        foreach (var charge in matched)
+            charge.MarkExpenseRequested(expenseRequestId, disbursementReference);
+
+        if (matched.Count > 0)
+        {
+            var refLabel = string.IsNullOrWhiteSpace(disbursementReference) ? expenseRequestId.ToString() : disbursementReference.Trim();
+            Record(BookingEventType.ChargesExpenseRequested, actor,
+                details: $"{matched.Count} charge(s) linked to {refLabel}", relatedId: expenseRequestId);
+        }
+    }
+
+    /// <summary>
+    /// Releases charges back to Estimated if an RFP, Cash Advance, or Petty Cash request is rejected or cancelled.
+    /// </summary>
+    public void ReleaseChargesFromExpenseRequest(Guid expenseRequestId, string? actor = null)
+    {
+        var count = 0;
+        foreach (var charge in _charges.Where(c => c.ExpenseRequestId == expenseRequestId && c.BuyingStatus == BookingBuyingStatus.Requested))
+        {
+            charge.ReleaseExpenseRequest(expenseRequestId);
+            count++;
+        }
+
+        if (count > 0)
+            Record(BookingEventType.ChargesExpenseReleased, actor,
+                details: $"{count} charge(s) released from cancelled/rejected expense request", relatedId: expenseRequestId);
+    }
+
+    /// <summary>
+    /// Reconciles actual buying amounts against a vendor Official Receipt (OR) or Sales Invoice (SI).
+    /// Supports bulk reconciliation where a single OR covers multiple booking charges.
+    /// </summary>
+    public void ReconcileChargesBuying(
+        IReadOnlyCollection<ChargeBuyingAllocation> allocations,
+        string officialReceiptNumber,
+        string reconciledBy,
+        Guid? expenseRequestId = null)
+    {
+        EnsureNotClosed();
+        ArgumentNullException.ThrowIfNull(allocations);
+        if (allocations.Count == 0)
+            throw new ArgumentException("At least one charge allocation is required.", nameof(allocations));
+        ArgumentException.ThrowIfNullOrWhiteSpace(officialReceiptNumber);
+        ArgumentException.ThrowIfNullOrWhiteSpace(reconciledBy);
+
+        var normalizedOr = officialReceiptNumber.Trim();
+
+        foreach (var item in allocations)
+        {
+            var charge = _charges.FirstOrDefault(c => c.Id == item.ChargeId)
+                ?? throw new InvalidOperationException($"Charge '{item.ChargeId}' not found on booking '{BookingNumber}'.");
+
+            charge.ReconcileBuying(item.ActualBuyingAmount, normalizedOr, reconciledBy, expenseRequestId);
+        }
+
+        var totalActual = allocations.Sum(a => a.ActualBuyingAmount);
+        DomainEvents.Add(new BookingChargesReconciled(Id, normalizedOr, allocations.Select(a => a.ChargeId).ToList(), totalActual));
+        Record(BookingEventType.ChargesBuyingReconciled, reconciledBy,
+            details: $"OR #{normalizedOr} reconciled across {allocations.Count} charge(s) ({totalActual:N2} {Currency})",
+            relatedId: expenseRequestId);
     }
 
     // ── Documents ────────────────────────────────────────────────────────────
@@ -474,7 +534,6 @@ public partial class Booking : AuditableEntity, ITenantEntity
         _documents.FirstOrDefault(d => d.Id == id)
         ?? throw new InvalidOperationException($"Document '{id}' not found on booking '{BookingNumber}'.");
 
-    /// <summary>Derives which documents this shipment needs from its characteristics.</summary>
     private void GenerateDocumentRequirements()
     {
         Require(BookingDocumentType.Kyc);
@@ -516,7 +575,6 @@ public partial class Booking : AuditableEntity, ITenantEntity
 
     // ── Lifecycle ────────────────────────────────────────────────────────────
 
-    /// <summary>Returns the reasons this booking cannot be confirmed yet (empty = ready).</summary>
     public IReadOnlyList<string> GetConfirmationBlockers()
     {
         var blockers = new List<string>();
@@ -536,9 +594,20 @@ public partial class Booking : AuditableEntity, ITenantEntity
     }
 
     /// <summary>
-    /// Confirms the booking. Raises BookingConfirmed, which Billing (draft invoice)
-    /// and Trips (create trips) subscribe to.
+    /// Returns the reasons this booking cannot be completed yet (every charge with Buying > 0 must have a verified OR).
     /// </summary>
+    public IReadOnlyList<string> GetCompletionBlockers()
+    {
+        var blockers = new List<string>();
+
+        foreach (var c in _charges.Where(c => !c.IsBuyingSatisfied))
+        {
+            blockers.Add($"Charge '{c.Description}' ({c.EstimatedBuyingAmount:N2} {c.Currency}) is missing a verified Official Receipt.");
+        }
+
+        return blockers;
+    }
+
     public void Confirm(string confirmedBy)
     {
         if (Status != BookingStatus.Draft)
@@ -557,7 +626,6 @@ public partial class Booking : AuditableEntity, ITenantEntity
         Record(BookingEventType.Confirmed, confirmedBy, from);
     }
 
-    /// <summary>Called by the Trips module when the first trip is dispatched.</summary>
     public void MarkInProgress(string? startedBy = null)
     {
         if (Status == BookingStatus.InProgress) return;
@@ -570,7 +638,6 @@ public partial class Booking : AuditableEntity, ITenantEntity
         Record(BookingEventType.Started, startedBy, from);
     }
 
-    /// <summary>Called by the Trips module when all trips are delivered.</summary>
     public void Complete(string? completedBy = null)
     {
         var expectedStatus = FreightMode is FreightMode.Reefer or FreightMode.Trucking
@@ -579,6 +646,10 @@ public partial class Booking : AuditableEntity, ITenantEntity
 
         if (Status != expectedStatus)
             throw new InvalidOperationException($"Only {expectedStatus} bookings can be completed.");
+
+        var completionBlockers = GetCompletionBlockers();
+        if (completionBlockers.Count > 0)
+            throw new InvalidOperationException("Booking cannot be completed: " + string.Join(" ", completionBlockers));
 
         var from = Status;
         Status = BookingStatus.Completed;
@@ -624,12 +695,8 @@ public partial class Booking : AuditableEntity, ITenantEntity
     }
 }
 
-// ── Child entity: charge line (the Billing handoff) ──────────────────────────
+// ── Child entity: charge line (Billing & AP Reconciliation handoff) ──────────
 
-/// <summary>
-/// A locked snapshot of a quoted charge, or an additional charge added after booking.
-/// Billing reads these as its invoice "Charge lines" (quoted plus extra charges).
-/// </summary>
 public class BookingChargeLine : AuditableEntity, ITenantEntity
 {
     public Guid BookingId { get; private set; }
@@ -642,21 +709,50 @@ public class BookingChargeLine : AuditableEntity, ITenantEntity
     public Guid? TariffRateId { get; private set; }
 
     public Guid? ChargeCodeId { get; set; }
-    public virtual ChargeCode ChargeCode { get; private set; }
+    public virtual ChargeCode? ChargeCode { get; private set; }
     public ChargeCategory? Category { get; private set; }
     public OperationalServiceType ServiceType { get; private set; }
     public string Description { get; private set; } = default!;
     public decimal Quantity { get; private set; }
 
     public string Currency { get; private set; } = default!;
-    public decimal BuyingAmount { get; private set; }    // cost (for margin / vendor payables)
-    public decimal SellingAmount { get; private set; }   // what the customer pays
+
+    /// <summary>Locked initial buying estimate copied from the quotation or additional charge creation.</summary>
+    public decimal EstimatedBuyingAmount { get; private set; }
+
+    /// <summary>Reconciled actual vendor cost from the Official Receipt / Sales Invoice (null until verified).</summary>
+    public decimal? ActualBuyingAmount { get; private set; }
+
+    /// <summary>
+    /// Effective buying cost used across totals, margin queries, and existing projections:
+    /// equals <see cref="ActualBuyingAmount"/> once reconciled, otherwise <see cref="EstimatedBuyingAmount"/>.
+    /// </summary>
+    public decimal BuyingAmount { get; private set; }
+
+    /// <summary>What the customer pays (AR).</summary>
+    public decimal SellingAmount { get; private set; }
+
+    /// <summary>Positive = cost overrun against estimate; Negative = cost savings against estimate.</summary>
+    public decimal CostVariance => BuyingAmount - EstimatedBuyingAmount;
 
     public bool IsBillable { get; private set; } = true;
-    public string? Reason { get; private set; }          // why an additional charge was added
+    public string? Reason { get; private set; }
 
+    // Selling / AR status
     public BillingStatus BillingStatus { get; private set; }
     public Guid? InvoiceId { get; private set; }
+
+    // Buying / AP & Official Receipt reconciliation status
+    public BookingBuyingStatus BuyingStatus { get; private set; }
+    public Guid? ExpenseRequestId { get; private set; }
+    public string? DisbursementReference { get; private set; }
+    public string? OfficialReceiptNumber { get; private set; }
+    public DateTimeOffset? ReconciledAt { get; private set; }
+    public string? ReconciledBy { get; private set; }
+
+    /// <summary>True when no vendor OR is required (0 buying / discount) or when an OR has been verified.</summary>
+    public bool IsBuyingSatisfied =>
+        BuyingStatus is BookingBuyingStatus.NotRequired or BookingBuyingStatus.Verified;
 
     protected BookingChargeLine() { }
 
@@ -666,21 +762,27 @@ public class BookingChargeLine : AuditableEntity, ITenantEntity
             throw new InvalidOperationException(
                 $"Quotation line '{line.Id}' has no issued price snapshot; the quotation must be Issued before booking.");
 
+        var estimatedBuying = line.SnapshotBuyingAmount.Value;
+
         return new BookingChargeLine
         {
             BookingId = bookingId,
             Source = BookingChargeSource.Quoted,
             QuotationLineId = line.Id,
             TariffRateId = line.TariffRateId,
+            ChargeCodeId = line.TariffRate?.ChargeCodeId,
             Category = line.Category,
             ServiceType = line.ServiceType,
             Description = $"{line.TariffRate?.ChargeCode?.Code}",
             Reason = $"{line.TariffRate?.Tariff?.OriginLane} - {line.TariffRate?.Tariff?.DestinationLane}",
             Quantity = line.Quantity,
             Currency = line.Currency,
-            BuyingAmount = line.SnapshotBuyingAmount.Value,
+            EstimatedBuyingAmount = estimatedBuying,
+            ActualBuyingAmount = null,
+            BuyingAmount = estimatedBuying,
             SellingAmount = line.SnapshotSellingAmount.Value,
-            BillingStatus = BillingStatus.Unbilled
+            BillingStatus = BillingStatus.Unbilled,
+            BuyingStatus = estimatedBuying > 0m ? BookingBuyingStatus.Estimated : BookingBuyingStatus.NotRequired
         };
     }
 
@@ -691,8 +793,8 @@ public class BookingChargeLine : AuditableEntity, ITenantEntity
         if (quantity <= 0m) throw new ArgumentOutOfRangeException(nameof(quantity));
         if (unitBuying < 0m || unitSelling < 0m) throw new ArgumentOutOfRangeException(nameof(unitSelling), "Unit amounts cannot be negative.");
 
-        // Discounts reduce both sides, same convention as QuotationLine.Price()
         var sign = chargeCode.Category == ChargeCategory.Discount ? -1m : 1m;
+        var estimatedBuying = sign * unitBuying * quantity;
 
         return new BookingChargeLine
         {
@@ -704,10 +806,13 @@ public class BookingChargeLine : AuditableEntity, ITenantEntity
             Description = $"{chargeCode.Code}-{chargeCode.Name}",
             Quantity = quantity,
             Currency = currency,
-            BuyingAmount = sign * unitBuying * quantity,
+            EstimatedBuyingAmount = estimatedBuying,
+            ActualBuyingAmount = null,
+            BuyingAmount = estimatedBuying,
             SellingAmount = sign * unitSelling * quantity,
             Reason = reason,
-            BillingStatus = BillingStatus.Unbilled
+            BillingStatus = BillingStatus.Unbilled,
+            BuyingStatus = estimatedBuying > 0m ? BookingBuyingStatus.Estimated : BookingBuyingStatus.NotRequired
         };
     }
 
@@ -729,6 +834,57 @@ public class BookingChargeLine : AuditableEntity, ITenantEntity
         InvoiceId = null;
     }
 
+    internal void MarkExpenseRequested(Guid expenseRequestId, string? disbursementReference)
+    {
+        if (BuyingStatus == BookingBuyingStatus.NotRequired)
+            throw new InvalidOperationException($"Charge '{Description}' has no estimated buying cost and does not require disbursement.");
+        if (BuyingStatus == BookingBuyingStatus.Requested)
+            throw new InvalidOperationException($"Charge '{Description}' is already linked to an active expense request ({DisbursementReference ?? ExpenseRequestId.ToString()}).");
+        if (BuyingStatus == BookingBuyingStatus.Verified)
+            throw new InvalidOperationException($"Charge '{Description}' is already reconciled with OR #{OfficialReceiptNumber}.");
+
+        BuyingStatus = BookingBuyingStatus.Requested;
+        ExpenseRequestId = expenseRequestId;
+        DisbursementReference = disbursementReference?.Trim();
+    }
+
+    internal void ReleaseExpenseRequest(Guid expenseRequestId)
+    {
+        if (BuyingStatus != BookingBuyingStatus.Requested || ExpenseRequestId != expenseRequestId)
+            throw new InvalidOperationException($"Charge '{Id}' is not assigned to pending expense request '{expenseRequestId}'.");
+
+        BuyingStatus = EstimatedBuyingAmount > 0m ? BookingBuyingStatus.Estimated : BookingBuyingStatus.NotRequired;
+        ExpenseRequestId = null;
+        DisbursementReference = null;
+    }
+
+    internal void ReconcileBuying(
+        decimal actualBuyingAmount,
+        string officialReceiptNumber,
+        string reconciledBy,
+        Guid? expenseRequestId = null)
+    {
+        if (Category == ChargeCategory.Discount)
+            throw new InvalidOperationException("Discount lines cannot be reconciled against a vendor Official Receipt.");
+        if (actualBuyingAmount < 0m)
+            throw new ArgumentOutOfRangeException(nameof(actualBuyingAmount), "Actual buying amount cannot be negative.");
+        ArgumentException.ThrowIfNullOrWhiteSpace(officialReceiptNumber);
+        ArgumentException.ThrowIfNullOrWhiteSpace(reconciledBy);
+
+        if (expenseRequestId.HasValue && ExpenseRequestId.HasValue && ExpenseRequestId != expenseRequestId)
+            throw new InvalidOperationException($"Charge '{Description}' belongs to a different expense request ('{ExpenseRequestId}').");
+
+        ActualBuyingAmount = actualBuyingAmount;
+        BuyingAmount = actualBuyingAmount;
+        OfficialReceiptNumber = officialReceiptNumber.Trim();
+        ReconciledAt = DateTimeOffset.UtcNow;
+        ReconciledBy = reconciledBy.Trim();
+        if (expenseRequestId.HasValue)
+            ExpenseRequestId = expenseRequestId;
+
+        BuyingStatus = BookingBuyingStatus.Verified;
+    }
+
     internal void Update(decimal quantity, decimal unitBuying, decimal unitSelling, string reason)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(reason);
@@ -736,12 +892,20 @@ public class BookingChargeLine : AuditableEntity, ITenantEntity
         if (unitBuying < 0m || unitSelling < 0m) throw new ArgumentOutOfRangeException(nameof(unitSelling));
 
         var sign = Category == ChargeCategory.Discount ? -1m : 1m;
+        var estimatedBuying = sign * unitBuying * quantity;
+
         Quantity = quantity;
-        BuyingAmount = sign * unitBuying * quantity;
+        EstimatedBuyingAmount = estimatedBuying;
+        BuyingAmount = ActualBuyingAmount ?? estimatedBuying;
         SellingAmount = sign * unitSelling * quantity;
         Reason = reason.Trim();
+
+        if (BuyingStatus is BookingBuyingStatus.Estimated or BookingBuyingStatus.NotRequired)
+            BuyingStatus = estimatedBuying > 0m ? BookingBuyingStatus.Estimated : BookingBuyingStatus.NotRequired;
     }
 }
+
+public record ChargeBuyingAllocation(Guid ChargeId, decimal ActualBuyingAmount);
 
 // ── Child entity: document / compliance requirement ──────────────────────────
 
@@ -750,13 +914,12 @@ public class BookingDocument : AuditableEntity, ITenantEntity
     public Guid BookingId { get; private set; }
     public BookingDocumentType Type { get; private set; }
     public BookingDocumentStatus Status { get; private set; }
-    public string? Reference { get; private set; }        // permit no., KYC ref, file id
+    public string? Reference { get; private set; }
     public DateTimeOffset? ExpiresAt { get; private set; }
     public string? ReviewedBy { get; private set; }
     public DateTimeOffset? ReviewedAt { get; private set; }
     public string? ReviewNotes { get; private set; }
 
-    /// <summary>Verified or waived, and not expired.</summary>
     public bool IsSatisfied =>
         Status is BookingDocumentStatus.Verified or BookingDocumentStatus.Waived &&
         (ExpiresAt is null || ExpiresAt > DateTimeOffset.UtcNow);
@@ -803,10 +966,15 @@ public class BookingDocument : AuditableEntity, ITenantEntity
     }
 }
 
-public record BookingTotals(string Currency, decimal Buying, decimal Selling)
+public record BookingTotals(
+    string Currency,
+    decimal Buying,
+    decimal Selling,
+    decimal EstimatedBuying = 0m)
 {
     public decimal Margin => Selling - Buying;
     public decimal MarginPercent => Selling == 0m ? 0m : Math.Round(Margin / Selling * 100m, 2);
+    public decimal CostVariance => Buying - EstimatedBuying;
 }
 
 // ── Domain events ────────────────────────────────────────────────────────────
@@ -821,6 +989,11 @@ public record BookingConfirmed(Guid Id, Guid CustomerId, Guid? QuotationId, stri
 public record BookingStarted(Guid Id) : IDomainEvent;
 public record BookingCompleted(Guid Id, Guid CustomerId) : IDomainEvent;
 public record BookingCancelled(Guid Id, string Reason, bool WasConfirmed) : IDomainEvent;
+public record BookingChargesReconciled(
+    Guid Id,
+    string OfficialReceiptNumber,
+    IReadOnlyList<Guid> ChargeIds,
+    decimal TotalActualBuying) : IDomainEvent;
 public record BookingRescheduled(
     Guid Id,
     DateTimeOffset? OldPickupStart, DateTimeOffset? NewPickupStart,
