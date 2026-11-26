@@ -1,5 +1,5 @@
 import { DecimalPipe, TitleCasePipe } from "@angular/common";
-import { Component, computed, input, linkedSignal, model, output, signal } from "@angular/core";
+import { Component, computed, input, model, output, signal } from "@angular/core";
 import type { QuotationLineDto } from "@trackwise/shared/api";
 import {
   Card,
