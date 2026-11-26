@@ -40,7 +40,8 @@ internal sealed class AddTariffRateHandler(ITenantUnitOfWork tenantUow)
             rateAfterFreeDays: req.RateAfterFreeDays,
             percentage: req.Percentage,
             percentageBase: req.PercentageBase,
-            breakpointJson: req.BreakpointJson);
+            breakpointJson: req.BreakpointJson,
+            estimateBuying: req.EstimatedBuyingAmount);
 
         await tenantUow.Repository<TariffRate>().AddAsync(rate, ct);
         await tenantUow.SaveChangesAsync(ct);
@@ -60,6 +61,7 @@ internal sealed class AddTariffRateHandler(ITenantUnitOfWork tenantUow)
                 IsActive = chargeCode.IsActive
             },
             PricingModel = rate.PricingModel,
+            EstimatedBuyingAmount = rate.EstimatedBuyingAmount,
             BaseAmount = rate.BaseAmount,
             Unit = rate.Unit,
             Minimum = rate.Minimum,

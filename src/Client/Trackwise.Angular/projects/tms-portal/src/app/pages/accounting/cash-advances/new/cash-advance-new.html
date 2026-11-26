@@ -1,0 +1,230 @@
+<ui-page-header
+  title="New Operational Cash Advance"
+  [subtitle]="bookingSubtitle()"
+  [backLink]="backLink()"
+/>
+
+<ui-container maxWidth="lg">
+  @if (isLoading()) {
+    <ui-stack align="center" justify="center" class="py-12 text-center">
+      <ui-spinner />
+    </ui-stack>
+  } @else {
+    <form [formRoot]="form" class="space-y-6 pb-12">
+      <!-- 1. Requestor / Field Custodian -->
+      <ui-card>
+        <ui-stack>
+          <ui-stack direction="row" align="center" gap="3">
+            <ui-icon name="wallet" color="secondary" />
+            <ui-stack gap="0">
+              <ui-typography variant="h5" tag="h2">Custodian & Release Schedule</ui-typography>
+              <ui-typography variant="body-sm" color="muted">
+                Assign the employee accountable for liquidating Official Receipts after port,
+                customs, or trip execution.
+              </ui-typography>
+            </ui-stack>
+          </ui-stack>
+
+          <ui-grid container spacing="4">
+            <ui-grid [size]="{ xs: 12, md: 6 }">
+              <ui-form-field
+                label="Accountable Employee / Custodian"
+                for="custodianName"
+                [required]="true"
+              >
+                <ui-text-field
+                  id="custodianName"
+                  [formField]="form.custodianName"
+                  placeholder="Full name of liaison, customs rep, or driver"
+                />
+              </ui-form-field>
+            </ui-grid>
+
+            <ui-grid [size]="{ xs: 12, md: 3 }">
+              <ui-form-field label="Employee ID" for="employeeCode">
+                <ui-text-field
+                  id="employeeCode"
+                  [formField]="form.employeeCode"
+                  placeholder="e.g., EMP-0142"
+                />
+              </ui-form-field>
+            </ui-grid>
+
+            <ui-grid [size]="{ xs: 12, md: 3 }">
+              <ui-form-field label="Department / Role" for="department" [required]="true">
+                <ui-select-field
+                  id="department"
+                  [formField]="form.department"
+                  [options]="departments"
+                  optionLabel="label"
+                  optionValue="value"
+                />
+              </ui-form-field>
+            </ui-grid>
+
+            <ui-grid [size]="{ xs: 12, md: 4 }">
+              <ui-form-field label="Date Cash Needed" for="dateNeeded" [required]="true">
+                <ui-date-field id="dateNeeded" [formField]="form.dateNeeded" [showIcon]="true" />
+              </ui-form-field>
+            </ui-grid>
+
+            <ui-grid [size]="{ xs: 12, md: 4 }">
+              <ui-form-field
+                label="Liquidation Due Date"
+                for="liquidationDueDate"
+                [required]="true"
+                hint="Standard SLA: within 3–5 working days after release"
+              >
+                <ui-date-field
+                  id="liquidationDueDate"
+                  [formField]="form.liquidationDueDate"
+                  [minDate]="model().dateNeeded ?? undefined"
+                  [showIcon]="true"
+                />
+              </ui-form-field>
+            </ui-grid>
+
+            <ui-grid [size]="{ xs: 12, md: 4 }">
+              <ui-form-field label="Port / Field Location" for="fieldLocation" [required]="true">
+                <ui-text-field
+                  id="fieldLocation"
+                  [formField]="form.fieldLocation"
+                  placeholder="e.g., MICT, South Harbor, BOC NAIA, Batangas Port"
+                />
+              </ui-form-field>
+            </ui-grid>
+
+            <ui-grid [size]="{ xs: 12, md: 4 }">
+              <ui-form-field label="Release Channel" for="releaseMethod" [required]="true">
+                <ui-select-field
+                  id="releaseMethod"
+                  [formField]="form.releaseMethod"
+                  [options]="releaseMethods"
+                  optionLabel="label"
+                  optionValue="value"
+                />
+              </ui-form-field>
+            </ui-grid>
+
+            @if (model().releaseMethod !== "cash_counter") {
+              <ui-grid [size]="{ xs: 12, md: 8 }">
+                <ui-form-field
+                  label="Disbursement Account / Mobile Wallet #"
+                  for="disbursementAccount"
+                  [required]="true"
+                >
+                  <ui-text-field
+                    id="disbursementAccount"
+                    [formField]="form.disbursementAccount"
+                    placeholder="GCash / Maya mobile number or Payroll bank account #"
+                  />
+                </ui-form-field>
+              </ui-grid>
+            }
+          </ui-grid>
+        </ui-stack>
+      </ui-card>
+
+      <!-- 2. Estimated Charge Breakdown -->
+      <ui-card>
+        <ui-stack gap="4">
+          <div class="flex items-center justify-between border-b pb-3">
+            <div>
+              <ui-typography variant="h5" tag="h2">Estimated Port / Field Charges</ui-typography>
+              <ui-typography variant="body-sm" color="muted">
+                Exact vendor Official Receipts (OR / SI) will be encoded upon liquidation.
+              </ui-typography>
+            </div>
+            <div class="text-right">
+              <span class="text-muted-foreground block text-xs">Total Cash Advance</span>
+              <span class="font-mono text-lg font-bold">
+                {{ totalAdvance() | number: "1.2-2" }} {{ model().currency }}
+              </span>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+              <thead>
+                <tr class="text-muted-foreground border-b text-xs uppercase">
+                  <th class="py-2.5 pr-3">Charge Item</th>
+                  <th class="py-2.5 pr-3">Category</th>
+                  <th class="py-2.5 pr-3 text-right">Est. Buying</th>
+                  <th class="w-48 py-2.5 text-right">Advance Amount</th>
+                </tr>
+              </thead>
+              <tbody class="divide-border/60 divide-y">
+                @for (line of allocations(); track line.chargeId; let i = $index) {
+                  <tr>
+                    <td class="py-3 pr-3 font-medium">{{ line.codeAndDescription }}</td>
+                    <td class="text-muted-foreground py-3 pr-3 text-xs uppercase">
+                      {{ line.category }}
+                    </td>
+                    <td class="text-muted-foreground py-3 pr-3 text-right font-mono">
+                      {{ line.estimatedBuying | number: "1.2-2" }}
+                    </td>
+                    <td class="py-2">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        class="border-input bg-background w-full rounded-md border px-3 py-1.5 text-right font-mono text-sm"
+                        [value]="line.requestedAmount"
+                        (input)="updateLineAmount(i, $any($event.target).value)"
+                      />
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <ui-form-field
+            label="Operational Purpose & Breakdown Notes"
+            for="purpose"
+            [required]="true"
+          >
+            <ui-textarea-field
+              id="purpose"
+              [formField]="form.purpose"
+              [rows]="3"
+              placeholder="Specify port fees, customs processing, toll/driver allowance, or terminal charges to be paid..."
+            />
+          </ui-form-field>
+
+          <label class="bg-muted/40 flex items-start gap-3 rounded-lg border p-3 text-xs">
+            <input
+              type="checkbox"
+              class="mt-0.5"
+              [checked]="model().acceptedLiquidationPolicy"
+              (change)="togglePolicy($any($event.target).checked)"
+            />
+            <span class="text-muted-foreground leading-relaxed">
+              <strong>Liquidation Undertaking:</strong>
+              Custodian acknowledges accountability to liquidate this Cash Advance with valid
+              BIR-compliant Supplier Sales Invoices / Official Receipts on or before the Liquidation
+              Due Date. Unliquidated balances are subject to policy hold or payroll deduction.
+            </span>
+          </label>
+
+          <ui-stack direction="row" gap="2" class="pt-2">
+            <ui-button
+              type="submit"
+              icon="check"
+              label="Request Cash Advance"
+              [disabled]="!model().acceptedLiquidationPolicy"
+              [loading]="form().submitting()"
+            />
+            <ui-button
+              type="button"
+              appearance="outlined"
+              icon="arrow-left"
+              label="Cancel"
+              [routerLink]="backLink()"
+            />
+          </ui-stack>
+        </ui-stack>
+      </ui-card>
+    </form>
+  }
+</ui-container>

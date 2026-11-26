@@ -1,0 +1,254 @@
+<ui-page-header
+  title="New Petty Cash Voucher (PCV)"
+  [subtitle]="bookingSubtitle()"
+  [backLink]="backLink()"
+/>
+
+<ui-container maxWidth="lg">
+  @if (isLoading()) {
+    <ui-stack align="center" justify="center" class="py-12 text-center">
+      <ui-spinner />
+    </ui-stack>
+  } @else {
+    <form [formRoot]="form" class="space-y-6 pb-12">
+      <!-- 1. Fund & Voucher Details -->
+      <ui-card>
+        <ui-stack>
+          <ui-stack direction="row" align="center" gap="3">
+            <ui-icon name="receipt" color="secondary" />
+            <ui-stack gap="0">
+              <ui-typography variant="h5" tag="h2">Petty Cash Fund & Payee</ui-typography>
+              <ui-typography variant="body-sm" color="muted">
+                Record minor operational expenses from a revolving branch petty cash fund.
+              </ui-typography>
+            </ui-stack>
+          </ui-stack>
+
+          <ui-grid container spacing="4">
+            <ui-grid [size]="{ xs: 12, md: 4 }">
+              <ui-form-field label="Petty Cash Fund" for="fundCode" [required]="true">
+                <ui-select-field
+                  id="fundCode"
+                  [formField]="form.fundCode"
+                  [options]="pettyCashFunds"
+                  optionLabel="label"
+                  optionValue="value"
+                />
+              </ui-form-field>
+            </ui-grid>
+
+            <ui-grid [size]="{ xs: 12, md: 4 }">
+              <ui-form-field label="Voucher Type" for="voucherMode" [required]="true">
+                <ui-select-field
+                  id="voucherMode"
+                  [formField]="form.voucherMode"
+                  [options]="voucherModes"
+                  optionLabel="label"
+                  optionValue="value"
+                />
+              </ui-form-field>
+            </ui-grid>
+
+            <ui-grid [size]="{ xs: 12, md: 4 }">
+              <ui-form-field label="Voucher Date" for="voucherDate" [required]="true">
+                <ui-date-field id="voucherDate" [formField]="form.voucherDate" [showIcon]="true" />
+              </ui-form-field>
+            </ui-grid>
+
+            <ui-grid [size]="{ xs: 12, md: 6 }">
+              <ui-form-field
+                label="Received By (Employee / Claimant)"
+                for="receivedBy"
+                [required]="true"
+              >
+                <ui-text-field
+                  id="receivedBy"
+                  [formField]="form.receivedBy"
+                  placeholder="Employee receiving petty cash"
+                />
+              </ui-form-field>
+            </ui-grid>
+
+            <ui-grid [size]="{ xs: 12, md: 6 }">
+              <ui-form-field label="Expense Category" for="expenseCategory" [required]="true">
+                <ui-select-field
+                  id="expenseCategory"
+                  [formField]="form.expenseCategory"
+                  [options]="expenseCategories"
+                  optionLabel="label"
+                  optionValue="value"
+                />
+              </ui-form-field>
+            </ui-grid>
+          </ui-grid>
+        </ui-stack>
+      </ui-card>
+
+      <!-- 2. Immediate Receipt / OR Details (Shown when Receipt On-Hand) -->
+      @if (model().voucherMode === "reimbursement_with_or") {
+        <ui-card>
+          <ui-stack gap="4">
+            <ui-stack direction="row" align="center" gap="3">
+              <ui-icon name="check" color="secondary" />
+              <ui-stack gap="0">
+                <ui-typography variant="h5" tag="h2">
+                  Supplier Receipt Particulars (Immediate Reconciliation)
+                </ui-typography>
+                <ui-typography variant="body-sm" color="muted">
+                  Encoding the OR / Sales Invoice # now marks the linked booking charges as Verified
+                  upon approval.
+                </ui-typography>
+              </ui-stack>
+            </ui-stack>
+
+            <ui-grid container spacing="4">
+              <ui-grid [size]="{ xs: 12, md: 4 }">
+                <ui-form-field
+                  label="Supplier / Merchant Name"
+                  for="merchantName"
+                  [required]="true"
+                >
+                  <ui-text-field
+                    id="merchantName"
+                    [formField]="form.merchantName"
+                    placeholder="e.g., LBC Express, PPA, Notary Public"
+                  />
+                </ui-form-field>
+              </ui-grid>
+
+              <ui-grid [size]="{ xs: 12, md: 3 }">
+                <ui-form-field label="Supplier TIN" for="merchantTin">
+                  <ui-text-field
+                    id="merchantTin"
+                    [formField]="form.merchantTin"
+                    placeholder="000-000-000-000"
+                  />
+                </ui-form-field>
+              </ui-grid>
+
+              <ui-grid [size]="{ xs: 12, md: 3 }">
+                <ui-form-field
+                  label="Official Receipt / SI #"
+                  for="officialReceiptNumber"
+                  [required]="true"
+                >
+                  <ui-text-field
+                    id="officialReceiptNumber"
+                    [formField]="form.officialReceiptNumber"
+                    placeholder="e.g., SI-0049821"
+                  />
+                </ui-form-field>
+              </ui-grid>
+
+              <ui-grid [size]="{ xs: 12, md: 2 }">
+                <ui-form-field label="VAT Status" for="isVatRegistered">
+                  <ui-select-field
+                    id="isVatRegistered"
+                    [formField]="form.vatStatus"
+                    [options]="vatStatuses"
+                    optionLabel="label"
+                    optionValue="value"
+                  />
+                </ui-form-field>
+              </ui-grid>
+            </ui-grid>
+          </ui-stack>
+        </ui-card>
+      }
+
+      <!-- 3. Petty Cash Line Items -->
+      <ui-card>
+        <ui-stack gap="4">
+          <div class="flex items-center justify-between border-b pb-3">
+            <div>
+              <ui-typography variant="h5" tag="h2">Booking Charge Breakdown</ui-typography>
+              <ui-typography variant="body-sm" color="muted">
+                Petty cash threshold limit: {{ fundLimit | number: "1.2-2" }} PHP per voucher.
+              </ui-typography>
+            </div>
+            <div class="text-right">
+              <span class="text-muted-foreground block text-xs">Total Voucher Amount</span>
+              <span class="font-mono text-lg font-bold" [class.text-destructive]="exceedsLimit()">
+                {{ totalPcv() | number: "1.2-2" }} {{ model().currency }}
+              </span>
+            </div>
+          </div>
+
+          @if (exceedsLimit()) {
+            <div
+              class="rounded-lg border border-amber-300 bg-amber-50/70 px-4 py-2.5 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200"
+            >
+              Total amount exceeds the standard {{ fundLimit | number: "1.2-2" }} PHP Petty Cash
+              ceiling. Consider using a
+              <strong>Request for Payment (RFP)</strong>
+              or
+              <strong>Cash Advance</strong>
+              instead.
+            </div>
+          }
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+              <thead>
+                <tr class="text-muted-foreground border-b text-xs uppercase">
+                  <th class="py-2.5 pr-3">Charge Item</th>
+                  <th class="py-2.5 pr-3 text-right">Est. Buying</th>
+                  <th class="w-48 py-2.5 text-right">Actual / PCV Amount</th>
+                </tr>
+              </thead>
+              <tbody class="divide-border/60 divide-y">
+                @for (line of allocations(); track line.chargeId; let i = $index) {
+                  <tr>
+                    <td class="py-3 pr-3 font-medium">{{ line.codeAndDescription }}</td>
+                    <td class="text-muted-foreground py-3 pr-3 text-right font-mono">
+                      {{ line.estimatedBuying | number: "1.2-2" }}
+                    </td>
+                    <td class="py-2">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        class="border-input bg-background w-full rounded-md border px-3 py-1.5 text-right font-mono text-sm"
+                        [value]="line.requestedAmount"
+                        (input)="updateLineAmount(i, $any($event.target).value)"
+                      />
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <ui-form-field
+            label="Particulars / Expense Description"
+            for="particulars"
+            [required]="true"
+          >
+            <ui-textarea-field
+              id="particulars"
+              [formField]="form.particulars"
+              [rows]="2"
+              placeholder="e.g., Courier of original Bill of Lading & port gate pass fee..."
+            />
+          </ui-form-field>
+
+          <ui-stack direction="row" gap="2" class="pt-2">
+            <ui-button
+              type="submit"
+              icon="check"
+              label="Save Petty Cash Voucher"
+              [loading]="form().submitting()"
+            />
+            <ui-button
+              type="button"
+              appearance="outlined"
+              icon="arrow-left"
+              label="Cancel"
+              [routerLink]="backLink()"
+            />
+          </ui-stack>
+        </ui-stack>
+      </ui-card>
+    </form>
+  }
+</ui-container>

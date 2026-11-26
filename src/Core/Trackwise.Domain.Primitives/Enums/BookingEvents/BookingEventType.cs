@@ -8,6 +8,7 @@ public enum BookingEventType
 {
     Created, Updated,
     ChargeAdded, ChargeUpdated, ChargeRemoved, ChargesInvoiced, ChargesReleased,
+    ChargesBuyingReconciled, ChargesExpenseReleased, ChargesExpenseRequested,
     DocumentAdded, DocumentVerified, DocumentRejected, DocumentWaived,
     CreditApproved, CreditRejected,
     Confirmed, Started, Rescheduled, Completed, Cancelled

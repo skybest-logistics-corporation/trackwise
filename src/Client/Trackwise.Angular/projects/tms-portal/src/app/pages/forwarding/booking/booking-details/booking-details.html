@@ -340,18 +340,75 @@
           </div>
 
           @if (b.charges?.length) {
+            <!-- Bulk Disbursement Action Bar (mirrors QuotationLinesTable) -->
+            @if (canViewCosts() && selectedChargeCount() > 0) {
+              <div
+                class="bg-muted/50 mt-3 mb-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border px-4 py-2.5"
+              >
+                <div class="flex items-center gap-3 text-sm">
+                  <span class="font-semibold">{{ selectedChargeCount() }} selected</span>
+                  <span class="text-muted-foreground font-mono text-xs">
+                    Est. Buying Total: {{ selectedBuyingTotal() | number: "1.2-2" }}
+                    {{ b.currency }}
+                  </span>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2">
+                  <ui-button
+                    appearance="text"
+                    label="Clear"
+                    [disabled]="isBusy()"
+                    (click)="clearChargeSelection()"
+                  />
+                  <ui-button
+                    icon="file-text"
+                    appearance="outlined"
+                    label="Request for Payment"
+                    [disabled]="isBusy()"
+                    (click)="createBulkDisbursement('rfp')"
+                  />
+                  <ui-button
+                    icon="wallet"
+                    appearance="outlined"
+                    label="Cash Advance"
+                    [disabled]="isBusy()"
+                    (click)="createBulkDisbursement('cash-advance')"
+                  />
+                  <ui-button
+                    icon="receipt"
+                    appearance="outlined"
+                    label="Petty Cash"
+                    [disabled]="isBusy()"
+                    (click)="createBulkDisbursement('petty-cash')"
+                  />
+                </div>
+              </div>
+            }
+
             <div class="overflow-x-auto">
               <table class="w-full text-left text-sm">
                 <thead>
                   <tr
                     class="text-muted-foreground border-b text-xs font-medium tracking-wider uppercase"
                   >
+                    @if (canSelectDisbursements()) {
+                      <th class="w-10 py-2.5 pr-2">
+                        <input
+                          #allChargesBox
+                          type="checkbox"
+                          aria-label="Select all eligible buying charges"
+                          [checked]="allChargesState() === 'all'"
+                          [indeterminate]="allChargesState() === 'some'"
+                          (change)="toggleAllCharges(allChargesBox.checked)"
+                        />
+                      </th>
+                    }
                     <th class="py-2.5 pr-3">Item</th>
                     <th class="py-2.5 pr-3">Category</th>
                     <th class="py-2.5 pr-3 text-right">Qty</th>
                     <th class="py-2.5 pr-3 text-right">Selling</th>
                     @if (canViewCosts()) {
-                      <th class="py-2.5 pr-3 text-right">Buying</th>
+                      <th class="py-2.5 pr-3 text-right">Est. Buying</th>
                     }
                     <th class="py-2.5 text-right">Billing</th>
                     <th class="py-2"></th>
@@ -359,7 +416,23 @@
                 </thead>
                 <tbody class="divide-border/60 divide-y">
                   @for (c of b.charges; track c.id) {
-                    <tr class="hover:bg-muted/30 transition-colors">
+                    <tr
+                      class="hover:bg-muted/30 transition-colors"
+                      [class.bg-muted/50]="isChargeSelected(c.id)"
+                    >
+                      @if (canSelectDisbursements()) {
+                        <td class="py-3 pr-2">
+                          @if (isChargeEligibleForDisbursement(c)) {
+                            <input
+                              #rowBox
+                              type="checkbox"
+                              [attr.aria-label]="'Select ' + (c.description || 'charge')"
+                              [checked]="isChargeSelected(c.id)"
+                              (change)="toggleChargeSelection(c.id, rowBox.checked)"
+                            />
+                          }
+                        </td>
+                      }
                       <td class="py-3 pr-3">
                         <div class="font-medium">{{ c.description }}</div>
                         @if (c.reason) {
@@ -398,7 +471,7 @@
                     </tr>
                   }
                   <tr>
-                    <td class="py-3">
+                    <td [attr.colspan]="canSelectDisbursements() ? 8 : 7" class="py-3">
                       @if (canAddCharge()) {
                         <ui-button
                           icon="plus"
@@ -413,7 +486,10 @@
                 </tbody>
                 <tfoot>
                   <tr class="border-t-2 font-semibold">
-                    <td colspan="3" class="text-muted-foreground pt-3 text-xs uppercase">
+                    <td
+                      [attr.colspan]="canSelectDisbursements() ? 4 : 3"
+                      class="text-muted-foreground pt-3 text-xs uppercase"
+                    >
                       Total Amount
                     </td>
                     <td class="pt-3 text-right font-mono text-base">
@@ -424,6 +500,7 @@
                         {{ b.totalBuying | number: "1.2-2" }}
                       </td>
                     }
+                    <td></td>
                     <td></td>
                   </tr>
                 </tfoot>

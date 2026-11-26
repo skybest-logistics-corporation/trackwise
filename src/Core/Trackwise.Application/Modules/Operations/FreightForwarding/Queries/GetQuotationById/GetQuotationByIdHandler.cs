@@ -104,6 +104,7 @@ internal sealed class GetQuotationByIdHandler(ITenantUnitOfWork tenantUow)
                 ServiceType = line.ServiceType,
                 Quantity = line.Quantity,
                 FxRate = line.FxRate,
+                Category = line.Category,
                 MarkupType = line.MarkupType,
                 MarkupValue = line.MarkupValue,
                 BuyingAmount = buying.Amount,

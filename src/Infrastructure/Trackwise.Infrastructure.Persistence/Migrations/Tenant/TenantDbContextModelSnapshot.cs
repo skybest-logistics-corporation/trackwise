@@ -1141,6 +1141,10 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<decimal?>("ActualBuyingAmount")
+                        .HasColumnType("numeric")
+                        .HasColumnName("actual_buying_amount");
+
                     b.Property<string>("BillingStatus")
                         .IsRequired()
                         .HasColumnType("text")
@@ -1154,6 +1158,11 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("buying_amount");
+
+                    b.Property<string>("BuyingStatus")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("buying_status");
 
                     b.Property<string>("Category")
                         .IsRequired()
@@ -1187,6 +1196,18 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
                         .HasColumnType("character varying(250)")
                         .HasColumnName("description");
 
+                    b.Property<string>("DisbursementReference")
+                        .HasColumnType("text")
+                        .HasColumnName("disbursement_reference");
+
+                    b.Property<decimal>("EstimatedBuyingAmount")
+                        .HasColumnType("numeric")
+                        .HasColumnName("estimated_buying_amount");
+
+                    b.Property<Guid?>("ExpenseRequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("expense_request_id");
+
                     b.Property<Guid?>("InvoiceId")
                         .HasColumnType("uuid")
                         .HasColumnName("invoice_id");
@@ -1194,6 +1215,10 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
                     b.Property<bool>("IsBillable")
                         .HasColumnType("boolean")
                         .HasColumnName("is_billable");
+
+                    b.Property<string>("OfficialReceiptNumber")
+                        .HasColumnType("text")
+                        .HasColumnName("official_receipt_number");
 
                     b.Property<decimal>("Quantity")
                         .HasPrecision(18, 4)
@@ -1208,6 +1233,14 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
                         .HasColumnName("reason");
+
+                    b.Property<DateTimeOffset?>("ReconciledAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reconciled_at");
+
+                    b.Property<string>("ReconciledBy")
+                        .HasColumnType("text")
+                        .HasColumnName("reconciled_by");
 
                     b.Property<decimal>("SellingAmount")
                         .HasPrecision(18, 2)
@@ -9013,6 +9046,10 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
                         .HasColumnType("text")
                         .HasColumnName("breakpoint_mode");
 
+                    b.Property<decimal?>("BuyingRateAfterFreeDays")
+                        .HasColumnType("numeric")
+                        .HasColumnName("buying_rate_after_free_days");
+
                     b.Property<Guid>("ChargeCodeId")
                         .HasColumnType("uuid")
                         .HasColumnName("charge_code_id");
@@ -9027,6 +9064,10 @@ namespace Trackwise.Infrastructure.Persistence.Migrations.Tenant
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
                         .HasColumnName("created_by");
+
+                    b.Property<decimal?>("EstimatedBuyingAmount")
+                        .HasColumnType("numeric")
+                        .HasColumnName("estimated_buying_amount");
 
                     b.Property<int?>("FreeDays")
                         .HasColumnType("integer")

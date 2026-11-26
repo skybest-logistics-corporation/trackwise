@@ -21,7 +21,7 @@
     </ui-stack>
 
     <ui-grid container spacing="2">
-      <ui-grid [size]="{ xs: 12, sm: 6, md: 4 }">
+      <ui-grid [size]="{ xs: 12, sm: 6, md: 3 }">
         <ui-form-field label="Freight Mode">
           <ui-select-field
             [options]="freightModeFilterOptions"
@@ -34,7 +34,20 @@
         </ui-form-field>
       </ui-grid>
 
-      <ui-grid [size]="{ xs: 12, sm: 6, md: 4 }">
+      <ui-grid [size]="{ xs: 12, sm: 6, md: 3 }">
+        <ui-form-field label="TruckType">
+          <ui-select-field
+            [options]="truckTypeFilterOptions"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="All types"
+            [value]="selectedTruckType()"
+            (valueChange)="onTruckTypeChanged($event)"
+          />
+        </ui-form-field>
+      </ui-grid>
+
+      <ui-grid [size]="{ xs: 12, sm: 6, md: 3 }">
         <ui-form-field label="Service Level">
           <ui-select-field
             [options]="serviceLevelFilterOptions"
@@ -47,7 +60,7 @@
         </ui-form-field>
       </ui-grid>
 
-      <ui-grid [size]="{ xs: 12, sm: 6, md: 4 }">
+      <ui-grid [size]="{ xs: 12, sm: 6, md: 3 }">
         <ui-form-field label="Status">
           <ui-select-field
             [options]="statusOptions"

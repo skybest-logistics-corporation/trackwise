@@ -31,6 +31,7 @@ import { PageHeader } from "@/shared/components";
 interface TariffRateFormModel {
   chargeCodeId: string | null;
   pricingModel: PricingModel | null;
+  estimatedBuyingAmount: number | null;
   baseAmount: number;
   unit: string;
   minimum: number | null;
@@ -46,6 +47,7 @@ interface TariffRateFormModel {
 const EMPTY: TariffRateFormModel = {
   chargeCodeId: null,
   pricingModel: "flat",
+  estimatedBuyingAmount: null,
   baseAmount: 0,
   unit: "per shipment",
   minimum: null,
@@ -118,6 +120,19 @@ export class TariffRateAdd {
   protected readonly selectedChargeCodeId = computed(() => this.model().chargeCodeId);
   protected readonly currentPricingModel = computed(() => this.model().pricingModel);
 
+  protected readonly estimatedMargin = computed(() => {
+    const m = this.model();
+    if (m.pricingModel !== "flat" && m.pricingModel !== "per_unit") return null;
+    if (m.estimatedBuyingAmount === null || m.estimatedBuyingAmount === undefined) return null;
+
+    const selling = Number(m.baseAmount ?? 0);
+    const buying = Number(m.estimatedBuyingAmount ?? 0);
+    const amount = selling - buying;
+    const percent = selling > 0 ? (amount / selling) * 100 : 0;
+
+    return { amount, percent };
+  });
+
   protected readonly percentageBaseHint = computed(() => {
     const base = this.model().percentageBase;
     switch (base) {
@@ -144,11 +159,15 @@ export class TariffRateAdd {
         required(p.percentage, { message: "Percentage rate is required." });
         min(p.percentage, 0, { message: "Percentage rate cannot be negative." });
         required(p.percentageBase, { message: "Percentage base is required." });
-      } else if (model === "breakpoint") {
-        required(p.breakpointJson, { message: "Breakpoint definition is required." });
       } else {
-        required(p.baseAmount, { message: "Base amount is required." });
-        min(p.baseAmount, 0, { message: "Base amount cannot be negative." });
+        min(p.estimatedBuyingAmount, 0, { message: "Estimated buying amount cannot be negative." });
+
+        if (model === "breakpoint") {
+          required(p.breakpointJson, { message: "Breakpoint definition is required." });
+        } else {
+          required(p.baseAmount, { message: "Selling amount is required." });
+          min(p.baseAmount, 0, { message: "Selling amount cannot be negative." });
+        }
       }
     },
     {
@@ -165,9 +184,17 @@ export class TariffRateAdd {
               : value.percentageBase
             : null;
 
+          const resolvedEstimatedBuying =
+            !isPercentage &&
+            value.estimatedBuyingAmount !== null &&
+            value.estimatedBuyingAmount !== undefined
+              ? Number(value.estimatedBuyingAmount)
+              : null;
+
           const command: AddTariffRateCommand = {
             chargeCodeId: value.chargeCodeId!,
             pricingModel: value.pricingModel!,
+            estimatedBuyingAmount: resolvedEstimatedBuying,
             baseAmount: isPercentage ? 0 : Number(value.baseAmount ?? 0),
             unit: value.unit.trim(),
             minimum: isFlat ? null : value.minimum,
@@ -237,6 +264,7 @@ export class TariffRateAdd {
             percentage: current.percentage ?? 0,
             percentageBase: current.percentageBase || "BAS",
             baseAmount: 0,
+            estimatedBuyingAmount: null,
           };
         case "flat":
           return {
@@ -262,9 +290,9 @@ export class TariffRateAdd {
   protected insertSampleBreakpoint(): void {
     const sample = JSON.stringify(
       [
-        { from: 0, to: 100, rate: 25 },
-        { from: 101, to: 500, rate: 20 },
-        { from: 501, rate: 15 },
+        { min: 0, max: 100, rate: 25, buyingRate: 20 },
+        { min: 101, to: 500, rate: 20, buyingRate: 16 },
+        { min: 501, rate: 15, buyingRate: 12 },
       ],
       null,
       2,

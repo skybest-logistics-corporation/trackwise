@@ -1,0 +1,315 @@
+<ui-page-header
+  title="New Request for Payment (RFP)"
+  [subtitle]="bookingSubtitle()"
+  [backLink]="backLink()"
+/>
+
+<ui-container maxWidth="lg">
+  @if (isLoading()) {
+    <ui-stack align="center" justify="center" class="py-12 text-center">
+      <ui-spinner />
+    </ui-stack>
+  } @else {
+    <form [formRoot]="form" class="space-y-6 pb-12">
+      <!-- 1. Vendor & Billing Reference -->
+      <ui-card>
+        <ui-stack>
+          <ui-stack direction="row" align="center" gap="3">
+            <ui-icon name="file-text" color="secondary" />
+            <ui-stack gap="0">
+              <ui-typography variant="h5" tag="h2">Payee & Vendor Billing Details</ui-typography>
+              <ui-typography variant="body-sm" color="muted">
+                Enter carrier, shipping line, trucker, or customs broker billing particulars.
+              </ui-typography>
+            </ui-stack>
+          </ui-stack>
+
+          <ui-grid container spacing="4">
+            <ui-grid [size]="{ xs: 12, md: 6 }">
+              <ui-form-field label="Payee / Vendor Name" for="vendorName" [required]="true">
+                <ui-text-field
+                  id="vendorName"
+                  [formField]="form.vendorName"
+                  placeholder="e.g., ICTSI, 2GO Freight, Maersk Filipinas"
+                />
+              </ui-form-field>
+            </ui-grid>
+
+            <ui-grid [size]="{ xs: 12, md: 3 }">
+              <ui-form-field label="Vendor TIN" for="vendorTin" hint="BIR format: 000-000-000-000">
+                <ui-text-field
+                  id="vendorTin"
+                  [formField]="form.vendorTin"
+                  placeholder="000-000-000-000"
+                />
+              </ui-form-field>
+            </ui-grid>
+
+            <ui-grid [size]="{ xs: 12, md: 3 }">
+              <ui-form-field label="Priority" for="priority" [required]="true">
+                <ui-select-field
+                  id="priority"
+                  [formField]="form.priority"
+                  [options]="priorities"
+                  optionLabel="label"
+                  optionValue="value"
+                />
+              </ui-form-field>
+            </ui-grid>
+
+            <ui-grid [size]="{ xs: 12, md: 4 }">
+              <ui-form-field
+                label="Vendor Invoice / SOA / BL Ref #"
+                for="vendorInvoiceNumber"
+                [required]="true"
+              >
+                <ui-text-field
+                  id="vendorInvoiceNumber"
+                  [formField]="form.vendorInvoiceNumber"
+                  placeholder="e.g., SOA-2026-88412"
+                />
+              </ui-form-field>
+            </ui-grid>
+
+            <ui-grid [size]="{ xs: 12, md: 4 }">
+              <ui-form-field label="Billing / Invoice Date" for="invoiceDate" [required]="true">
+                <ui-date-field id="invoiceDate" [formField]="form.invoiceDate" [showIcon]="true" />
+              </ui-form-field>
+            </ui-grid>
+
+            <ui-grid [size]="{ xs: 12, md: 4 }">
+              <ui-form-field label="Payment Due Date" for="dueDate" [required]="true">
+                <ui-date-field
+                  id="dueDate"
+                  [formField]="form.dueDate"
+                  [minDate]="model().invoiceDate ?? undefined"
+                  [showIcon]="true"
+                />
+              </ui-form-field>
+            </ui-grid>
+          </ui-grid>
+        </ui-stack>
+      </ui-card>
+
+      <!-- 2. Disbursement & Tax Configuration (PH BIR Standard) -->
+      <ui-card>
+        <ui-stack>
+          <ui-stack direction="row" align="center" gap="3">
+            <ui-icon name="credit-card" color="secondary" />
+            <ui-stack gap="0">
+              <ui-typography variant="h5" tag="h2">Disbursement & Tax Treatment</ui-typography>
+              <ui-typography variant="body-sm" color="muted">
+                Configure payment mode, VAT classification, and Expanded Withholding Tax (EWT).
+              </ui-typography>
+            </ui-stack>
+          </ui-stack>
+
+          <ui-grid container spacing="4">
+            <ui-grid [size]="{ xs: 12, md: 4 }">
+              <ui-form-field label="Payment Method" for="paymentMethod" [required]="true">
+                <ui-select-field
+                  id="paymentMethod"
+                  [formField]="form.paymentMethod"
+                  [options]="paymentMethods"
+                  optionLabel="label"
+                  optionValue="value"
+                />
+              </ui-form-field>
+            </ui-grid>
+
+            @if (
+              model().paymentMethod === "bank_transfer" || model().paymentMethod === "online_portal"
+            ) {
+              <ui-grid [size]="{ xs: 12, md: 4 }">
+                <ui-form-field label="Bank / Portal Name" for="bankName" [required]="true">
+                  <ui-text-field
+                    id="bankName"
+                    [formField]="form.bankName"
+                    placeholder="e.g., BDO Unibank / Dragonpay"
+                  />
+                </ui-form-field>
+              </ui-grid>
+
+              <ui-grid [size]="{ xs: 12, md: 4 }">
+                <ui-form-field
+                  label="Account / Payment Ref #"
+                  for="bankAccountNumber"
+                  [required]="true"
+                >
+                  <ui-text-field
+                    id="bankAccountNumber"
+                    [formField]="form.bankAccountNumber"
+                    placeholder="Account or portal payment code"
+                  />
+                </ui-form-field>
+              </ui-grid>
+            }
+
+            <ui-grid [size]="{ xs: 12, md: 4 }">
+              <ui-form-field label="Currency" for="currency" [required]="true">
+                <ui-text-field id="currency" [formField]="form.currency" placeholder="PHP" />
+              </ui-form-field>
+            </ui-grid>
+
+            <ui-grid [size]="{ xs: 12, md: 4 }">
+              <ui-form-field label="VAT Classification" for="vatType" [required]="true">
+                <ui-select-field
+                  id="vatType"
+                  [formField]="form.vatType"
+                  [options]="vatTypes"
+                  optionLabel="label"
+                  optionValue="value"
+                />
+              </ui-form-field>
+            </ui-grid>
+
+            <ui-grid [size]="{ xs: 12, md: 4 }">
+              <ui-form-field
+                label="Withholding Tax (EWT)"
+                for="ewtRate"
+                hint="2% standard for PH freight/trucking/brokerage"
+              >
+                <ui-select-field
+                  id="ewtRate"
+                  [formField]="form.ewtRate"
+                  [options]="ewtOptions"
+                  optionLabel="label"
+                  optionValue="value"
+                />
+              </ui-form-field>
+            </ui-grid>
+          </ui-grid>
+        </ui-stack>
+      </ui-card>
+
+      <!-- 3. Linked Booking Charges Allocation -->
+      <ui-card>
+        <ui-stack gap="4">
+          <div class="flex items-center justify-between border-b pb-3">
+            <div>
+              <ui-typography variant="h5" tag="h2">Booking Charge Allocations</ui-typography>
+              <ui-typography variant="body-sm" color="muted">
+                Adjust requested amounts if the vendor bill differs from the quotation estimate.
+              </ui-typography>
+            </div>
+            @if (booking(); as b) {
+              <span class="bg-muted rounded-md px-2.5 py-1 font-mono text-xs font-semibold">
+                {{ b.bookingNumber }}
+              </span>
+            }
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+              <thead>
+                <tr class="text-muted-foreground border-b text-xs uppercase">
+                  <th class="py-2.5 pr-3">Charge Item</th>
+                  <th class="py-2.5 pr-3">Category</th>
+                  <th class="py-2.5 pr-3 text-right">Est. Buying</th>
+                  <th class="w-48 py-2.5 pr-3 text-right">Requested Amount</th>
+                  <th class="py-2.5 text-right">Variance</th>
+                </tr>
+              </thead>
+              <tbody class="divide-border/60 divide-y">
+                @for (line of allocations(); track line.chargeId; let i = $index) {
+                  <tr>
+                    <td class="py-3 pr-3 font-medium">{{ line.codeAndDescription }}</td>
+                    <td class="text-muted-foreground py-3 pr-3 text-xs uppercase">
+                      {{ line.category }}
+                    </td>
+                    <td class="text-muted-foreground py-3 pr-3 text-right font-mono">
+                      {{ line.estimatedBuying | number: "1.2-2" }}
+                    </td>
+                    <td class="py-2 pr-3">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        class="border-input bg-background w-full rounded-md border px-3 py-1.5 text-right font-mono text-sm"
+                        [value]="line.requestedAmount"
+                        (input)="updateLineAmount(i, $any($event.target).value)"
+                      />
+                    </td>
+                    <td
+                      class="py-3 text-right font-mono text-xs font-semibold"
+                      [class.text-amber-600]="line.requestedAmount > line.estimatedBuying"
+                      [class.text-emerald-600]="line.requestedAmount < line.estimatedBuying"
+                    >
+                      {{ line.requestedAmount - line.estimatedBuying | number: "1.2-2" }}
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Tax & Net Payable Summary -->
+          <div
+            class="bg-muted/40 ml-auto w-full max-w-sm space-y-1.5 rounded-lg border p-4 text-sm"
+          >
+            <div class="flex justify-between">
+              <span class="text-muted-foreground">Gross Requested:</span>
+              <span class="font-mono font-medium">
+                {{ taxBreakdown().gross | number: "1.2-2" }} {{ model().currency }}
+              </span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-muted-foreground">VATable Base / Net of VAT:</span>
+              <span class="font-mono">
+                {{ taxBreakdown().netOfVat | number: "1.2-2" }} {{ model().currency }}
+              </span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-muted-foreground">Input VAT (12%):</span>
+              <span class="font-mono">
+                {{ taxBreakdown().vatAmount | number: "1.2-2" }} {{ model().currency }}
+              </span>
+            </div>
+            <div class="flex justify-between text-amber-700 dark:text-amber-400">
+              <span>Less: EWT ({{ model().ewtRate }}%):</span>
+              <span class="font-mono">
+                -{{ taxBreakdown().ewtAmount | number: "1.2-2" }} {{ model().currency }}
+              </span>
+            </div>
+            <div class="flex justify-between border-t pt-2 text-base font-bold">
+              <span>Net Check / Payable:</span>
+              <span class="font-mono">
+                {{ taxBreakdown().netPayable | number: "1.2-2" }} {{ model().currency }}
+              </span>
+            </div>
+          </div>
+
+          <ui-form-field
+            label="Particulars / Payment Remarks"
+            for="remarks"
+            [required]="true"
+            hint="Appears on the RFP voucher and check voucher"
+          >
+            <ui-textarea-field
+              id="remarks"
+              [formField]="form.remarks"
+              [rows]="3"
+              placeholder="e.g., Payment for Destination THC & Delivery Order Fee for Booking BK-..."
+            />
+          </ui-form-field>
+
+          <ui-stack direction="row" gap="2" class="pt-2">
+            <ui-button
+              type="submit"
+              icon="check"
+              label="Submit RFP for Approval"
+              [loading]="form().submitting()"
+            />
+            <ui-button
+              type="button"
+              appearance="outlined"
+              icon="arrow-left"
+              label="Cancel"
+              [routerLink]="backLink()"
+            />
+          </ui-stack>
+        </ui-stack>
+      </ui-card>
+    </form>
+  }
+</ui-container>

@@ -30,12 +30,17 @@ internal sealed class GetTariffsHandler(ITenantUnitOfWork tenantUow)
                 (t.Customer != null && t.Customer.Name.ToLower().Contains(search)) ||
                 (t.OriginLane != null && t.OriginLane.ToLower().Contains(search)) ||
                 (t.DestinationLane != null && t.DestinationLane.ToLower().Contains(search)) ||
-                t.Currency.ToLower().Contains(search) ||
-                (t.ContractRef != null && t.ContractRef.ToString()!.ToLower().Contains(search)));
+                t.Currency.ToLower().Contains(search));
         }
 
         if (req.Mode.HasValue)
             query = query.Where(t => t.Mode == req.Mode.Value);
+
+        if (req.TruckType.HasValue)
+            query = query.Where(t => t.TruckType == req.TruckType.Value);
+
+        if (req.TonnageClass.HasValue)
+            query = query.Where(t => t.TonnageClass == req.TonnageClass.Value);
 
         if (req.ServiceLevel.HasValue)
             query = query.Where(t => t.ServiceLevel == req.ServiceLevel.Value);

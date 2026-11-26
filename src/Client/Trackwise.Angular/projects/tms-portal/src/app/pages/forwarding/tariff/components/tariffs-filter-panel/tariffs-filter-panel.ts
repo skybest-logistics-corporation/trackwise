@@ -1,5 +1,5 @@
 import { Component, input, output, signal } from "@angular/core";
-import { type FreightMode, type ServiceLevel } from "@trackwise/shared/api";
+import { type FreightMode, type ServiceLevel, type TruckType } from "@trackwise/shared/api";
 import { freightModeOptions, serviceLevelOptions } from "@trackwise/shared/api/enums";
 import {
   Card,
@@ -10,11 +10,13 @@ import {
   UiSelectField,
   UiTextField,
 } from "@trackwise/shared/ui";
+import { truckTypeOptions } from "@/shared/constants/truck-options";
 
 export interface TariffsFilterState {
   mode: FreightMode | null;
   serviceLevel: ServiceLevel | null;
   isActive: boolean | null;
+  truckType: TruckType | null;
 }
 
 @Component({
@@ -29,12 +31,17 @@ export class TariffsFilterPanel {
   public readonly searchChanged = output<string>();
 
   protected readonly selectedMode = signal<FreightMode | null>(null);
+  protected readonly selectedTruckType = signal<TruckType | null>(null);
   protected readonly selectedServiceLevel = signal<ServiceLevel | null>(null);
   protected readonly selectedStatus = signal<boolean | null>(true);
 
   protected readonly freightModeFilterOptions = [
     { label: "All Modes", value: null },
     ...freightModeOptions,
+  ];
+  protected readonly truckTypeFilterOptions = [
+    { label: "All Types", value: null },
+    ...truckTypeOptions,
   ];
 
   protected readonly serviceLevelFilterOptions = [
@@ -64,6 +71,10 @@ export class TariffsFilterPanel {
     this.selectedMode.set(value);
     this.emitFilters();
   }
+  protected onTruckTypeChanged(value: TruckType | null): void {
+    this.selectedTruckType.set(value);
+    this.emitFilters();
+  }
 
   protected onServiceLevelChanged(value: ServiceLevel | null): void {
     this.selectedServiceLevel.set(value);
@@ -87,6 +98,7 @@ export class TariffsFilterPanel {
     this.filtersChanged.emit({
       mode: this.selectedMode(),
       serviceLevel: this.selectedServiceLevel(),
+      truckType: this.selectedTruckType(),
       isActive: this.selectedStatus(),
     });
   }

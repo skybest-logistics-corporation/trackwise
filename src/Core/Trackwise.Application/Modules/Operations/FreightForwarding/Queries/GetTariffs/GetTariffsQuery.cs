@@ -12,6 +12,8 @@ public class GetTariffsQuery : IQuery<PagedResult<TariffDto>>
     public bool OnlyActive { get; set; } = true;
     public bool? IsActive { get; set; }
     public string? Search { get; set; }
+    public TruckType? TruckType { get; set; }
+    public TruckTonnageClass? TonnageClass { get; set; }
     public FreightMode? Mode { get; set; }
     public ServiceLevel? ServiceLevel { get; set; }
     public Guid? CarrierId { get; set; }

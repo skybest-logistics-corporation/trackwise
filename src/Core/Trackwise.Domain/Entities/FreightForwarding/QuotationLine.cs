@@ -141,18 +141,24 @@ public class QuotationLine : AuditableEntity, ITenantEntity
         }
 
         var valuation = BaseAmount ?? dynamicValuationBase;
-        var buying = TariffRate.Apply(Quantity, FxRate, valuation, QuotationCurrency);
+
+        // Selling uses TariffRate.BaseAmount (or valuationBase for Percentage);
+        // Buying comes strictly from TariffRate.EstimatedBuyingAmount.
+        var (tariffSelling, tariffBuying) = TariffRate.ApplyBoth(
+            quantity: Quantity,
+            fxRate: FxRate,
+            valuationBase: valuation,
+            targetCurrency: QuotationCurrency);
+
+        var buyingAmount = tariffBuying.Amount;
 
         var sellingAmount = MarkupType switch
         {
-            MarkupType.Percentage => buying.Amount * (1 + MarkupValue / 100m),
-            MarkupType.Flat => buying.Amount + MarkupValue,
-            _ => buying.Amount
+            MarkupType.Percentage when MarkupValue != 0m => tariffSelling.Amount * (1 + MarkupValue / 100m),
+            MarkupType.Flat when MarkupValue != 0m => tariffSelling.Amount + MarkupValue,
+            _ => tariffSelling.Amount
         };
 
-        // Uses the persisted Category, not TariffRate.ChargeCode?.Category.
-        // A discount reduces BOTH sides; inverting only selling made totals and margin wrong.
-        var buyingAmount = buying.Amount;
         if (Category == ChargeCategory.Discount)
         {
             if (buyingAmount > 0) buyingAmount = -buyingAmount;
@@ -160,8 +166,8 @@ public class QuotationLine : AuditableEntity, ITenantEntity
         }
 
         return (
-            new Money { Amount = buyingAmount, Currency = buying.Currency },
-            new Money { Amount = sellingAmount, Currency = buying.Currency });
+            new Money { Amount = buyingAmount, Currency = tariffBuying.Currency },
+            new Money { Amount = sellingAmount, Currency = tariffSelling.Currency });
     }
 
     internal void SnapshotPrices(decimal? dynamicValuationBase = null)
@@ -171,6 +177,27 @@ public class QuotationLine : AuditableEntity, ITenantEntity
         SnapshotSellingAmount = selling.Amount;
         Currency = buying.Currency;
     }
-}
+
+    internal void Update(
+        decimal quantity,
+        decimal? baseAmount,
+        MarkupType markupType,
+        decimal markupValue,
+        decimal? fxRate,
+        string? notes)
+        {
+            // Snapshots are written when the quote is issued; changing inputs afterwards would
+            // leave Price() returning stale snapshot values.
+            if (SnapshotBuyingAmount.HasValue || SnapshotSellingAmount.HasValue)
+                throw new InvalidOperationException("Cannot modify a line that has been price-snapshotted.");
+
+            Quantity = quantity;
+            BaseAmount = baseAmount;
+            MarkupType = markupType;
+            MarkupValue = markupValue;
+            FxRate = fxRate;
+            Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
+        }
+    }
 
 public record QuotationLineAdded(Guid Id, Guid QuotationId, Guid TariffRateId) : IDomainEvent;

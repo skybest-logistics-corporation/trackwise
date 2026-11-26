@@ -485,12 +485,30 @@ public class Quotation : AuditableEntity, ITenantEntity
         EvaluateApprovalRequirements();
     }
 
+    public void UpdateLine(
+    Guid lineId,
+    decimal quantity,
+    decimal? baseAmount,
+    MarkupType markupType,
+    decimal markupValue,
+    decimal? fxRate,
+    string? notes)
+    {
+        if (Status != QuotationStatus.Draft)
+            throw new InvalidOperationException("Lines can only be edited on a Draft quotation.");
+
+        var line = Lines.FirstOrDefault(l => l.Id == lineId)
+            ?? throw new InvalidOperationException($"Quotation line '{lineId}' not found.");
+
+        line.Update(quantity, baseAmount, markupType, markupValue, fxRate, notes);
+    }
+
     // ── Pricing (FIX #1) ─────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Prices a line, resolving the valuation base for Percentage rates from the quotation.
-    /// Requires TariffRate (and ChargeCode) to be loaded on every line.
-    /// </summary>
+        /// <summary>
+        /// Prices a line, resolving the valuation base for Percentage rates from the quotation.
+        /// Requires TariffRate (and ChargeCode) to be loaded on every line.
+        /// </summary>
     public (Money Buying, Money Selling) PriceLine(QuotationLine line)
     {
         ArgumentNullException.ThrowIfNull(line);

@@ -1,10 +1,12 @@
 import { Component, inject } from "@angular/core";
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { Router, RouterLink } from "@angular/router";
 import { Permission } from "@trackwise/shared";
 import { Api, deactivateTariff, type TariffDto } from "@trackwise/shared/api";
 import { PermissionService } from "@trackwise/shared/services";
 import { Stack, UiButton, UiTooltip } from "@trackwise/shared/ui";
 import { downloadBlobFile } from "@trackwise/shared/utils";
+import { debounceTime, distinctUntilChanged, map, Subject } from "rxjs";
 import { ToastService } from "@/core/services";
 import { PageHeader } from "@/shared/components";
 import {
@@ -25,6 +27,8 @@ export class TariffsListComponent {
   private readonly router = inject(Router);
   private readonly toastService = inject(ToastService);
 
+  private readonly search$ = new Subject<string>();
+
   protected readonly store = inject(TariffsListStore);
   protected readonly canManage = inject(PermissionService).hasPermission(Permission.Tariff.Manage);
 
@@ -37,6 +41,15 @@ export class TariffsListComponent {
       },
       { reload: false },
     );
+
+    this.search$
+      .pipe(
+        map((value) => value.trim()),
+        debounceTime(300),
+        distinctUntilChanged(),
+        takeUntilDestroyed(),
+      )
+      .subscribe((search) => this.store.setSearch(search));
   }
 
   protected addTariff(): void {
@@ -48,6 +61,7 @@ export class TariffsListComponent {
       EffectiveOn: this.todayAsIsoDate(),
       OnlyActive: false,
       Mode: filters.mode ?? undefined,
+      TruckType: filters.truckType ?? undefined,
       ServiceLevel: filters.serviceLevel ?? undefined,
       IsActive: filters.isActive ?? undefined,
     };
@@ -63,7 +77,7 @@ export class TariffsListComponent {
   }
 
   protected onSearchChanged(search: string): void {
-    this.store.setSearch(search);
+    this.search$.next(search);
   }
 
   protected exportToCsv(): void {

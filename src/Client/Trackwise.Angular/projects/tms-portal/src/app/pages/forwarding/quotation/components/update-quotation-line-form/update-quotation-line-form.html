@@ -1,0 +1,96 @@
+<div class="mb-4 max-h-64 divide-y overflow-y-auto rounded border">
+  @for (s of summaries(); track s.id) {
+    <div class="flex items-center gap-3 px-4 py-3">
+      <span
+        class="bg-muted text-foreground flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
+      >
+        {{ s.index }}
+      </span>
+      <div class="min-w-0">
+        <div class="truncate font-semibold">{{ s.title }}</div>
+        <div class="flex flex-wrap items-center gap-2 text-sm">
+          <span
+            class="bg-muted text-foreground rounded px-2 py-0.5 text-xs font-semibold uppercase"
+          >
+            {{ s.category }}
+          </span>
+          <span>{{ s.rate }}</span>
+          <span class="text-muted-foreground">|</span>
+          <span class="text-muted-foreground">{{ s.details }}</span>
+        </div>
+      </div>
+    </div>
+  }
+</div>
+
+@if (isBulk()) {
+  <p class="text-muted-foreground mb-3 text-sm">
+    Changes apply to all {{ lines().length }} selected lines. Leave a field blank to keep each
+    line's current value.
+  </p>
+}
+
+<ui-grid container spacing="3">
+  <!-- Row 1 -->
+  <ui-grid [size]="{ xs: 12, md: showValuationBase() ? 4 : 12 }">
+    <ui-form-field label="Quantity" for="lineQuantity" [required]="!isBulk()">
+      <ui-number-field id="lineQuantity" [(value)]="quantity" />
+    </ui-form-field>
+  </ui-grid>
+
+  @if (showValuationBase()) {
+    <ui-grid [size]="{ xs: 12, md: 8 }">
+      <ui-form-field label="Valuation base" for="lineBaseAmount">
+        <ui-number-field id="lineBaseAmount" placeholder="From quotation" [(value)]="baseAmount" />
+      </ui-form-field>
+      <p class="text-muted-foreground mt-1 text-sm">
+        {{
+          isBulk()
+            ? "Applies only to percentage-based lines. Leave blank to use each quotation's base."
+            : valuationBaseHint()
+        }}
+      </p>
+    </ui-grid>
+  }
+
+  <!-- Row 2 -->
+  <ui-grid [size]="{ xs: 12, md: 4 }">
+    <ui-form-field label="Markup type" for="lineMarkupType" [required]="!isBulk()">
+      <ui-select-field id="lineMarkupType" [options]="markupOptions" [(value)]="markupType" />
+    </ui-form-field>
+  </ui-grid>
+
+  <ui-grid [size]="{ xs: 12, md: 4 }">
+    <ui-form-field label="Markup value" for="lineMarkupValue" [required]="!isBulk()">
+      <ui-number-field id="lineMarkupValue" [(value)]="markupValue" />
+    </ui-form-field>
+    <p class="text-muted-foreground mt-1 text-sm">{{ markupHint() }}</p>
+  </ui-grid>
+
+  <ui-grid [size]="{ xs: 12, md: 4 }">
+    <ui-form-field label="FX rate" for="lineFxRate">
+      <ui-number-field id="lineFxRate" [(value)]="fxRate" />
+    </ui-form-field>
+    <p class="text-muted-foreground mt-1 text-sm">Optional. Overrides the default exchange rate.</p>
+  </ui-grid>
+
+  <!-- Row 3 -->
+  <ui-grid [size]="{ xs: 12 }">
+    <ui-form-field label="Notes" for="lineNotes">
+      <ui-textarea-field id="lineNotes" [(value)]="notes" />
+    </ui-form-field>
+  </ui-grid>
+</ui-grid>
+
+@if (error(); as message) {
+  <p class="text-destructive mt-3 text-sm">{{ message }}</p>
+}
+
+<div class="mt-4 flex justify-end gap-2">
+  <ui-button appearance="text" label="Cancel" [disabled]="busy()" (click)="dismiss.emit()" />
+  <ui-button
+    [label]="isBulk() ? 'Update ' + lines().length + ' lines' : 'Update line'"
+    [disabled]="busy() || !!error()"
+    (click)="submit()"
+  />
+</div>
