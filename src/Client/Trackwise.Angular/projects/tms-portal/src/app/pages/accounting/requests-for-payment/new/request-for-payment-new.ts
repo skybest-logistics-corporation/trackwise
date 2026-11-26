@@ -43,8 +43,6 @@ interface RfpFormModel {
   remarks: string;
 }
 
-const todayIso = () => new Date().toISOString().slice(0, 10);
-
 @Component({
   selector: "app-request-for-payment-new",
   templateUrl: "./request-for-payment-new.html",

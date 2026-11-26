@@ -74,7 +74,7 @@ export class UpdateQuotationLineForm {
   public readonly lines = input.required<QuotationLineDto[]>();
   public readonly busy = input(false);
   public readonly save = output<LineChanges>();
-  public readonly cancel = output<void>();
+  public readonly dismiss = output<void>();
 
   protected readonly isBulk = computed(() => this.lines().length > 1);
   private readonly single = computed(() => (this.lines().length === 1 ? this.lines()[0] : null));

@@ -87,7 +87,7 @@
 }
 
 <div class="mt-4 flex justify-end gap-2">
-  <ui-button appearance="text" label="Cancel" [disabled]="busy()" (click)="cancel.emit()" />
+  <ui-button appearance="text" label="Cancel" [disabled]="busy()" (click)="dismiss.emit()" />
   <ui-button
     [label]="isBulk() ? 'Update ' + lines().length + ' lines' : 'Update line'"
     [disabled]="busy() || !!error()"

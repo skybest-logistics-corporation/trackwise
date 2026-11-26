@@ -1,4 +1,4 @@
-import { DatePipe, DecimalPipe, TitleCasePipe } from "@angular/common";
+import { DatePipe, DecimalPipe } from "@angular/common";
 import { Component, computed, DestroyRef, inject, signal, type OnInit } from "@angular/core";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { ActivatedRoute, Router } from "@angular/router";
@@ -39,7 +39,6 @@ import {
   UiDialog,
   UiFormField,
   UiNumberField,
-  UiSelectField,
   UiTextareaField,
   UiTextField,
   type IconColor,
