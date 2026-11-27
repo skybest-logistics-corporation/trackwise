@@ -32,7 +32,7 @@ actual class CameraLauncher(
                     }
                     if (bytes != null) {
                         val fileName = "photo_${UUID.randomUUID()}.jpg"
-                        callback?.invoke(CaptureResult(bytes, fileName, "image/jpeg"))
+                        callback?.invoke(CaptureResult(shrinkPhoto(bytes) ?: bytes, fileName, "image/jpeg"))
                     } else {
                         callback?.invoke(null)
                     }
@@ -62,7 +62,12 @@ actual class CameraLauncher(
                         else -> "jpg"
                     }
 
-                    if (bytes != null) {
+                    // A GIF keeps its animation; anything else is shrunk to a JPEG like a camera shot.
+                    val shrunk = if (bytes != null && extension != "gif") shrinkPhoto(bytes) else null
+                    if (shrunk != null) {
+                        val fileName = "photo_${UUID.randomUUID()}.jpg"
+                        callback?.invoke(CaptureResult(shrunk, fileName, "image/jpeg"))
+                    } else if (bytes != null) {
                         val fileName = "photo_${UUID.randomUUID()}.$extension"
                         callback?.invoke(CaptureResult(bytes, fileName, contentType))
                     } else {

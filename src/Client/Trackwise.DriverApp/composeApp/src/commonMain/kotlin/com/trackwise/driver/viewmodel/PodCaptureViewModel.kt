@@ -1,6 +1,7 @@
 package com.trackwise.driver.viewmodel
 
 import com.trackwise.driver.api.DocumentApi
+import com.trackwise.driver.api.throwIfFailed
 import com.trackwise.driver.model.FileUploadData
 import com.trackwise.driver.model.toFormParts
 import com.trackwise.driver.service.LocationService
@@ -119,7 +120,7 @@ class PodCaptureViewModel(
                     latitude = state.latitude,
                     longitude = state.longitude,
                     notes = state.notes.takeIf { it.isNotBlank() }
-                )
+                ).throwIfFailed()
             }
 
             DocumentCaptureType.BOL -> {
@@ -132,7 +133,7 @@ class PodCaptureViewModel(
                     latitude = state.latitude,
                     longitude = state.longitude,
                     notes = state.notes.takeIf { it.isNotBlank() }
-                )
+                ).throwIfFailed()
             }
         }
     }

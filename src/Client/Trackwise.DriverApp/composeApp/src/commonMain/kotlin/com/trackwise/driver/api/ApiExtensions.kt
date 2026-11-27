@@ -27,6 +27,7 @@ private fun messageForStatus(statusCode: Int): String = when (statusCode) {
     403 -> "You don't have permission to do this. Your account's role may need updating in the TMS portal."
     404 -> "We couldn't find that. It may have been removed or reassigned."
     409 -> "This was already changed somewhere else. Refresh and try again."
+    413 -> "That upload is too large. Try fewer photos at a time."
     429 -> "Too many requests. Wait a moment and try again."
     in 500..599 -> "Something went wrong on our end. Try again in a moment."
     else -> "The request failed (status $statusCode). Try again."
